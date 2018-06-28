@@ -5,7 +5,7 @@ import sys
 
 import pygame
 
-BACKGROUND_COLOR = (50, 100, 255)
+BACKGROUND_COLOR = (168, 168, 168)
 WHITE = (255, 255, 255)
 FPS = 60
 
@@ -129,6 +129,7 @@ class Plane(pygame.sprite.Sprite):
         self.image_original.set_colorkey(WHITE)
         # self.image = self.image_original.copy()[]
         self.image = self.image_original.subsurface((0,0,39,39))
+        self.image_normal = self.image_original.subsurface((0,0,39,39))  # 正常情况下的原图
 
         self.position = position  # [x, y]
         self.rect = self.image.get_rect(center=position)  # 根据这个位置进行刷新
@@ -158,8 +159,8 @@ class Plane(pygame.sprite.Sprite):
         if not self.alive:  # 如果挂了,就启动自爆动画
             self.self_destruction += 1
             if self.self_destruction < self.MAX_PLANE_IMAGE_INDEX:
-                print [40 * self.self_destruction, 0, 40 * self.self_destruction + 39, 39]
-                self.image = self.image_original.subsurface([40*self.self_destruction, 0, 40*self.self_destruction+39, 39])
+                #print [40 * self.self_destruction, 0, 40 * self.self_destruction + 39, 39],self.self_destruction,self.image_original.get_rect()
+                self.image = self.image_original.subsurface([40*self.self_destruction, 0, 39, 39])
 
             else:
                 self.kill()
@@ -200,8 +201,9 @@ class Plane(pygame.sprite.Sprite):
 
     def rotate(self):
         x, y = self.velocity
-        angle = math.atan2(x, y) * 360 / 2 / math.pi - 180
-        self.image = pygame.transform.rotate(self.image_original, angle)
+        angle = math.atan2(x, y) * 360 / 2 / math.pi - 180  # 这个角度是以当前方向结合默认朝上的原图进行翻转的
+        #print angle,x,y
+        self.image = pygame.transform.rotate(self.image_normal, angle)
 
     def delete(self):
         if self.alive:

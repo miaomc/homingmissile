@@ -1,6 +1,10 @@
 零.命令：
 git clone https://github.com/miaomc/homingmissile.git
-
+git add ReadMe.txt
+git config --global user.email "you@example.com"
+git config --global user.name "Your Name"
+git commit -m "add git command"
+git push
 
 一.有效文件: 
 1).PNG
