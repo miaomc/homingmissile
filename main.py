@@ -18,6 +18,9 @@ class Missile(pygame.sprite.Sprite):
         self.image_original.set_colorkey(WHITE)
         self.image = self.image_original.copy()
 
+        self.sound_fire = pygame.mixer.Sound("./sound/TPhFi201.wav")
+        self.sound_fire.play()
+
         self.position = position  # [x, y]
         self.rect = self.image.get_rect(center=position)
 
@@ -147,6 +150,8 @@ class Plane(pygame.sprite.Sprite):
         self.alive = True  # 是否还活着
         self.self_destruction = 0
 
+        self.sound_hit = pygame.mixer.Sound("./sound/TTaHit00.wav")
+
         self.rotate()
 
     def calc_acc(self):
@@ -157,13 +162,7 @@ class Plane(pygame.sprite.Sprite):
 
     def update(self):
         if not self.alive:  # 如果挂了,就启动自爆动画
-            self.self_destruction += 1
-            if self.self_destruction < self.MAX_PLANE_IMAGE_INDEX:
-                #print [40 * self.self_destruction, 0, 40 * self.self_destruction + 39, 39],self.self_destruction,self.image_original.get_rect()
-                self.image = self.image_original.subsurface([40*self.self_destruction, 0, 39, 39])
-
-            else:
-                self.kill()
+            self.delete()
             return
 
         if self.target_position:  # [x,y]
@@ -206,10 +205,20 @@ class Plane(pygame.sprite.Sprite):
         self.image = pygame.transform.rotate(self.image_normal, angle)
 
     def delete(self):
-        if self.alive:
-            # self.kill()
+        if self.alive:  # 第一次进行的操作
             self.alive = False
+            self.sound_hit.play()
 
+        # 启动自爆动画    
+        self.self_destruction += 0.5
+        #print self.self_destruction
+        if self.self_destruction < self.MAX_PLANE_IMAGE_INDEX:
+            #print [self.self_destruction//2*40, 0, 39, 39],self.self_destruction,self.image.get_rect()
+            self.image = self.image_original.subsurface([self.self_destruction//2*40, 0, 39, 39])
+            return False
+        else:
+            self.kill()
+            return True
 
 
 class Control():
@@ -432,6 +441,7 @@ if __name__ == "__main__":
 
     os.environ['SDL_VIDEO_CENTERED'] = '1'
     pygame.init()
+    pygame.mixer.init()  # 声音初始化
 
     pygame.display.set_mode(SCREEN_SIZE)
 
