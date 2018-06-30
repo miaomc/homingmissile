@@ -1,4 +1,4 @@
-Áã.ÃüÁî£º
+é›¶.å‘½ä»¤ï¼š
 git clone https://github.com/miaomc/homingmissile.git
 git add ReadMe.txt
 git config --global user.email "you@example.com"
@@ -6,21 +6,26 @@ git config --global user.name "Your Name"
 git commit -m "add git command"
 git push
 
-Ò».ÓĞĞ§ÎÄ¼ş: 
+ä¸€.æœ‰æ•ˆæ–‡ä»¶: 
 1).PNG
-plane.png, homingmissile.png
+plane_red.png, plane_blue.png, homingmissile.png
 
 2).py
-Ö÷³ÌĞò£¬»¹Î´²ğ½â£ºmain.py(all in one),µ±Ç°ÎÊÌâ¾ÍÊÇ±¬Õ¨Ğ§¹ûµÄbug£¬ÎªPlane.rotate()ÖĞµÄself.imageºÍself.image_originalµ«ÊÇ¸ÄÁË»¹ÓĞÆäËûbug³öÀ´
-ÆäËûÄÜÔËĞĞ,¶¼ÔÚtmpÄ¿Â¼ÏÂ£º missileV3_can_run.py,...,ÆäÖĞ,mainV3.0_can_play.pyÒÑ¾­¿ÉÒÔÍæÁË£¬ÕæÊµµÄ¶ÔÕ½¡£
-ÀıÍâ£ºmain_tmp.py  Ö®Ç°µÄ¹ì¼£Ë¼Â·£¬Ö®Ç°»¹Ã»±àĞ´Íê³É
+single_player/ ä¸»ç¨‹åºï¼Œè¿˜æœªæ‹†è§£ï¼šmain.py(all in one)
+tmp/ å…¶ä»–èƒ½è¿è¡Œ,éƒ½åœ¨tmpç›®å½•ä¸‹ï¼š missileV3_can_run.py,...,å…¶ä¸­,mainV3.0_can_play.pyå·²ç»å¯ä»¥ç©äº†ï¼ŒçœŸå®çš„å¯¹æˆ˜ã€‚
+multiplayer/ å·²ç»æ‹†åˆ†,å…¥å£èƒ½å¤Ÿè¿è¡Œï¼Œæ­£åœ¨å¢åŠ è”æœºæ¨¡å¼
+ä¾‹å¤–ï¼šmain_tmp.py  ä¹‹å‰çš„è½¨è¿¹æ€è·¯ï¼Œä¹‹å‰è¿˜æ²¡ç¼–å†™å®Œæˆ
 
-¶ş.²Ù×÷ËµÃ÷£º
-mainV3.0_can_play.py
-£¨1£©¿Õ¸ñÇĞ»»
-£¨2£©F¼ü·¢Éäµ¼µ¯
+äºŒ.æ“ä½œè¯´æ˜ï¼š
+single_player/main.py
+ï¼ˆ1ï¼‰ç©ºæ ¼åˆ‡æ¢
+ï¼ˆ2ï¼‰Fé”®å‘å°„æ™®é€šå¯¼å¼¹ï¼ˆèµ°ç›´çº¿ï¼Œå°„ç¨‹é•¿ï¼‰
+ï¼ˆ3ï¼‰Hé”®å‘å°„è·Ÿè¸ªå¯¼å¼¹ï¼ˆèƒ½è·Ÿè¸ªï¼Œå°„ç¨‹çŸ­ï¼‰ï¼Œéœ€è¦å³é”®é€‰æ‹©é£æœºå¯¹è±¡ï¼Œæ‰ç®—æ˜¯å®Œæˆæ“ä½œ
 
-Èı.×Ü½á£º
-1)¶àĞ´×¢ÊÍ£¬ÕæĞÄ»á¿´²»¶®
-2)ÖÁÉÙÒª±àµ½ÄÜÔËĞĞ£¬²»ÄÜÔËĞĞµÄ¶¼ÊÇÏ¹±à
+multiplayer/main.py
+(1)åˆ¶ä½œä¸­ï¼Œè®¡åˆ’è”æœºç©,to be continue...
+
+ä¸‰.æ€»ç»“ï¼š
+1)å¤šå†™æ³¨é‡Šï¼ŒçœŸå¿ƒä¼šçœ‹ä¸æ‡‚
+2)è‡³å°‘è¦ç¼–åˆ°èƒ½è¿è¡Œï¼Œä¸èƒ½è¿è¡Œçš„éƒ½æ˜¯çç¼–
 
