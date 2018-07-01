@@ -2,7 +2,8 @@
 import os
 import sys
 import pygame
-import control
+import single_player
+import beginning
 
 
 if __name__ == "__main__":
@@ -14,7 +15,16 @@ if __name__ == "__main__":
 
     pygame.display.set_mode(SCREEN_SIZE)
 
-    run_it = control.Control()
-    run_it.main_loop()
+    beginning_choice = beginning.Beginning()
+    choice = beginning_choice.main()
+
+    if choice== 'Single Player':
+        run_it = single_player.Control()
+        run_it.main_loop()
+    elif choice == 'Multilayer':
+        pass
+    elif choice == 'Exit':
+        pass
+    
     pygame.quit()
     sys.exit()

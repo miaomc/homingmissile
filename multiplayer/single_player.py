@@ -60,6 +60,40 @@ class Control():
         # self.groups_homing.add(unit.Homing_Missile([20,40],[0,1]))
         # self.groups_homing.add(unit.Homing_Missile([20,40],[2,3]))
         # self.groups_homing.add(unit.Homing_Missile([20,40],[1,1.5]))
+        
+    def main_loop(self):
+        """单机主循环"""
+        previous_time = None
+        while not self.done:
+            self.event_loop()  # 键鼠输入获取
+            self.draw()  # 画上去
+            if self.senario_dir[self.senario_index] == 'Run':                
+                self.update()  # 全局更新
+                # 检测碰撞
+                for weapon in self.groups_missile.sprites():  # 遍历每一个武器
+                    if weapon.activated():  # 如果武器激活状态,则对比每一架飞机,这里没有考虑武器之间的碰撞 To be continue...
+                        lst = pygame.sprite.spritecollide(weapon, self.groups_plane, False)  # 返回碰撞的飞机,并移出群组,但是不会kill飞机
+                        for plane in lst:  # 清理被干掉的飞机
+                            plane.delete()
+                        if lst:
+                            weapon.kill()  # 如果该武器已经与飞机发生碰撞,则移除
+
+                # 状态替换
+                if not previous_time:
+                    previous_time = pygame.time.get_ticks()
+                if pygame.time.get_ticks() - previous_time > 2000:  # 如果在run的运行状态下超过2秒,则切换为玩家模式
+                    previous_time = None
+                    self.senario_index = (self.senario_index + 1) % len(self.senario_dir.keys())
+            else:
+                self.update_player()
+
+            # 刷新玩家的飞机
+            for player in self.players:
+                for plane in player[:]:  # 不能直接复值,这样没有改变原有对象
+                    if not plane.alive:
+                        player.remove(plane)
+            pygame.display.flip()
+            self.clock.tick(self.fps)
 
     def event_loop(self):
         for event in pygame.event.get():
@@ -80,10 +114,8 @@ class Control():
                     self.fire_operation = 'homing_missile'
 
     def update(self):
-        # self.groups.update()
         self.groups_plane.update()
         self.groups_missile.update()
-        # self.groups_homing.update([500,100])
 
     def update_player(self):
         """pygame.draw.circle(screen, drawcolor, [top, left], radiu, width)"""
@@ -144,7 +176,7 @@ class Control():
         # self.groups.draw(self.screen)
         self.groups_plane.draw(self.screen)
         self.groups_missile.draw(self.screen)
-        self.groups_homing.draw(self.screen)
+##        self.groups_homing.draw(self.screen)
 
         self.infomation.add(u"Senario: %s " % self.senario_dir[self.senario_index])  # 显示实时状态文字
         self.infomation.add(u"Mouse Left&Right: %s , %s " % (self.mouse_select_pos, self.mouse_target_pos))  # 显示上一次的鼠标位置
@@ -153,53 +185,7 @@ class Control():
 
         self.infomation.show(screen=self.screen)
 
-    def main_loop(self):
-        # i = 0
-        previous_time = None
-        while not self.done:
-            self.event_loop()
-            # i += 1
-            # print i
-            self.draw()
-            if self.senario_dir[self.senario_index] == 'Run':
-                # 全局更新
-                self.update()
 
-                # 检测碰撞
-                for weapon in self.groups_missile.sprites():  # 遍历每一个武器
-                    weapon_used = False
-                    if weapon.activated():  # 如果武器激活状态,则对比每一架飞机,这里没有考虑武器之间的碰撞 To be continue...
-                        lst = pygame.sprite.spritecollide(weapon, self.groups_plane, False)  # 返回碰撞的飞机,并移出群组,但是不会kill飞机
-                        for plane in lst:  # 清理被干掉的飞机
-                            plane.delete()
-                        if lst:
-                            weapon_used = True
-                    if weapon_used:  # 如果该武器已经生效,则移除
-                        weapon.kill()
-
-                # 状态替换
-                if not previous_time:
-                    previous_time = pygame.time.get_ticks()
-                if pygame.time.get_ticks() - previous_time > 2000:  # 如果在run的运行状态下超过3秒,则切换为玩家模式
-                    previous_time = None
-                    self.senario_index = (self.senario_index + 1) % len(self.senario_dir.keys())
-                # print 'run'
-                # print pygame.time.get_ticks(), previous_time
-            else:
-                # print 'player'
-                self.update_player()
-
-            pygame.display.flip()
-
-            # 刷新玩家的飞机
-            for player in self.players:
-                for plane in player[:]:
-                    if not plane.alive:
-                        player.remove(plane)
-            # 不能直接复值,这样没有改变原有对象
-            # self.players = [[plane for plane in player if plane.alive] for player in self.players]
-
-            self.clock.tick(self.fps)
 
     def distance(self, pos1, pos2):
         dis = 0
