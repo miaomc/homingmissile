@@ -14,8 +14,9 @@ class Beginning():
         self.screen_rect = self.screen.get_rect()
 
         self.infomation = infomation.Infomation()
+        #self.sound_return = pygame.mixer.Sound()
+        #self.sound_selecting = pygame.mixer.Sound()
         
-                 
     def main(self):
         # 最开始的选择菜单        
         self.beginning_select_index = 0
@@ -59,7 +60,10 @@ class Beginning():
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_DOWN:
                     self.beginning_select_index = (self.beginning_select_index+1)%len(self.list_player_mode)
+                    #self.sound_selecting.play()
                 if event.key == pygame.K_UP:
-                    self.beginning_select_index = (self.beginning_select_index+1)%len(self.list_player_mode)
+                    self.beginning_select_index = (self.beginning_select_index-1)%len(self.list_player_mode)
+                    #self.sound_selecting.play()
                 if event.key == pygame.K_RETURN:
                     self.has_chosen = True
+                    #self.sound_return.play()
