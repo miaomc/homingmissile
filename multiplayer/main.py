@@ -4,6 +4,7 @@ import sys
 import pygame
 import single_player
 import beginning
+import multiplayer
 
 
 if __name__ == "__main__":
@@ -22,7 +23,8 @@ if __name__ == "__main__":
         run_it = single_player.Control()
         run_it.main_loop()
     elif choice == 'Multilayer':
-        pass
+        run = multiplayer.Multiplayer()
+        run.main()
     elif choice == 'Exit':
         pass
     
