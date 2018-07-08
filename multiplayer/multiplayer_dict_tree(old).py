@@ -44,46 +44,24 @@ Enter a exiting game
 Cancel"""
         self.dash_list = dash_string.split('\n')
         self.dash_index = -1
-        self.root = Tree('Multiplayer')
-        self.dash2tree(depth=0, root=self.root)  # 会丰富self.root这棵树
-
-    def dash2tree(self, depth, root):
-        """Class Tree"""
-        while True:
-            self.dash_index += 1
-            if self.dash_index >= len(self.dash_list):
-                break           
-            line = self.dash_list[self.dash_index]
-
-            if line.startswith('--'*depth):
-                child = Tree(line)  # 一个节点就是一个对象
-                if not root.children:
-                    root.children = [child]
-                else:
-                    root.children.append(child)
-                self.dash2tree(depth+1, child)  # 继续深入递归
-            else:
-                self.dash_index -= 1
-                break
-    
+        self.dash_tree = self.dash2tree(depth=0, root='Multiplayer')  # 返回的是一个字典d，d[key]是一个列表
+        self.display_list = self.dash_tree['Multiplayer']
+        
     def multiplayer_selcet_screen(self):
-        self.root.be_chosen = True
-        return
-####        self.has_chosen = False
-##        # 游戏选择界面
-##        self.done = False
-##        while not self.done:
-##            self.update()
-##            self.draw()
-##            self.event()
-##            pygame.display.flip()
-##            self.clock.tick(self.fps)
-##            if self.has_chosen:
-##                break
+##        self.beginning_select_index = 0
+        self.has_chosen = False
+        # 游戏选择界面
+        self.done = False
+        while not self.done:
+            self.update()
+            self.draw()
+            self.event()
+            pygame.display.flip()
+            self.clock.tick(self.fps)
+            if self.has_chosen:
+                break
 
     def update(self):
-        for child in self.root.children():
-            child.visible = True
         pass
 
     def event(self):
@@ -122,7 +100,22 @@ Cancel"""
 ##            print repr(tmp)
             self.infomation.show_text(screen=self.screen, pos=(width/3+size*2, height/3*1+size*(num+2.5)), text=tmp, color=color, size=size)
         
+    def dash2tree(self, depth, root):
+        """{'Mult':[{k1:[ {k11:[]}, ... ]},{k2:[]},...]}"""
+        tree = {root:[]}
+        
+        while True:
+            self.dash_index += 1
+            if self.dash_index >= len(self.dash_list):
+                break           
+            line = self.dash_list[self.dash_index]
 
+            if line.startswith('--'*depth):
+                tree[root].append(self.dash2tree(depth+1,line))
+            else:
+                self.dash_index -= 1
+                break
+        return tree
             
                 
     def main(self):
@@ -156,6 +149,3 @@ if __name__ == '__main__':
     pygame.display.set_mode(SCREEN_SIZE)
     m = Multiplayer()
     s = m.multiplayer_selcet_screen()
-    print dir()
-    pygame.quit()
-    sys.exit()

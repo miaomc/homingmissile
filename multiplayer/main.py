@@ -22,9 +22,9 @@ if __name__ == "__main__":
     if choice== 'Single Player':
         run_it = single_player.Control()
         run_it.main_loop()
-    elif choice == 'Multilayer':
+    elif choice == 'Multiplayer':
         run = multiplayer.Multiplayer()
-        run.main()
+        run.multiplayer_selcet_screen()
     elif choice == 'Exit':
         pass
     
