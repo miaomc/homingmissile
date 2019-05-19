@@ -1,4 +1,4 @@
-零.命令：
+﻿零.命令：
 git clone https://github.com/miaomc/homingmissile.git
 git add ReadMe.txt
 git config --global user.email "you@example.com"
@@ -23,7 +23,9 @@ single_player/main.py
 （3）H键发射跟踪导弹（能跟踪，射程短），需要右键选择飞机对象，才算是完成操作
 
 multiplayer/main.py
-(1)制作中，计划联机玩,to be continue...
+(1)制作中，计划联机玩
+(2)暂时先不去修改了, 菜单选择ji
+(3)to be continue...
 
 三.总结：
 1)多写注释，真心会看不懂
