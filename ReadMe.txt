@@ -1,10 +1,12 @@
-﻿零.命令：
+﻿零.命令(Git使用方法（精心整理，绝对够用）https://blog.csdn.net/xukai0110/article/details/80637902)：
 git clone https://github.com/miaomc/homingmissile.git
 git add ReadMe.txt
 git config --global user.email "you@example.com"
 git config --global user.name "Your Name"
 git commit -m "add git command"
 git push
+
+git pull
 
 一.有效文件: 
 1).PNG
