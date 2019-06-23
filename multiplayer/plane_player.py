@@ -25,37 +25,91 @@ missile:
     accelerate_vertical
 """
 
-# 性能参数放在最前面,方便最后核对调整
-# PLANE_CATALOG = {
-#     'J20': {
-#         'health': 100,
-#         'speed': 850,
-#         'gun_speed': 1000,
-#         'gun_damage': 5,
-#         'max_missile': 6
-#     },
-#     'F35': {
-#         # ...
-#     },
-#     'F22': {
-#         # ...
-#     }
-# }
+
+PLANE_CATALOG = {
+    'J20': {
+        'health': 100,
+        'max_speed': 850,
+        'min_speed': 540,
+        'acc_speed': 50,
+        'turn_acc': 10,
+        'gun_speed': 1000,
+        'max_missile': 6,
+        'image': './image/plane_red.png',
+        'damage': 100,
+    },
+    'F35': {
+        'health': 100,
+        'speed': 850,
+        'gun_speed': 1000,
+        'gun_damage': 5,
+        'max_missile': 6,
+        'image': './image/plane_blue.png',
+        'damage': 100,
+    },
+    'F22': {
+        # ...
+    }
+}
+
+WEAPON_CATALOG = {
+    'Gun': {
+        'health': 10,
+        'init_speed': 1000,
+        'max_speed': 2000,
+        'acc_speed': 0,
+        'turn_acc': 0,
+        'damage': 5,
+        'image': ['./image/gunfire1.png', './image/gunfire2.png'],
+        'fuel': 15,
+    },
+    'Rocket': {
+        'health': 10,
+        'init_speed': 0,
+        'max_speed': 1500,
+        'acc_speed': 120,
+        'damage': 100,
+        'turn_acc': 0,
+        'image': './image/homingmissile.png',
+        'fuel': 30,
+    },
+    'Cobra': {
+        'health': 10,
+        'init_speed': 0,
+        'max_speed': 1360,
+        'acc_speed': 100,
+        'turn_acc': 25,
+        'damage': 80,
+        'image': './image/homingmissile.png',
+        'fuel': 30,
+    },
+    'Pili': {
+        # ...,
+    }
+}
+
+SPEED_RATIO = 0.05
 
 
 BACKGROUND_COLOR = (168, 168, 168)
 WHITE = (255, 255, 255)
 FPS = 50
-SCREEN_SIZE = (1300, 650)
+SCREEN_SIZE = (1600, 900)
 MARS_SCREEN_SIZE = (8000, 4500)
-MARS_MAP_SIZE = (8000 * 5, 4500 * 5)  # topleft starts: width, height
+MARS_MAP_SIZE = (8000 * 1.2, 4500 * 1.2)  # topleft starts: width, height
 CLOUD_IMAGE_LIST = ['./image/cloud1.png', './image/cloud2.png', './image/cloud3.png', './image/cloud4.png']
 
 
 class Vector:
-    def __init__(self, x, y):
-        self.x = x
-        self.y = y
+    def __init__(self, *args):
+        if len(args) == 2:
+            self.x = args[0]
+            self.y = args[1]
+        elif len(args[0]) == 2:
+            self.x = args[0][0]
+            self.y = args[0][1]
+        else:
+            print('Invalid Vector:', args)
 
     def __add__(self, other):
         return Vector(self.x + other.x, self.y + other.y)
@@ -70,26 +124,38 @@ class Vector:
     def __div__(self, a):
         return Vector(self.x / a, self.y / a)
 
+    def __str__(self):
+        return str(self.x) + ', ' + str(self.y)
+
     def normalize_vector(self):
         """单位向量"""
         return Vector(self.x, self.y) * self.reverse_normalize()
 
     def reverse_normalize(self):
+        """1/向量长度"""
         if self.x == 0 and self.y == 0:
             return 0
         else:
             return 1 / math.sqrt(self.x * self.x + self.y * self.y)
 
-    def distance(self, other):
-        return math.sqrt((self.x - other.x) * (self.x - other.x) + (self.y - other.y) * (self.y - other.y))
+    def length(self):
+        """向量长度"""
+        return math.sqrt(self.x * self.x + self.y * self.y)
+
+    def dot(self, other):
+        return self.x * other.x + self.y * other.y
+
+    def angle_between(self, other):
+        """ab = |a||b|cosO， 返回度数， 没有方向"""
+        return math.acos(self.dot(other) / self.length() / other.length()) * 180 / math.pi
 
     def vertical_left(self):
         """左转90°的法向量"""
-        return Vector(-self.y * self.reverse_normalize(), self.x * self.reverse_normalize())
+        return Vector(self.y * self.reverse_normalize(), -self.x * self.reverse_normalize())
 
     def vertical_right(self):
         """左转90°的法向量"""
-        return Vector(self.y * self.reverse_normalize(), -self.x * self.reverse_normalize())
+        return Vector(-self.y * self.reverse_normalize(), self.x * self.reverse_normalize())
 
 
 class Base(pygame.sprite.Sprite):
@@ -101,120 +167,163 @@ image:
     def __init__(self, location, image):
         pygame.sprite.Sprite.__init__(self)
         # cloud.png has transparent color ,use "convert_alpha()"
-        self.image = pygame.image.load(image).convert_alpha()  # image of Sprite
+
+        # ![WARNING] 这个应该要修改为 image = Surface对象
+        self.image = image  # pygame.image.load(image).convert_alpha()  # image of Sprite
+
         # self.image.set_colorkey(WHITE)
+
+        self.location = Vector(location)  # 采用 self.location记录位置，因为self.rect里面的值都是个整数
+        # print self.location
         self.rect = self.image.get_rect(center=location)  # rect of Sprite
+
+        # 图像翻转
+        self.origin_image = self.image.copy()
+        self.velocity = Vector(0, 1)  # 默认朝上
 
         # self.location = Vector(0, 0)  # ...
 
         self.min_speed = 0
         self.max_speed = 3000  # m/s
         self.speed = None  # Vector
-        self.accelerate_turn = 0
-        self.accelerate_accelerate = 0
+        self.turn_acc = 0
+        self.acc_speed = 0
 
         # ...
-        self.location = location  # [x, y]
-        self.rect = self.image.get_rect(center=location)
+        # self.location = location  # [x, y]
+        # print location
+        # self.rect = self.image.get_rect(center=location)
 
+        self.acc = Vector(0, 0)
 
-PLANE_CATALOG = {
-    'J20': {
-        'health': 100,
-        'max_speed': 850,
-        'min_speed': 540,
-        'gun_speed': 1000,
-        'gun_damage': 5,
-        'max_missile': 6,
-        'image': './image/plane_red.png'
-    },
-    'F35': {
-        'health': 100,
-        'speed': 850,
-        'gun_speed': 1000,
-        'gun_damage': 5,
-        'max_missile': 6,
-        'image': './image/plane_blue.png'
-    },
-    'F22': {
-        # ...
-    }
-}
+    def rotate(self):
+        angle = math.atan2(self.velocity.x, self.velocity.y) * 360 / 2 / math.pi - 180  # 这个角度是以当前方向结合默认朝上的原图进行翻转的
+        self.image = pygame.transform.rotate(self.origin_image, angle)
+
+    def update(self):
+        self.velocity += self.acc
+        self.location.x += self.velocity.x
+        self.location.y += self.velocity.y
+        self.rect.x = self.location.x * SPEED_RATIO / FPS  # 0.01
+        self.rect.y = self.location.y * SPEED_RATIO / FPS  # 0.01
+
+        self.acc = Vector(0, 0)
+        self.rotate()
 
 
 class Plane(Base):
 
     def __init__(self, location, catalog='J20'):
         image_path = PLANE_CATALOG[catalog]['image']
-        super(Plane, self).__init__(location=location, image=image_path)
-
         self.image_original = pygame.image.load(image_path).convert()
         self.image = self.image_original.subsurface((0, 0, 39, 39))
         self.image.set_colorkey(WHITE)
+        super(Plane, self).__init__(location=location, image=self.image)
 
-        print location
+        # self.origin_image = self.image.copy()
+
         # self.rect.center = location  # list, pygame.Rect , 在Base里面已经设置了
 
         self.max_speed = PLANE_CATALOG[catalog]['max_speed']
         self.min_speed = PLANE_CATALOG[catalog]['min_speed']
-        self.speed = (self.max_speed + self.min_speed) / 2  # 初速度为一半
+        self.turn_acc = PLANE_CATALOG[catalog]['turn_acc']
+        self.acc_speed = PLANE_CATALOG[catalog]['acc_speed']
+        self.damage = PLANE_CATALOG[catalog]['damage']
 
-        self.velocity = Vector(self.speed, self.speed).normalize_vector() * self.speed  # Vector
+        self.speed = (self.max_speed + self.min_speed) / 2  # 初速度为一半
+        self.velocity = Vector(1, 1).normalize_vector() * self.speed  # Vector
         self.acc = Vector(0, 0)
 
+        self.weapon = {1: {}, 2: {}, 3: {}}  # 默认没有武器
+
     def turn_left(self):
-        self.acc += self.velocity.vertical_left() * 15 / FPS
+        self.acc += self.velocity.vertical_left() * self.turn_acc
+        # print self.acc, self.velocity, self.rect
 
     def turn_right(self):
-        self.acc += self.velocity.vertical_left() * 15 / FPS
+        self.acc += self.velocity.vertical_right() * self.turn_acc
+        # print self.acc, self.velocity, self.rect
 
     def speedup(self):
-        self.acc += self.velocity.normalize_vector() * 80 / FPS
+        self.acc += self.velocity.normalize_vector() * self.acc_speed
+        if self.velocity.length() > self.max_speed:
+            self.acc = Vector(0, 0)
+        # print self.acc, self.velocity, self.rect
 
     def speeddown(self):
-        self.acc -= self.velocity.normalize_vector() * 80 / FPS
+        self.acc -= self.velocity.normalize_vector() * self.acc_speed
+        if self.velocity.length() < self.min_speed:
+            self.acc = Vector(0, 0)
+        # print self.acc, self.velocity, self.rect
         # print self.rect
 
     def load_weapon(self, catalog='Cobra', number=6):
-        pass
+        """self.weapon = { 1: {catalog:<Gun>, number=500},
+            2:{catalog:<Cobra>, number=6},
+            3: None
+        }"""
+        index = 3  # 默认为非Gun子弹和Rocket火箭弹的其他类
+        if catalog == 'Gun':
+            index = 1
+        elif catalog == 'Rocket':
+            index = 2
 
-    def update(self):
-        self.velocity += self.acc
-        self.rect.x += self.velocity.x
-        self.rect.y += self.velocity.y
-
-
-MISSILE_CATALOG = {
-    'Cobra': {
-        'health': 9999,
-        'max_speed': 1360,
-        'accelerate_speed': 100,
-        'accelerate_turn': 25
-    },
-    'Pili': {
-        # ...,
-    }
-}
+        self.weapon[index]['catalog'] = catalog
+        self.weapon[index]['number'] = number
 
 
 class Missile(Base):
-    pass
+    def __init__(self, catalog, location, velocity):
+        if catalog == 'Gun':
+            image_path = WEAPON_CATALOG['Gun']['image'][randint(0, len(WEAPON_CATALOG['Gun']['image']) - 1)]
+        else:
+            image_path = WEAPON_CATALOG[catalog]['image']
+        self.image_original = pygame.image.load(image_path).convert()
+        self.image_original.set_colorkey(WHITE)
+        super(Missile, self).__init__(location=location, image=self.image_original)
+
+        self.health = WEAPON_CATALOG[catalog]['health']
+        self.init_speed = WEAPON_CATALOG[catalog]['init_speed']
+        self.damage = WEAPON_CATALOG[catalog]['damage']
+        self.turn_acc = WEAPON_CATALOG[catalog]['turn_acc']
+        self.acc_speed = WEAPON_CATALOG[catalog]['acc_speed']
+        self.acc = self.velocity.normalize_vector() * self.acc_speed
+        self.fuel = WEAPON_CATALOG[catalog]['fuel'] * FPS  # 单位为秒
+
+        self.velocity = velocity + velocity.normalize_vector() * self.init_speed  # 初始速度为飞机速度+发射速度
+
+    def update(self):
+        super(Missile, self).update()
+        self.fuel -= 1
+
+    def delete(self):
+        if self.fuel <= 0 or self.health <= 0:
+            self.kill()  # remove the Sprite from all Groups
 
 
 class Player(object):
 
-    def __init__(self, ip='127.0.0.1'):
+    def __init__(self, ip='127.0.0.1', weapon_group=None):
         self.ip = ip
         self.plane = None
+        self.weapon_group = weapon_group
 
     def add_plane(self, plane):
         self.plane = plane
 
-    def update(self, event_list):
+    def update(self):
         self.plane.update()
-        #
-        # ..........to be continue
-        pass
+
+    def weapon_fire(self, slot):
+        # print('slot', slot)
+        if self.plane.weapon[slot]:
+            if self.plane.weapon[slot]['number'] > 0:
+                self.plane.weapon[slot]['number'] -= 1
+                # print dir(self.plane)
+                weapon = Missile(catalog=self.plane.weapon[slot]['catalog'],
+                                 location=(self.plane.location.x, self.plane.location.y),
+                                 velocity=self.plane.velocity)
+                self.weapon_group.add(weapon)
 
     def operation(self, key_list):
         # !!!!!!!!!! 从这里开始  to be continue...
@@ -226,8 +335,15 @@ class Player(object):
                 self.plane.turn_right()
             if keys[pygame.K_w]:
                 self.plane.speedup()
-            if keys[pygame.K_d]:
+            if keys[pygame.K_s]:
                 self.plane.speeddown()
+
+            if keys[pygame.K_1]:
+                self.weapon_fire(1)
+            if keys[pygame.K_2]:
+                self.weapon_fire(2)
+            if keys[pygame.K_3]:
+                self.weapon_fire(3)
 
 
 class Map(object):
@@ -245,7 +361,8 @@ class Map(object):
         sprite_group = pygame.sprite.Group()
         for i in range(cloud_num):  # make 100 clouds randomly
             location = [randint(0, self.size[0]), randint(0, self.size[1])]
-            cloud_image = CLOUD_IMAGE_LIST[randint(0, len(CLOUD_IMAGE_LIST)) - 1]  # print location , cloud_image
+            cloud_image_path = CLOUD_IMAGE_LIST[randint(0, len(CLOUD_IMAGE_LIST)) - 1]  # print location , cloud_image
+            cloud_image = pygame.image.load(cloud_image_path).convert_alpha()
             cloud = Base(location=location, image=cloud_image)
             sprite_group.add(cloud)
         sprite_group.draw(self.surface)
@@ -271,10 +388,10 @@ class MiniMap(object):
         self.mini_top = self.rect.top + int(self.rect.height * self.current_rect.top / float(self.map_rect.top + 1))
         self.mini_rect = pygame.Rect(self.mini_left, self.mini_top, self.mini_width, self.mini_height)
 
-        self.plane_rect_list = []
+        self.unit_rect_list = []
         self.mini_plane_group = plane_group
         for plane in plane_group:
-            self.plane_rect_list.append(plane.rect)
+            self.unit_rect_list.append(plane.rect)
 
     def update(self):
         self.mini_left = self.rect.left + int(
@@ -287,10 +404,10 @@ class MiniMap(object):
         pygame.draw.rect(self.screen, (0, 0, 0), self.rect, 1)  # Big Rect in MiniMap
         pygame.draw.rect(self.screen, (0, 225, 10), self.mini_rect, 1)  # Small(current display) Rect in MiniMap
 
-        for rect in self.plane_rect_list:
+        for rect in self.unit_rect_list:
             left = self.rect.left + int(rect.left / float(self.map_rect.width) * self.rect.width)
             top = self.rect.top + int(rect.top / float(self.map_rect.height) * self.rect.height)
-            pygame.draw.rect(self.screen, (0, 255, 0), pygame.Rect(left, top, 1, 1), 4)
+            pygame.draw.rect(self.screen, (0, 255, 100), pygame.Rect(left, top, 1, 1), 4)
 
 
 class World(object):
@@ -319,6 +436,10 @@ class World(object):
 
         # sprite group
         self.plane_group = pygame.sprite.Group()
+        self.weapon_group = pygame.sprite.Group()
+
+        # backup map
+        self.origin_map = None
 
     def msg_recv(self):
         while True:
@@ -334,6 +455,9 @@ class World(object):
 
     def add_minimap(self, mini_map):
         self.minimap = mini_map
+
+    def backup_map(self):
+        self.origin_map_surface = self.map.surface.copy()
 
     def render(self, screen_rect):
 
@@ -359,8 +483,14 @@ class World(object):
         """[WARNING]每个玩家（world）接收自己的消息队列，刷新自己的界面，没有消息同步机制，也没有同步下发机制，
         会导致不同玩家画面不一致情况（尤其在网络延迟大的情况下）"""
         self.minimap.update()
+        self.weapon_group.update()
+        # self.plane_group.clear(self.map.surface, )
+        self.map.surface = self.origin_map_surface.copy()
         self.plane_group.draw(self.map.surface)
+        self.weapon_group.draw(self.map.surface)
 
+        # for i in self.plane_group:
+        #     print i.rect
         self.player_communicate(event_list)
 
         n = 0
@@ -370,11 +500,11 @@ class World(object):
                 if player.ip == address[0]:
                     player.operation(json.loads(data))  # data is list of pygame.key.get_pressed() of json.dumps
             n += 1
-            if n < 10:  # 防止队列阻塞，每次最多处理10条队列信息
+            if n > 10:  # 防止队列阻塞，每次最多处理10条队列信息
                 break
 
         for player in self.player_list:
-            player.update(event_list)
+            player.update()
         pass
 
 
@@ -430,11 +560,13 @@ class Game(object):
         game_map.add_cloud()
         world.add_map(game_map)
 
-
         # local player
-        player = Player()
-        plane = Plane(catalog='J20', location=[randint(0, world.map.size[0]), randint(0, world.map.size[1])])
+        player = Player(weapon_group=world.weapon_group)
+        plane = Plane(catalog='J20',
+                      location=(100, 100))  # , location=[randint(0, world.map.size[0]), randint(0, world.map.size[1])])
         plane.load_weapon(catalog='Cobra', number=6)
+        plane.load_weapon(catalog='Gun', number=500)
+        plane.load_weapon(catalog='Rocket', number=8)
         player.add_plane(plane)
         print '---', player.plane
         world.add_player(player)
@@ -445,6 +577,8 @@ class Game(object):
 
         minimap = MiniMap(self.screen, world.map.surface.get_rect(), self.screen_rect, world.plane_group)
         world.add_minimap(minimap)
+
+        world.backup_map()
 
         # ####............to be continue
 
