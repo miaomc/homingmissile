@@ -9,6 +9,10 @@ import Queue
 import json
 
 """
+Readme: 需要计算精灵之间的碰撞和扣血
+"""
+
+"""
 plane:
     initial_speed:
     speed:
@@ -25,7 +29,6 @@ missile:
     accelerate_vertical
 """
 
-
 PLANE_CATALOG = {
     'J20': {
         'health': 100,
@@ -33,16 +36,16 @@ PLANE_CATALOG = {
         'min_speed': 540,
         'acc_speed': 50,
         'turn_acc': 10,
-        'gun_speed': 1000,
         'max_missile': 6,
         'image': './image/plane_red.png',
         'damage': 100,
     },
     'F35': {
         'health': 100,
-        'speed': 850,
-        'gun_speed': 1000,
-        'gun_damage': 5,
+        'max_speed': 850,
+        'min_speed': 540,
+        'acc_speed': 50,
+        'turn_acc': 10,
         'max_missile': 6,
         'image': './image/plane_blue.png',
         'damage': 100,
@@ -55,13 +58,13 @@ PLANE_CATALOG = {
 WEAPON_CATALOG = {
     'Gun': {
         'health': 10,
-        'init_speed': 1000,
-        'max_speed': 2000,
+        'init_speed': 1500,
+        'max_speed': 2500,
         'acc_speed': 0,
         'turn_acc': 0,
         'damage': 5,
         'image': ['./image/gunfire1.png', './image/gunfire2.png'],
-        'fuel': 15,
+        'fuel': 6,
     },
     'Rocket': {
         'health': 10,
@@ -71,17 +74,18 @@ WEAPON_CATALOG = {
         'damage': 100,
         'turn_acc': 0,
         'image': './image/homingmissile.png',
-        'fuel': 30,
+        'fuel': 9,
     },
     'Cobra': {
         'health': 10,
         'init_speed': 0,
         'max_speed': 1360,
-        'acc_speed': 100,
-        'turn_acc': 25,
+        'acc_speed': 40,
+        'turn_acc': 35,
         'damage': 80,
         'image': './image/homingmissile.png',
-        'fuel': 30,
+        'fuel': 9,
+        'dectect_range': 10000 * 30
     },
     'Pili': {
         # ...,
@@ -90,13 +94,12 @@ WEAPON_CATALOG = {
 
 SPEED_RATIO = 0.05
 
-
 BACKGROUND_COLOR = (168, 168, 168)
 WHITE = (255, 255, 255)
 FPS = 50
 SCREEN_SIZE = (1600, 900)
 MARS_SCREEN_SIZE = (8000, 4500)
-MARS_MAP_SIZE = (8000 * 1.2, 4500 * 1.2)  # topleft starts: width, height
+MARS_MAP_SIZE = (8000 * 4, 4500 * 4)  # topleft starts: width, height
 CLOUD_IMAGE_LIST = ['./image/cloud1.png', './image/cloud2.png', './image/cloud3.png', './image/cloud4.png']
 
 
@@ -145,9 +148,11 @@ class Vector:
     def dot(self, other):
         return self.x * other.x + self.y * other.y
 
-    def angle_between(self, other):
-        """ab = |a||b|cosO， 返回度数， 没有方向"""
-        return math.acos(self.dot(other) / self.length() / other.length()) * 180 / math.pi
+    def angle(self):
+        """
+        本身的角度，带方向的。由于pygame的坐标特性，顺时针为正. 返回的为pi，不是度
+        """
+        return math.atan2(self.y, self.x)
 
     def vertical_left(self):
         """左转90°的法向量"""
@@ -218,6 +223,7 @@ class Plane(Base):
         self.image_original = pygame.image.load(image_path).convert()
         self.image = self.image_original.subsurface((0, 0, 39, 39))
         self.image.set_colorkey(WHITE)
+        # print 'Create Plane:', location
         super(Plane, self).__init__(location=location, image=self.image)
 
         # self.origin_image = self.image.copy()
@@ -251,7 +257,7 @@ class Plane(Base):
         # print self.acc, self.velocity, self.rect
 
     def speeddown(self):
-        self.acc -= self.velocity.normalize_vector() * self.acc_speed
+        self.acc += - self.velocity.normalize_vector() * self.acc_speed
         if self.velocity.length() < self.min_speed:
             self.acc = Vector(0, 0)
         # print self.acc, self.velocity, self.rect
@@ -267,7 +273,6 @@ class Plane(Base):
             index = 1
         elif catalog == 'Rocket':
             index = 2
-
         self.weapon[index]['catalog'] = catalog
         self.weapon[index]['number'] = number
 
@@ -278,6 +283,8 @@ class Missile(Base):
             image_path = WEAPON_CATALOG['Gun']['image'][randint(0, len(WEAPON_CATALOG['Gun']['image']) - 1)]
         else:
             image_path = WEAPON_CATALOG[catalog]['image']
+        if catalog == 'Cobra':
+            self.detect_range = WEAPON_CATALOG[catalog]['dectect_range']
         self.image_original = pygame.image.load(image_path).convert()
         self.image_original.set_colorkey(WHITE)
         super(Missile, self).__init__(location=location, image=self.image_original)
@@ -292,13 +299,49 @@ class Missile(Base):
 
         self.velocity = velocity + velocity.normalize_vector() * self.init_speed  # 初始速度为飞机速度+发射速度
 
-    def update(self):
-        super(Missile, self).update()
+        self.catalog = catalog
+        self.target = None
+
+    def update(self, plane_group):
+        if self.catalog == 'Cobra':
+            """
+            飞机、枪弹是一回事，加速度在不去动的情况下，为0；
+            """
+            if self.target and abs(self.velocity.angle() - (self.target.location - self.location).angle()) < math.pi/3 \
+                    and (self.location - self.target.location).length() < self.detect_range:
+                angle_between = self.velocity.angle() - (self.target.location - self.location).angle()
+                # print 'on target~',
+                # 预计垂直速度的长度, 带正s负的一个float数值
+                expect_acc = (self.target.location - self.location).length() * math.sin(angle_between)
+                if abs(expect_acc) < self.turn_acc:  # 如果期望转向速度够了，就不用全力
+                    acc = abs(expect_acc) * (1 and 0 < angle_between < math.pi or -1)
+                else:  # 期望转向速度不够，使用全力转向
+                    acc = self.turn_acc * (1 and 0 < angle_between < math.pi or -1)
+                self.acc.x += acc * math.sin(self.velocity.angle())
+                self.acc.y += - acc * math.cos(self.velocity.angle())
+            else:
+                self.target = None
+                for plane in plane_group:
+                    if abs(self.velocity.angle() - (plane.location - self.location).angle()) < math.pi/3 and \
+                            (self.location - plane.location).length() < self.detect_range:
+                        self.target = plane
+                        break
+            # print 'angle_betwoen:%d, angle_velocity:%d, angle_distance:%d' % \
+            #       (self.velocity.angle() - (self.target.location - self.location).angle() * 180 / math.pi,
+            #        self.velocity.angle() * 180 / math.pi,
+            #        (self.target.location - self.location).angle() * 180 / math.pi),
+            # print 'Targ, Loc:',self.target.location/1000 , self.location/1000
+
+        if self.min_speed < self.velocity.length() < self.max_speed:
+            self.acc += self.velocity.normalize_vector() * self.acc_speed  # 加上垂直速度
+
+        super(Missile, self).update()  # 正常更新
         self.fuel -= 1
+        if self.fuel <= 0 or self.health <= 0:
+            self.delete()
 
     def delete(self):
-        if self.fuel <= 0 or self.health <= 0:
-            self.kill()  # remove the Sprite from all Groups
+        self.kill()  # remove the Sprite from all Groups
 
 
 class Player(object):
@@ -307,6 +350,7 @@ class Player(object):
         self.ip = ip
         self.plane = None
         self.weapon_group = weapon_group
+        self.fire_status = {1: True, 2: True, 3: True}
 
     def add_plane(self, plane):
         self.plane = plane
@@ -315,7 +359,7 @@ class Player(object):
         self.plane.update()
 
     def weapon_fire(self, slot):
-        # print('slot', slot)
+        # print 'Plane:', self.plane.velocity
         if self.plane.weapon[slot]:
             if self.plane.weapon[slot]['number'] > 0:
                 self.plane.weapon[slot]['number'] -= 1
@@ -326,8 +370,6 @@ class Player(object):
                 self.weapon_group.add(weapon)
 
     def operation(self, key_list):
-        # !!!!!!!!!! 从这里开始  to be continue...
-        # print('get~~~',key_list)
         for keys in key_list:
             if keys[pygame.K_a]:  # 直接使用 pygame.key.get_pressed() 可以多键同时独立识别
                 self.plane.turn_left()
@@ -340,10 +382,17 @@ class Player(object):
 
             if keys[pygame.K_1]:
                 self.weapon_fire(1)
-            if keys[pygame.K_2]:
+            if keys[pygame.K_2] and self.fire_status[2]:
+                self.fire_status[2] = False
                 self.weapon_fire(2)
-            if keys[pygame.K_3]:
+            if keys[pygame.K_3] and self.fire_status[3]:
+                self.fire_status[3] = False
                 self.weapon_fire(3)
+
+            if not keys[pygame.K_2]:
+                self.fire_status[2] = True
+            if not keys[pygame.K_3]:
+                self.fire_status[3] = True
 
 
 class Map(object):
@@ -449,6 +498,8 @@ class World(object):
     def add_player(self, player):
         self.player_list.append(player)
         self.plane_group.add(player.plane)
+        # print 'Player:',self.player_list
+        # print('Plane::', self.plane_group,player.plane)
 
     def add_map(self, big_map):
         self.map = big_map
@@ -460,13 +511,9 @@ class World(object):
         self.origin_map_surface = self.map.surface.copy()
 
     def render(self, screen_rect):
-
         self.current_rect = screen_rect
         self.screen.blit(source=self.map.surface, dest=(0, 0), area=self.current_rect)
-
         self.minimap.draw()
-
-        # self.screen.blit()
 
     def player_communicate(self, event_list):
         """
@@ -477,20 +524,26 @@ class World(object):
 
         str_event_list = json.dumps(event_list)
         for player in self.player_list:  # 发送给每一个网卡，包括自己
-            self.sock.sendto(str_event_list, (player.ip, 8989))
+            # print player.ip
+            try:
+                self.sock.sendto(str_event_list, (player.ip, 8989))
+            except Exception, msg:
+                print 'Offline(Socket Error):', msg
 
     def process(self, event_list):
         """[WARNING]每个玩家（world）接收自己的消息队列，刷新自己的界面，没有消息同步机制，也没有同步下发机制，
         会导致不同玩家画面不一致情况（尤其在网络延迟大的情况下）"""
         self.minimap.update()
-        self.weapon_group.update()
+        self.weapon_group.update(self.plane_group)
         # self.plane_group.clear(self.map.surface, )
-        self.map.surface = self.origin_map_surface.copy()
+        # self.map.surface = self.origin_map_surface.copy()  # ...........很吃性能！！！！！
+        # print self.player_list[0].plane.rect.x,self.player_list[0].plane.rect.y,self.player_list[1].plane.rect.x,self.player_list[1].plane.rect.y
         self.plane_group.draw(self.map.surface)
+        # print(self.plane_group)
         self.weapon_group.draw(self.map.surface)
-
-        # for i in self.plane_group:
-        #     print i.rect
+        for i in self.weapon_group:
+            if i.target:
+                pygame.draw.rect(self.map.surface, (255, 0, 0), i.target.rect, 1)
         self.player_communicate(event_list)
 
         n = 0
@@ -505,13 +558,11 @@ class World(object):
 
         for player in self.player_list:
             player.update()
-        pass
 
 
 class Game(object):
 
     def __init__(self):
-
         os.environ['SDL_VIDEO_CENTERED'] = '1'
         pygame.init()
         pygame.mixer.init()  # 声音初始化
@@ -564,11 +615,18 @@ class Game(object):
         player = Player(weapon_group=world.weapon_group)
         plane = Plane(catalog='J20',
                       location=(100, 100))  # , location=[randint(0, world.map.size[0]), randint(0, world.map.size[1])])
-        plane.load_weapon(catalog='Cobra', number=6)
+        plane.load_weapon(catalog='Cobra', number=60)
         plane.load_weapon(catalog='Gun', number=500)
         plane.load_weapon(catalog='Rocket', number=8)
         player.add_plane(plane)
-        print '---', player.plane
+        # print '---', player.plane
+        world.add_player(player)
+
+        # test player
+        player = Player(weapon_group=world.weapon_group, ip='192.168.0.107')
+        plane = Plane(catalog='F35', location=(150000, 200000))
+        player.add_plane(plane)
+        # print '---', player.plane
         world.add_player(player)
 
         # LAN player
