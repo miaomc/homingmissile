@@ -7,6 +7,7 @@ import socket
 import threading
 import Queue
 import json
+import logging
 
 """
 Readme: 需要计算精灵之间的碰撞和扣血
@@ -129,6 +130,9 @@ class Vector:
 
     def __str__(self):
         return str(self.x) + ', ' + str(self.y)
+
+    # def __neg__(self):
+    #     return Vector(-self.x, -self.y)
 
     def normalize_vector(self):
         """单位向量"""
@@ -257,7 +261,7 @@ class Plane(Base):
         # print self.acc, self.velocity, self.rect
 
     def speeddown(self):
-        self.acc += - self.velocity.normalize_vector() * self.acc_speed
+        self.acc -= self.velocity.normalize_vector() * self.acc_speed
         if self.velocity.length() < self.min_speed:
             self.acc = Vector(0, 0)
         # print self.acc, self.velocity, self.rect
@@ -528,7 +532,7 @@ class World(object):
             try:
                 self.sock.sendto(str_event_list, (player.ip, 8989))
             except Exception, msg:
-                print 'Offline(Socket Error):', msg
+                logging.warn('Offline(Socket Error):'+str(msg))
 
     def process(self, event_list):
         """[WARNING]每个玩家（world）接收自己的消息队列，刷新自己的界面，没有消息同步机制，也没有同步下发机制，
@@ -536,7 +540,7 @@ class World(object):
         self.minimap.update()
         self.weapon_group.update(self.plane_group)
         # self.plane_group.clear(self.map.surface, )
-        # self.map.surface = self.origin_map_surface.copy()  # ...........很吃性能！！！！！
+        # self.map.surface = self.origin_map_surface.copy()  # [WARNING]很吃性能！！！！！极有可能pygame.display()渲染不吃时间，这个copy（）很吃时间
         # print self.player_list[0].plane.rect.x,self.player_list[0].plane.rect.y,self.player_list[1].plane.rect.x,self.player_list[1].plane.rect.y
         self.plane_group.draw(self.map.surface)
         # print(self.plane_group)
@@ -558,6 +562,18 @@ class World(object):
 
         for player in self.player_list:
             player.update()
+
+    def earase(self):
+        self.weapon_group.clear(self.map.surface, self.clear_callback)
+        self.plane_group.clear(self.map.surface, self.clear_callback)
+
+    def clear_callback(self, surf, rect):
+        # surf.blit(source=self.map.surface, dest=(0, 0), area=self.current_rect)
+        # self.screen.blit(source=self.map.surface, dest=(0, 0), area=self.current_rect)
+        # blit(source, dest, area=None, special_flags=0) -> Rect
+        surf.blit(source=self.origin_map_surface, dest=rect, area=rect)
+        # area = self.origin_map.
+        # surf.fill(area, rect)
 
 
 class Game(object):
@@ -650,7 +666,15 @@ class Game(object):
             pygame.display.flip()
             self.clock.tick(self.fps)
 
+            world.earase()
+
 
 if __name__ == '__main__':
+    # CRITICAL > ERROR > WARNING > INFO > DEBUG > NOTSET
+    logging.basicConfig(level=logging.DEBUG,
+                        format='%(asctime)s %(filename)s[line:%(lineno)d] [%(levelname)s] %(message)s',
+                        datefmt='%Y-%b-%d %H:%M:%S-%a',
+                        filename='logger.log',
+                        filemode='w')
     game = Game()
     game.main()
