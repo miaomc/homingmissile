@@ -534,6 +534,25 @@ class World(object):
             except Exception, msg:
                 logging.warn('Offline(Socket Error):'+str(msg))
 
+    def deal_collide(self):
+        """
+        self.plane_group = pygame.sprite.Group()
+        self.weapon_group = pygame.sprite.Group()
+        
+        """
+        for weapon in self.weapon_group:  # 遍历每一个武器
+            # 如果不是枪弹就进行相互碰撞测试
+            if weapon.catalog != 'Gun':  
+                weapon_collide_lst = pygame.sprite.spritecollide(weapon, self.weapon_group, False)  # False代表不直接kill该对象
+                weapon.hitted(weapon_collide_lst)  # 武器本身受到的攻击列表
+                for hitted_weapon in weapon_collide_lst:
+                    hitted_weapon.hitted([weapon])  # 本身受到攻击的对象
+            # 检测武器与飞机之间的碰撞        
+            plane_collide_lst = pygame.sprite.spritecollide(weapon, self.plane_group, False)
+            weapon.hitted(plane_collide_lst)  # 武器本身受到的攻击列表
+            for hitted_plane in plane_collide_lst:
+                hitted_plane.hitted([weapon])            
+
     def process(self, event_list):
         """[WARNING]每个玩家（world）接收自己的消息队列，刷新自己的界面，没有消息同步机制，也没有同步下发机制，
         会导致不同玩家画面不一致情况（尤其在网络延迟大的情况下）"""
@@ -559,6 +578,11 @@ class World(object):
             n += 1
             if n > 10:  # 防止队列阻塞，每次最多处理10条队列信息
                 break
+
+        # 碰撞处理
+        self.deal_collide()
+
+        # delete挂了的飞机或
 
         for player in self.player_list:
             player.update()
