@@ -8,6 +8,7 @@ import threading
 import Queue
 import json
 import logging
+from infomation import Infomation
 
 """
 Readme: 需要计算精灵之间的碰撞和扣血
@@ -98,7 +99,7 @@ SPEED_RATIO = 0.05
 BACKGROUND_COLOR = (168, 168, 168)
 WHITE = (255, 255, 255)
 FPS = 50
-SCREEN_SIZE = (1600, 900)
+SCREEN_SIZE = (1280, 720)
 MARS_SCREEN_SIZE = (8000, 4500)
 MARS_MAP_SIZE = (8000 * 4, 4500 * 4)  # topleft starts: width, height
 CLOUD_IMAGE_LIST = ['./image/cloud1.png', './image/cloud2.png', './image/cloud3.png', './image/cloud4.png']
@@ -198,6 +199,9 @@ image:
         self.turn_acc = 0
         self.acc_speed = 0
 
+        self.health = 0
+        self.damage = 0
+
         # ...
         # self.location = location  # [x, y]
         # print location
@@ -219,6 +223,13 @@ image:
         self.acc = Vector(0, 0)
         self.rotate()
 
+    def delete(self):
+        self.kill()  # remove the Sprite from all Groups
+
+    def hitted(self, base_lst):
+        for base in base_lst:
+            self.health -= base.damage
+            base.health -= self.damage
 
 class Plane(Base):
 
@@ -239,6 +250,7 @@ class Plane(Base):
         self.turn_acc = PLANE_CATALOG[catalog]['turn_acc']
         self.acc_speed = PLANE_CATALOG[catalog]['acc_speed']
         self.damage = PLANE_CATALOG[catalog]['damage']
+        self.health = PLANE_CATALOG[catalog]['health']
 
         self.speed = (self.max_speed + self.min_speed) / 2  # 初速度为一半
         self.velocity = Vector(1, 1).normalize_vector() * self.speed  # Vector
@@ -280,6 +292,11 @@ class Plane(Base):
         self.weapon[index]['catalog'] = catalog
         self.weapon[index]['number'] = number
 
+    def update(self):
+        super(Plane, self).update()
+        if self.health <= 0:
+            self.delete()
+
 
 class Missile(Base):
     def __init__(self, catalog, location, velocity):
@@ -294,8 +311,8 @@ class Missile(Base):
         super(Missile, self).__init__(location=location, image=self.image_original)
 
         self.health = WEAPON_CATALOG[catalog]['health']
-        self.init_speed = WEAPON_CATALOG[catalog]['init_speed']
         self.damage = WEAPON_CATALOG[catalog]['damage']
+        self.init_speed = WEAPON_CATALOG[catalog]['init_speed']
         self.turn_acc = WEAPON_CATALOG[catalog]['turn_acc']
         self.acc_speed = WEAPON_CATALOG[catalog]['acc_speed']
         self.acc = self.velocity.normalize_vector() * self.acc_speed
@@ -344,9 +361,6 @@ class Missile(Base):
         if self.fuel <= 0 or self.health <= 0:
             self.delete()
 
-    def delete(self):
-        self.kill()  # remove the Sprite from all Groups
-
 
 class Player(object):
 
@@ -368,8 +382,11 @@ class Player(object):
             if self.plane.weapon[slot]['number'] > 0:
                 self.plane.weapon[slot]['number'] -= 1
                 # print dir(self.plane)
+                location_x = self.plane.location.x+self.plane.velocity.normalize_vector().x*self.plane.rect.height*3/5
+                location_y = self.plane.location.y+self.plane.velocity.normalize_vector().y*self.plane.rect.height*3/5
+                print location_x,location_y,'<------------', self.plane.rect
                 weapon = Missile(catalog=self.plane.weapon[slot]['catalog'],
-                                 location=(self.plane.location.x, self.plane.location.y),
+                                 location=(location_x,location_y),
                                  velocity=self.plane.velocity)
                 self.weapon_group.add(weapon)
 
@@ -494,6 +511,9 @@ class World(object):
         # backup map
         self.origin_map = None
 
+        # Info show
+        self.info = Infomation()
+
     def msg_recv(self):
         while True:
             self.q.put(self.sock.recvfrom(2048))
@@ -518,6 +538,7 @@ class World(object):
         self.current_rect = screen_rect
         self.screen.blit(source=self.map.surface, dest=(0, 0), area=self.current_rect)
         self.minimap.draw()
+        self.info.show(self.screen)
 
     def player_communicate(self, event_list):
         """
@@ -538,20 +559,19 @@ class World(object):
         """
         self.plane_group = pygame.sprite.Group()
         self.weapon_group = pygame.sprite.Group()
-        
         """
         for weapon in self.weapon_group:  # 遍历每一个武器
             # 如果不是枪弹就进行相互碰撞测试
             if weapon.catalog != 'Gun':  
                 weapon_collide_lst = pygame.sprite.spritecollide(weapon, self.weapon_group, False)  # False代表不直接kill该对象
-                weapon.hitted(weapon_collide_lst)  # 武器本身受到的攻击列表
-                for hitted_weapon in weapon_collide_lst:
-                    hitted_weapon.hitted([weapon])  # 本身受到攻击的对象
+                weapon.hitted(weapon_collide_lst)  # 发生碰撞相互减血
+                # for hitted_weapon in weapon_collide_lst:
+                #     hitted_weapon.hitted([weapon])  # 本身受到攻击的对象
             # 检测武器与飞机之间的碰撞        
             plane_collide_lst = pygame.sprite.spritecollide(weapon, self.plane_group, False)
-            weapon.hitted(plane_collide_lst)  # 武器本身受到的攻击列表
-            for hitted_plane in plane_collide_lst:
-                hitted_plane.hitted([weapon])            
+            weapon.hitted(plane_collide_lst)  # 发生碰撞相互减血
+            # for hitted_plane in plane_collide_lst:
+            #     hitted_plane.hitted([weapon])
 
     def process(self, event_list):
         """[WARNING]每个玩家（world）接收自己的消息队列，刷新自己的界面，没有消息同步机制，也没有同步下发机制，
@@ -582,13 +602,18 @@ class World(object):
         # 碰撞处理
         self.deal_collide()
 
-        # delete挂了的飞机或
+        # delete没了的的飞机或武器
 
         for player in self.player_list:
             player.update()
 
+        for py in self.player_list:
+            self.info.add(u'Player IP:%s' % py.ip)
+            self.info.add(u'Health:%d' % py.plane.health)
+            self.info.add(u'Weapon:%s' % str(py.plane.weapon))
+
     def earase(self):
-        self.weapon_group.clear(self.map.surface, self.clear_callback)
+        # self.weapon_group.clear(self.map.surface, self.clear_callback)
         self.plane_group.clear(self.map.surface, self.clear_callback)
 
     def clear_callback(self, surf, rect):
