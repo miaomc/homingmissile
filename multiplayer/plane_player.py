@@ -201,11 +201,7 @@ image:
 
         self.health = 0
         self.damage = 0
-
-        # ...
-        # self.location = location  # [x, y]
-        # print location
-        # self.rect = self.image.get_rect(center=location)
+        self.alive = True
 
         self.acc = Vector(0, 0)
 
@@ -225,9 +221,13 @@ image:
 
     def delete(self):
         self.kill()  # remove the Sprite from all Groups
+        self.alive = False
 
     def hitted(self, base_lst):
         for base in base_lst:
+            if id(self) == id(base):  # spritecollide如果是自己和自己就不需要碰撞了
+                continue
+            # print base.rect, self.rect
             self.health -= base.damage
             base.health -= self.damage
 
@@ -340,6 +340,7 @@ class Missile(Base):
                     acc = self.turn_acc * (1 and 0 < angle_between < math.pi or -1)
                 self.acc.x += acc * math.sin(self.velocity.angle())
                 self.acc.y += - acc * math.cos(self.velocity.angle())
+                # print 'target on:',self.target
             else:
                 self.target = None
                 for plane in plane_group:
@@ -369,6 +370,7 @@ class Player(object):
         self.plane = None
         self.weapon_group = weapon_group
         self.fire_status = {1: True, 2: True, 3: True}
+        self.win = True
 
     def add_plane(self, plane):
         self.plane = plane
@@ -382,9 +384,9 @@ class Player(object):
             if self.plane.weapon[slot]['number'] > 0:
                 self.plane.weapon[slot]['number'] -= 1
                 # print dir(self.plane)
-                location_x = self.plane.location.x+self.plane.velocity.normalize_vector().x*self.plane.rect.height*3/5
-                location_y = self.plane.location.y+self.plane.velocity.normalize_vector().y*self.plane.rect.height*3/5
-                print location_x,location_y,'<------------', self.plane.rect
+                location_x = self.plane.location.x+self.plane.velocity.normalize_vector().x*self.plane.rect.height/SPEED_RATIO*FPS*1.5
+                location_y = self.plane.location.y+self.plane.velocity.normalize_vector().y*self.plane.rect.height/SPEED_RATIO*FPS*1.5
+                # print location_x,location_y,'<------------', self.plane.location,self.plane.rect
                 weapon = Missile(catalog=self.plane.weapon[slot]['catalog'],
                                  location=(location_x,location_y),
                                  velocity=self.plane.velocity)
@@ -562,13 +564,18 @@ class World(object):
         """
         for weapon in self.weapon_group:  # 遍历每一个武器
             # 如果不是枪弹就进行相互碰撞测试
-            if weapon.catalog != 'Gun':  
+            if weapon.catalog != 'Gun':
+                # print weapon
                 weapon_collide_lst = pygame.sprite.spritecollide(weapon, self.weapon_group, False)  # False代表不直接kill该对象
                 weapon.hitted(weapon_collide_lst)  # 发生碰撞相互减血
+                # print '--'
                 # for hitted_weapon in weapon_collide_lst:
                 #     hitted_weapon.hitted([weapon])  # 本身受到攻击的对象
             # 检测武器与飞机之间的碰撞        
             plane_collide_lst = pygame.sprite.spritecollide(weapon, self.plane_group, False)
+            # print plane_collide_lst
+            # if plane_collide_lst:
+            #     print weapon.rect, plane_collide_lst[0].rect
             weapon.hitted(plane_collide_lst)  # 发生碰撞相互减血
             # for hitted_plane in plane_collide_lst:
             #     hitted_plane.hitted([weapon])
@@ -586,6 +593,7 @@ class World(object):
         self.weapon_group.draw(self.map.surface)
         for i in self.weapon_group:
             if i.target:
+                # print i.target
                 pygame.draw.rect(self.map.surface, (255, 0, 0), i.target.rect, 1)
         self.player_communicate(event_list)
 
@@ -602,19 +610,24 @@ class World(object):
         # 碰撞处理
         self.deal_collide()
 
-        # delete没了的的飞机或武器
-
         for player in self.player_list:
-            player.update()
+            if player.win:
+                player.update()
+                if not player.plane.alive:  # delete没了的的飞机
+                    player.plane = None
+                    player.win = False  # End Game
 
         for py in self.player_list:
             self.info.add(u'Player IP:%s' % py.ip)
-            self.info.add(u'Health:%d' % py.plane.health)
-            self.info.add(u'Weapon:%s' % str(py.plane.weapon))
+            if py.plane:
+                self.info.add(u'Health:%d' % py.plane.health)
+                self.info.add(u'Weapon:%s' % str(py.plane.weapon))
+            self.info.add(u'Groups:%s'%str(self.plane_group))
 
     def earase(self):
         # self.weapon_group.clear(self.map.surface, self.clear_callback)
         self.plane_group.clear(self.map.surface, self.clear_callback)
+        pass
 
     def clear_callback(self, surf, rect):
         # surf.blit(source=self.map.surface, dest=(0, 0), area=self.current_rect)
