@@ -520,6 +520,19 @@ class World(object):
         while True:
             self.q.put(self.sock.recvfrom(2048))
             # print("socket get msg.")
+    def waiting_connect(self, localip, otherip):
+        while True:
+            self.sock.sendto(u'200 OK',(otherip,8989))
+            if self.q.empty():
+                data, address = world.q.get()
+                print data, '--',address
+                if address[0] == otherip and data == u'200 OK':
+                    self.sock.sendto(u'200 OK',(otherip,8989))
+                    break
+            pygame.time.wait(100)
+        # Çå¿Õ¶ÓÁÐ
+        with self.q.mutex:
+            self.q.clear()
 
     def add_player(self, player):
         self.player_list.append(player)
@@ -699,16 +712,8 @@ class Game(object):
         world = World(self.screen, localip)
 
         # waiting player2 adding
-        while True:
-            world.sock.sendto(u'200 OK',(otherip,8989))
-            if world.q.empty():
-                data, address = world.q.get()
-                print data, '--',address
-                if address[0] == otherip and data == '200 OK':
-                    world.sock.sendto(u'200 OK',(otherip,8989))
-                    break
-            pygame.time.wait(100)
-
+        world.waiting_connect(localip, otherip)
+        
         # MAP
         game_map = Map()  # 8000*4500--->screen, (8000*5)*(4500*5)---->map
         game_map.add_cloud()
