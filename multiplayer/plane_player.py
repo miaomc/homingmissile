@@ -94,7 +94,7 @@ WEAPON_CATALOG = {
     }
 }
 
-SPEED_RATIO = 0.05
+SPEED_RATIO = 0.25
 
 BACKGROUND_COLOR = (168, 168, 168)
 WHITE = (255, 255, 255)
@@ -211,13 +211,13 @@ image:
 
     def update(self):
         self.velocity += self.acc
-        self.location.x += self.velocity.x
-        self.location.y += self.velocity.y
-        self.rect.x = self.location.x * SPEED_RATIO / FPS  # 0.01
-        self.rect.y = self.location.y * SPEED_RATIO / FPS  # 0.01
+        self.location.x += self.velocity.x * SPEED_RATIO / FPS
+        self.location.y += self.velocity.y * SPEED_RATIO / FPS
+        self.rect.center = Map.mars_translate((self.location.x, self.location.y))
 
         self.acc = Vector(0, 0)
         self.rotate()
+        # logging.info('location:%s, rect:%s' % (str(self.location), str(self.rect)))
 
     def delete(self):
         self.kill()  # remove the Sprite from all Groups
@@ -230,6 +230,7 @@ image:
             # print base.rect, self.rect
             self.health -= base.damage
             base.health -= self.damage
+
 
 class Plane(Base):
 
@@ -328,7 +329,7 @@ class Missile(Base):
             """
             飞机、枪弹是一回事，加速度在不去动的情况下，为0；
             """
-            if self.target and abs(self.velocity.angle() - (self.target.location - self.location).angle()) < math.pi/3 \
+            if self.target and abs(self.velocity.angle() - (self.target.location - self.location).angle()) < math.pi / 3 \
                     and (self.location - self.target.location).length() < self.detect_range:
                 angle_between = self.velocity.angle() - (self.target.location - self.location).angle()
                 # print 'on target~',
@@ -344,15 +345,10 @@ class Missile(Base):
             else:
                 self.target = None
                 for plane in plane_group:
-                    if abs(self.velocity.angle() - (plane.location - self.location).angle()) < math.pi/3 and \
+                    if abs(self.velocity.angle() - (plane.location - self.location).angle()) < math.pi / 3 and \
                             (self.location - plane.location).length() < self.detect_range:
                         self.target = plane
                         break
-            # print 'angle_betwoen:%d, angle_velocity:%d, angle_distance:%d' % \
-            #       (self.velocity.angle() - (self.target.location - self.location).angle() * 180 / math.pi,
-            #        self.velocity.angle() * 180 / math.pi,
-            #        (self.target.location - self.location).angle() * 180 / math.pi),
-            # print 'Targ, Loc:',self.target.location/1000 , self.location/1000
 
         if self.min_speed < self.velocity.length() < self.max_speed:
             self.acc += self.velocity.normalize_vector() * self.acc_speed  # 加上垂直速度
@@ -384,11 +380,14 @@ class Player(object):
             if self.plane.weapon[slot]['number'] > 0:
                 self.plane.weapon[slot]['number'] -= 1
                 # print dir(self.plane)
-                location_x = self.plane.location.x+self.plane.velocity.normalize_vector().x*self.plane.rect.height/SPEED_RATIO*FPS*1.5
-                location_y = self.plane.location.y+self.plane.velocity.normalize_vector().y*self.plane.rect.height/SPEED_RATIO*FPS*1.5
-                # print location_x,location_y,'<------------', self.plane.location,self.plane.rect
+                tmp_rect = Map.mars_unti_translate((
+                                                   self.plane.velocity.normalize_vector().x * self.plane.rect.height,
+                                                   self.plane.velocity.normalize_vector().y * self.plane.rect.height))
+                location_x = self.plane.location.x + tmp_rect[0]
+                location_y = self.plane.location.y + tmp_rect[1]
+                # print location_x,location_y, '<------------', self.plane.location, self.plane.rect
                 weapon = Missile(catalog=self.plane.weapon[slot]['catalog'],
-                                 location=(location_x,location_y),
+                                 location=(location_x, location_y),
                                  velocity=self.plane.velocity)
                 self.weapon_group.add(weapon)
 
@@ -425,9 +424,14 @@ class Map(object):
         self.surface = pygame.Surface(self.size)
         self.surface.fill(BACKGROUND_COLOR)
 
-    def mars_translate(self, coordinate):
+    @staticmethod
+    def mars_translate(coordinate):
         """translate Mars Coordinate to current Display Coordinate"""
         return [int(coordinate[i] / (float(MARS_SCREEN_SIZE[i]) / SCREEN_SIZE[i])) for i in [0, 1]]
+
+    @staticmethod
+    def mars_unti_translate(coordinate):
+        return [int(coordinate[i] * (float(MARS_SCREEN_SIZE[i]) / SCREEN_SIZE[i])) for i in [0, 1]]
 
     def add_cloud(self, cloud_num=100):
         sprite_group = pygame.sprite.Group()
@@ -479,7 +483,7 @@ class MiniMap(object):
         for rect in self.unit_rect_list:
             left = self.rect.left + int(rect.left / float(self.map_rect.width) * self.rect.width)
             top = self.rect.top + int(rect.top / float(self.map_rect.height) * self.rect.height)
-            pygame.draw.rect(self.screen, (0, 255, 100), pygame.Rect(left, top, 1, 1), 4)
+            pygame.draw.rect(self.screen, (255, 0, 255), pygame.Rect(left, top, 1, 1), 4)
 
 
 class World(object):
@@ -555,7 +559,7 @@ class World(object):
             try:
                 self.sock.sendto(str_event_list, (player.ip, 8989))
             except Exception, msg:
-                logging.warn('Offline(Socket Error):'+str(msg))
+                logging.warn('Offline(Socket Error):' + str(msg))
 
     def deal_collide(self):
         """
@@ -602,7 +606,8 @@ class World(object):
             data, address = self.q.get()
             for player in self.player_list:  # 遍历玩家，看这个收到的数据是谁的
                 if player.ip == address[0]:
-                    player.operation(json.loads(data))  # data is list of pygame.key.get_pressed() of json.dumps
+                    if player.win:
+                        player.operation(json.loads(data))  # data is list of pygame.key.get_pressed() of json.dumps
             n += 1
             if n > 10:  # 防止队列阻塞，每次最多处理10条队列信息
                 break
@@ -616,13 +621,14 @@ class World(object):
                 if not player.plane.alive:  # delete没了的的飞机
                     player.plane = None
                     player.win = False  # End Game
+                    # return True
 
         for py in self.player_list:
             self.info.add(u'Player IP:%s' % py.ip)
             if py.plane:
                 self.info.add(u'Health:%d' % py.plane.health)
                 self.info.add(u'Weapon:%s' % str(py.plane.weapon))
-            self.info.add(u'Groups:%s'%str(self.plane_group))
+            self.info.add(u'Groups:%s' % str(self.plane_group))
 
     def earase(self):
         # self.weapon_group.clear(self.map.surface, self.clear_callback)
@@ -683,71 +689,68 @@ class Game(object):
                 key_list.append(keys)
         return key_list
 
-    def adding_game(self,):
-        l = socket.getaddrinfo(socket.gethostname(),None)
-        for index,i in enumerate(l):
-            print index,i[-1][0]            
-        index = input("select your own ip index:")
+    def adding_game(self, ):
+        l = socket.getaddrinfo(socket.gethostname(), None)
+        for index, i in enumerate(l):
+            print index, i[-1][0]
+        index = 1  # input("select your own ip index:")
         localip = l[index][-1][0]
-        otherip = raw_input("Input the other player's ip:")
+        otherip = '192.168.0.107'  # raw_input("Input the other player's ip:")
         return localip, otherip
 
     def waiting_connect(self, sock, port, localip, otherip):
         while True:
-            sock.sendto(u'200 OK',(otherip,port))
+            sock.sendto(u'200 OK', (otherip, port))
             data, address = sock.recvfrom(2048)
             if address[0] == otherip and data == u'200 OK':
-                sock.sendto(u'200 OK',(otherip,port))
+                sock.sendto(u'200 OK', (otherip, port))
                 break
 
     def sock_sent_recv(self, sock, port, otherip, msg):
-        sock.sendto(json.dumps(msg),(otherip,port))
+        sock.sendto(json.dumps(msg), (otherip, port))
         data, address = sock.recvfrom(2048)
         if address[0] == otherip:
-            if data=='200 OK':
+            if data == '200 OK':
                 data, address = sock.recvfrom(2048)
-            print 'DATA(repr):',repr(data)
+            print 'DATA(repr):', repr(data)
             return json.loads(data)
-             
+
     def main(self):
         # adding game
         localip, otherip = self.adding_game()
-        
+
         # waiting player2 adding
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         port = 8988
         sock.bind((localip, port))
         self.waiting_connect(sock, port, localip, otherip)  # connect
 
-        # INIT
-        self.init()
-        world = World(self.screen, localip)
-        
-        # MAP
-        game_map = Map()  # 8000*4500--->screen, (8000*5)*(4500*5)---->map
-        game_map.add_cloud()
-        world.add_map(game_map)        
-    
         # add player
-        d = {localip:{
-                'location':(randint(0, MARS_MAP_SIZE[0]), randint(0, MARS_MAP_SIZE[1])),
-                'Plane':raw_input("choose your plane catalog, 'J20' or 'F35':"),
-                'Cobra':60,
-                'Gun': 500,
-                'Rocket': 8
-                }
-             }
+        d = {localip: {
+            'location': (randint(0, MARS_MAP_SIZE[0]), randint(0, MARS_MAP_SIZE[1])),
+            'Plane': 'F35',  # raw_input("choose your plane catalog, 'J20' or 'F35':"),
+            'Cobra': 60,
+            'Gun': 500,
+            'Rocket': 8
+        }}
         tmp = self.sock_sent_recv(sock, port, otherip, d)  # synthenic msg
         sock.close()
         d.update(tmp)
+
+        # INIT
+        self.init()
+        world = World(self.screen, localip)
+
+        # MAP
+        game_map = Map()  # 8000*4500--->screen, (8000*5)*(4500*5)---->map
+        game_map.add_cloud()
+        world.add_map(game_map)
+
         # add into World()
         for i in d.keys():
-            print 'IP-Location:',i, d[i]['location']
-
+            print 'IP-Location:', i, d[i]['location']
             player = Player(weapon_group=world.weapon_group, ip=i)
             plane = Plane(catalog=d[i]['Plane'], location=d[i]['location'])
-            if i == localip:
-                rect_tmp = plane.rect
             plane.load_weapon(catalog='Cobra', number=d[i]['Cobra'])
             plane.load_weapon(catalog='Gun', number=d[i]['Gun'])
             plane.load_weapon(catalog='Rocket', number=d[i]['Rocket'])
@@ -755,8 +758,8 @@ class Game(object):
             world.add_player(player)
 
         # 根据local player位置移动一次self.screen_rect git
-        self.screen_rect.center = game_map.mars_translate(d[localip]['location'])
-        
+        self.screen_rect.center = Map.mars_translate(d[localip]['location'])
+
         minimap = MiniMap(self.screen, world.map.surface.get_rect(), self.screen_rect, world.plane_group)
         world.add_minimap(minimap)
 
