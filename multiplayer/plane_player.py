@@ -704,6 +704,8 @@ class Game(object):
         sock.sendto(json.dumps(msg),(otherip,port))
         data, address = sock.recvfrom(2048)
         if address[0] == otherip:
+            if data=='200 OK':
+                data, address = sock.recvfrom(2048)
             print 'DATA(repr):',repr(data)
             return json.loads(data)
              
