@@ -703,7 +703,7 @@ class Game(object):
                 break
         sock.close()
 
-    def sock_sent_recv(self, lcoalip, otherip, msg):
+    def sock_sent_recv(self, localip, otherip, msg):
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.bind((localip, 8989))
 
