@@ -686,7 +686,7 @@ class Game(object):
     def adding_game(self,):
         l = socket.getaddrinfo(socket.gethostname(),None)
         for index,i in enumerate(l):
-            print index,i[-1][0]
+            print index,i[-1][0]            
         index = input("select your own ip index:")
         localip = l[index][-1][0]
         otherip = raw_input("Input the other player's ip:")
@@ -704,11 +704,13 @@ class Game(object):
         sock.sendto(json.dumps(msg),(otherip,port))
         data, address = sock.recvfrom(2048)
         if address[0] == otherip:
+            print 'DATA(repr):',repr(data)
             return json.loads(data)
              
     def main(self):
         # adding game
         localip, otherip = self.adding_game()
+        
         # waiting player2 adding
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         port = 8988
@@ -738,6 +740,7 @@ class Game(object):
         d.update(tmp)
         # add into World()
         for i in d.keys():
+            print 'IP-Location:',d[i]['Plane'],d[i]['location']
             player = Player(weapon_group=world.weapon_group, ip=i)
             plane = Plane(catalog=d[i]['Plane'], location=d[i]['location']) 
             plane.load_weapon(catalog='Cobra', number=d[i]['Cobra'])
