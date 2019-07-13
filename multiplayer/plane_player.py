@@ -297,14 +297,19 @@ class Plane(Base):
         super(Plane, self).update()
         if self.health <= 0:
             self.delete()
+            pygame.mixer.Sound("./sound/explode3.wav").play()
 
 
 class Missile(Base):
     def __init__(self, catalog, location, velocity):
         if catalog == 'Gun':
             image_path = WEAPON_CATALOG['Gun']['image'][randint(0, len(WEAPON_CATALOG['Gun']['image']) - 1)]
+            self.sound_fire = pygame.mixer.Sound("./sound/minigun_fire.wav")
+            self.sound_fire.play(maxtime=200)
         else:
             image_path = WEAPON_CATALOG[catalog]['image']
+            self.sound_fire = pygame.mixer.Sound("./sound/TPhFi201.wav")
+            self.sound_fire.play()
         if catalog == 'Cobra':
             self.detect_range = WEAPON_CATALOG[catalog]['dectect_range']
         self.image_original = pygame.image.load(image_path).convert()
@@ -483,7 +488,7 @@ class MiniMap(object):
         for rect in self.unit_rect_list:
             left = self.rect.left + int(rect.left / float(self.map_rect.width) * self.rect.width)
             top = self.rect.top + int(rect.top / float(self.map_rect.height) * self.rect.height)
-            pygame.draw.rect(self.screen, (255, 0, 255), pygame.Rect(left, top, 1, 1), 4)
+            pygame.draw.rect(self.screen, (255, 0, 255), pygame.Rect(left, top, 2, 2), 4)
 
 
 class World(object):
@@ -777,6 +782,7 @@ class Game(object):
 
             world.earase()
 
+        pygame.quit()
 
 if __name__ == '__main__':
     # CRITICAL > ERROR > WARNING > INFO > DEBUG > NOTSET
