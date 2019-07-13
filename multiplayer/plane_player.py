@@ -699,9 +699,20 @@ class Game(object):
             sock.sendto(u'200 OK',(otherip,8989))
             data, address = sock.recvfrom(2048)
             if address[0] == otherip and data == u'200 OK':
-                self.sock.sendto(u'200 OK',(otherip,8989))
+                sock.sendto(u'200 OK',(otherip,8989))
                 break
         sock.close()
+
+    def sock_sent_recv(self, lcoalip, otherip, msg):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.bind((localip, 8989))
+
+        sock.sendto(json.dumps(msg),(otherip,8989))
+        data, address = sock.recvfrom(2048)
+        if address[0] == otherip:
+            sock.close()
+            return json.loads(data)
+             
 
     def main(self):
         # adding game
@@ -718,37 +729,34 @@ class Game(object):
         game_map.add_cloud()
         world.add_map(game_map)        
     
-        # local player
-        player = Player(weapon_group=world.weapon_group, ip=localip)
-        plane = Plane(catalog='J20',
-                      location=(100, 100))  # , location=[randint(0, world.map.size[0]), randint(0, world.map.size[1])])
-        plane.load_weapon(catalog='Cobra', number=60)
-        plane.load_weapon(catalog='Gun', number=500)
-        plane.load_weapon(catalog='Rocket', number=8)
-        player.add_plane(plane)
-        # print '---', player.plane
-        world.add_player(player)
+        # add player
+        d = {localip:{
+                'location':(randint(0, world.map.size[0]), randint(0, world.map.size[1])),
+                'Plane':'J20',
+                'Cobra':60,
+                'Gun': 500,
+                'Rocket': 8
+                }
+             }
+        tmp = self.sock_sent_recv(localip, otherip, d)
+        d.update(tmp)
+        # add into World()
+        for i in d.keys():
+            player = Player(weapon_group=world.weapon_group, ip=i)
+            plane = Plane(catalog=d[i]['Plane'], location=d[i]['location']) 
+            plane.load_weapon(catalog='Cobra', number=d[i]['Cobra'])
+            plane.load_weapon(catalog='Gun', number=d[i]['Gun'])
+            plane.load_weapon(catalog='Rocket', number=d[i]['Rocket'])
+            player.add_plane(plane)
+            world.add_player(player)
 
-        # test player
-        player = Player(weapon_group=world.weapon_group, ip=otherip)
-        plane = Plane(catalog='J20', location=(1500000, 200000))
-        plane.load_weapon(catalog='Cobra', number=60)
-        plane.load_weapon(catalog='Gun', number=500)
-        plane.load_weapon(catalog='Rocket', number=8)
-        player.add_plane(plane)
-        # print '---', player.plane
-        world.add_player(player)
-
-        # LAN player
-        # player = Player()  # Player(ip)
-        # world.add_player(player)
-
+        # 根据local player位置移动一次self.screen_rect git
+        self.screen_rect.center = d[localip]['location']
+        
         minimap = MiniMap(self.screen, world.map.surface.get_rect(), self.screen_rect, world.plane_group)
         world.add_minimap(minimap)
 
         world.backup_map()
-
-        # ####............to be continue
 
         # PYGAME LOOP
         pygame.key.set_repeat(10, 10)  # control how held keys are repeated
