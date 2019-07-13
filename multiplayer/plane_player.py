@@ -730,8 +730,8 @@ class Game(object):
     
         # add player
         d = {localip:{
-                'location':(randint(0, world.map.size[0]), randint(0, world.map.size[1])),
-                'Plane':'J20',
+                'location':(randint(0, MARS_MAP_SIZE[0]), randint(0, MARS_MAP_SIZE[1])),
+                'Plane':raw_input("choose your plane catalog, 'J20' or 'F35':"),
                 'Cobra':60,
                 'Gun': 500,
                 'Rocket': 8
@@ -742,9 +742,12 @@ class Game(object):
         d.update(tmp)
         # add into World()
         for i in d.keys():
-            print 'IP-Location:',d[i]['Plane'],d[i]['location']
+            print 'IP-Location:',i, d[i]['location']
+
             player = Player(weapon_group=world.weapon_group, ip=i)
-            plane = Plane(catalog=d[i]['Plane'], location=d[i]['location']) 
+            plane = Plane(catalog=d[i]['Plane'], location=d[i]['location'])
+            if i == localip:
+                rect_tmp = plane.rect
             plane.load_weapon(catalog='Cobra', number=d[i]['Cobra'])
             plane.load_weapon(catalog='Gun', number=d[i]['Gun'])
             plane.load_weapon(catalog='Rocket', number=d[i]['Rocket'])
@@ -752,7 +755,8 @@ class Game(object):
             world.add_player(player)
 
         # 根据local player位置移动一次self.screen_rect git
-        self.screen_rect.center = d[localip]['location']
+        mars_translate
+        self.screen_rect.center = game_map.mars_translate(d[localip]['location'])
         
         minimap = MiniMap(self.screen, world.map.surface.get_rect(), self.screen_rect, world.plane_group)
         world.add_minimap(minimap)
