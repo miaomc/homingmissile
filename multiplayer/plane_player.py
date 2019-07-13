@@ -711,7 +711,7 @@ class Game(object):
         localip, otherip = self.adding_game()
         # waiting player2 adding
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.bind((localip, 8989))
+        sock.bind((localip, 8988))
         self.waiting_connect(sock, localip, otherip)
 
         # INIT
