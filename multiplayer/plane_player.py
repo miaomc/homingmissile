@@ -755,7 +755,6 @@ class Game(object):
             world.add_player(player)
 
         # 根据local player位置移动一次self.screen_rect git
-        mars_translate
         self.screen_rect.center = game_map.mars_translate(d[localip]['location'])
         
         minimap = MiniMap(self.screen, world.map.surface.get_rect(), self.screen_rect, world.plane_group)
