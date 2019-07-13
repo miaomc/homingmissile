@@ -520,19 +520,6 @@ class World(object):
         while True:
             self.q.put(self.sock.recvfrom(2048))
             # print("socket get msg.")
-    def waiting_connect(self, localip, otherip):
-        while True:
-            self.sock.sendto(u'200 OK',(otherip,8989))
-            if self.q.empty():
-                data, address = world.q.get()
-                print data, '--',address
-                if address[0] == otherip and data == u'200 OK':
-                    self.sock.sendto(u'200 OK',(otherip,8989))
-                    break
-            pygame.time.wait(100)
-        # 清空队列
-        with self.q.mutex:
-            self.q.clear()
 
     def add_player(self, player):
         self.player_list.append(player)
@@ -653,7 +640,7 @@ class World(object):
 
 class Game(object):
 
-    def __init__(self):
+    def init(self):
         os.environ['SDL_VIDEO_CENTERED'] = '1'
         pygame.init()
         pygame.mixer.init()  # 声音初始化
@@ -705,14 +692,26 @@ class Game(object):
         otherip = raw_input("Input the other player's ip:")
         return localip, otherip
 
+    def waiting_connect(self, localip, otherip):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.bind((localip, 8989))
+        while True:
+            sock.sendto(u'200 OK',(otherip,8989))
+            data, address = sock.recvfrom(2048)
+            if address[0] == otherip and data == u'200 OK':
+                self.sock.sendto(u'200 OK',(otherip,8989))
+                break
+        sock.close()
+
     def main(self):
+        # adding game
         localip, otherip = self.adding_game()
+        # waiting player2 adding
+        self.waiting_connect(localip, otherip)
 
         # INIT
+        self.init()
         world = World(self.screen, localip)
-
-        # waiting player2 adding
-        world.waiting_connect(localip, otherip)
         
         # MAP
         game_map = Map()  # 8000*4500--->screen, (8000*5)*(4500*5)---->map
