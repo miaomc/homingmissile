@@ -365,7 +365,7 @@ class Missile(Base):
 
 class Player(object):
 
-    def __init__(self, ip='127.0.0.1', weapon_group=None):
+    def __init__(self, ip, weapon_group=None):
         self.ip = ip
         self.plane = None
         self.weapon_group = weapon_group
@@ -484,7 +484,7 @@ class MiniMap(object):
 
 class World(object):
 
-    def __init__(self, screen):
+    def __init__(self, screen, ip):
         super(World, self).__init__()
         self.map = None
         self.minimap = None
@@ -498,7 +498,7 @@ class World(object):
 
         # UDP server
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        address = ("127.0.0.1", 8989)
+        address = (ip, 8989)
         self.sock.bind(address)
 
         # UDP listening
@@ -646,6 +646,9 @@ class Game(object):
         pygame.mixer.init()  # 声音初始化
         pygame.display.set_mode(SCREEN_SIZE)  # pygame.display.set_mode(pygame.FULLSCREEN)
 
+        # Return the size of the window or screen
+        # pygame.display.get_window_size()
+
         self.screen = pygame.display.get_surface()  # 游戏窗口对象
         self.screen_rect = self.screen.get_rect()  # 游戏窗口对象的rect
         self.move_pixels = 10
@@ -680,17 +683,39 @@ class Game(object):
                 key_list.append(keys)
         return key_list
 
+    def adding_game(self):
+        l = socket.getaddrinfo(socket.gethostname(),None)
+        for index,i in enumerate(l):
+            print index,i[-1][0]
+        index = input("select your own ip index:")
+        localip = l[index][-1][0]
+        otherip = raw_input("Input the other player's ip:")
+        return localip, otherip
+
     def main(self):
+        localip, otherip = self.adding_game()
+
         # INIT
-        world = World(self.screen)
+        world = World(self.screen, localip)
+
+        # waiting player2 adding
+        while True:
+            world.sock.sendto(u'200 OK',(otherip,8989))
+            if world.q.empty():
+                data, address = world.q.get()
+                print data, '--',address
+                if address[0] == otherip and data == '200 OK':
+                    world.sock.sendto(u'200 OK',(otherip,8989))
+                    break
+            pygame.time.wait(100)
 
         # MAP
         game_map = Map()  # 8000*4500--->screen, (8000*5)*(4500*5)---->map
         game_map.add_cloud()
-        world.add_map(game_map)
-
+        world.add_map(game_map)        
+    
         # local player
-        player = Player(weapon_group=world.weapon_group)
+        player = Player(weapon_group=world.weapon_group, ip=localip)
         plane = Plane(catalog='J20',
                       location=(100, 100))  # , location=[randint(0, world.map.size[0]), randint(0, world.map.size[1])])
         plane.load_weapon(catalog='Cobra', number=60)
@@ -701,8 +726,11 @@ class Game(object):
         world.add_player(player)
 
         # test player
-        player = Player(weapon_group=world.weapon_group, ip='192.168.0.107')
-        plane = Plane(catalog='F35', location=(150000, 200000))
+        player = Player(weapon_group=world.weapon_group, ip=otherip)
+        plane = Plane(catalog='J20', location=(1500000, 200000))
+        plane.load_weapon(catalog='Cobra', number=60)
+        plane.load_weapon(catalog='Gun', number=500)
+        plane.load_weapon(catalog='Rocket', number=8)
         player.add_plane(plane)
         # print '---', player.plane
         world.add_player(player)
