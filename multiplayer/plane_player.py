@@ -692,16 +692,16 @@ class Game(object):
         otherip = raw_input("Input the other player's ip:")
         return localip, otherip
 
-    def waiting_connect(self, sock, localip, otherip):
+    def waiting_connect(self, sock, port, localip, otherip):
         while True:
-            sock.sendto(u'200 OK',(otherip,8989))
+            sock.sendto(u'200 OK',(otherip,port))
             data, address = sock.recvfrom(2048)
             if address[0] == otherip and data == u'200 OK':
-                sock.sendto(u'200 OK',(otherip,8989))
+                sock.sendto(u'200 OK',(otherip,port))
                 break
 
-    def sock_sent_recv(self, sock, localip, otherip, msg):
-        sock.sendto(json.dumps(msg),(otherip,8989))
+    def sock_sent_recv(self, sock, port, otherip, msg):
+        sock.sendto(json.dumps(msg),(otherip,port))
         data, address = sock.recvfrom(2048)
         if address[0] == otherip:
             return json.loads(data)
@@ -711,8 +711,9 @@ class Game(object):
         localip, otherip = self.adding_game()
         # waiting player2 adding
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.bind((localip, 8988))
-        self.waiting_connect(sock, localip, otherip)
+        port = 8988
+        sock.bind((localip, port))
+        self.waiting_connect(sock, port, localip, otherip)  # connect
 
         # INIT
         self.init()
@@ -732,7 +733,7 @@ class Game(object):
                 'Rocket': 8
                 }
              }
-        tmp = self.sock_sent_recv(sock, localip, otherip, d)
+        tmp = self.sock_sent_recv(sock, port, otherip, d)  # synthenic msg
         sock.close()
         d.update(tmp)
         # add into World()
