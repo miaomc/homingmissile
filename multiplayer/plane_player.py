@@ -10,31 +10,11 @@ import json
 import logging
 from infomation import Infomation
 
-"""
-Readme: 需要计算精灵之间的碰撞和扣血
-"""
-
-"""
-plane:
-    initial_speed:
-    speed:
-    max_speed:
-    accelerate_parallel
-    # accelerate_vertical
-    control_key: left, right, fire_gun, fire_missile, fire_homing_missile
-
-missile:
-    initial_speed:
-    speed:
-    max_speed:
-    accelerate_parallel
-    accelerate_vertical
-"""
 
 PLANE_CATALOG = {
     'J20': {
         'health': 100,
-        'max_speed': 850,
+        'max_speed': 1400,
         'min_speed': 540,
         'acc_speed': 50,
         'turn_acc': 10,
@@ -44,7 +24,7 @@ PLANE_CATALOG = {
     },
     'F35': {
         'health': 100,
-        'max_speed': 850,
+        'max_speed': 1400,
         'min_speed': 540,
         'acc_speed': 50,
         'turn_acc': 10,
@@ -67,6 +47,7 @@ WEAPON_CATALOG = {
         'damage': 5,
         'image': ['./image/gunfire1.png', './image/gunfire2.png'],
         'fuel': 6,
+        'sound_collide_plane': ['./sound/bulletLtoR08','./sound/bulletLtoR09','./sound/bulletLtoR10','./sound/bulletLtoR11','./sound/bulletLtoR12','./sound/bulletLtoR13','./sound/bulletLtoR14']
     },
     'Rocket': {
         'health': 10,
@@ -94,11 +75,16 @@ WEAPON_CATALOG = {
     }
 }
 
+DEBUG_MODE = True
+LOCALIP='192.168.0.107'
+OTHERIP='192.168.0.105'
+PLANE_TYPE='F35'
+
 SPEED_RATIO = 0.25
 
 BACKGROUND_COLOR = (168, 168, 168)
 WHITE = (255, 255, 255)
-FPS = 50
+FPS = 25
 SCREEN_SIZE = (1280, 720)
 MARS_SCREEN_SIZE = (8000, 4500)
 MARS_MAP_SIZE = (8000 * 4, 4500 * 4)  # topleft starts: width, height
@@ -205,6 +191,8 @@ image:
 
         self.acc = Vector(0, 0)
 
+        self.sound_kill = None
+
     def rotate(self):
         angle = math.atan2(self.velocity.x, self.velocity.y) * 360 / 2 / math.pi - 180  # 这个角度是以当前方向结合默认朝上的原图进行翻转的
         self.image = pygame.transform.rotate(self.origin_image, angle)
@@ -222,6 +210,8 @@ image:
     def delete(self):
         self.kill()  # remove the Sprite from all Groups
         self.alive = False
+        if self.sound_kill:
+            self.sound_kill.play()
 
     def hitted(self, base_lst):
         for base in base_lst:
@@ -230,6 +220,8 @@ image:
             # print base.rect, self.rect
             self.health -= base.damage
             base.health -= self.damage
+            if self.catalog == 'Gun' and isinstance(base, Plane):
+                self.sound_collide_plane.play()
 
 
 class Plane(Base):
@@ -258,6 +250,8 @@ class Plane(Base):
         self.acc = Vector(0, 0)
 
         self.weapon = {1: {}, 2: {}, 3: {}}  # 默认没有武器
+
+        self.sound_kill = pygame.mixer.Sound("./sound/explode3.wav")
 
     def turn_left(self):
         self.acc += self.velocity.vertical_left() * self.turn_acc
@@ -297,7 +291,6 @@ class Plane(Base):
         super(Plane, self).update()
         if self.health <= 0:
             self.delete()
-            pygame.mixer.Sound("./sound/explode3.wav").play()
 
 
 class Missile(Base):
@@ -305,11 +298,13 @@ class Missile(Base):
         if catalog == 'Gun':
             image_path = WEAPON_CATALOG['Gun']['image'][randint(0, len(WEAPON_CATALOG['Gun']['image']) - 1)]
             self.sound_fire = pygame.mixer.Sound("./sound/minigun_fire.wav")
-            self.sound_fire.play(maxtime=200)
+            self.sound_fire.play(maxtime=100)
+            self.sound_collide_plane = pygame.mixer.Sound(WEAPON_CATALOG['Gun']['sound_collide_plane'][randint(0, len(WEAPON_CATALOG['Gun']['sound_collide_plane']) - 1)])
         else:
             image_path = WEAPON_CATALOG[catalog]['image']
             self.sound_fire = pygame.mixer.Sound("./sound/TPhFi201.wav")
             self.sound_fire.play()
+            self.sound_kill = pygame.mixer.Sound("./sound/ric5.wav")
         if catalog == 'Cobra':
             self.detect_range = WEAPON_CATALOG[catalog]['dectect_range']
         self.image_original = pygame.image.load(image_path).convert()
@@ -637,7 +632,7 @@ class World(object):
 
     def earase(self):
         # self.weapon_group.clear(self.map.surface, self.clear_callback)
-        self.plane_group.clear(self.map.surface, self.clear_callback)
+        # self.plane_group.clear(self.map.surface, self.clear_callback)
         pass
 
     def clear_callback(self, surf, rect):
@@ -698,9 +693,13 @@ class Game(object):
         l = socket.getaddrinfo(socket.gethostname(), None)
         for index, i in enumerate(l):
             print index, i[-1][0]
-        index = 1  # input("select your own ip index:")
-        localip = l[index][-1][0]
-        otherip = '192.168.0.107'  # raw_input("Input the other player's ip:")
+        if DEBUG_MODE:
+            localip = LOCALIP
+            otherip = OTHERIP
+        else:
+            input("select your own ip index:")
+            localip = l[index][-1][0]
+            otherip = '192.168.0.106'  # raw_input("Input the other player's ip:")
         return localip, otherip
 
     def waiting_connect(self, sock, port, localip, otherip):
@@ -731,9 +730,13 @@ class Game(object):
         self.waiting_connect(sock, port, localip, otherip)  # connect
 
         # add player
+        if DEBUG_MODE:
+            plane_type = PLANE_TYPE
+        else:
+            plane_type = raw_input("choose your plane catalog, 'J20' or 'F35':")
         d = {localip: {
-            'location': (randint(0, MARS_MAP_SIZE[0]), randint(0, MARS_MAP_SIZE[1])),
-            'Plane': 'F35',  # raw_input("choose your plane catalog, 'J20' or 'F35':"),
+            'location': (randint(0, MARS_MAP_SIZE[0]*4/5), randint(0, MARS_MAP_SIZE[1]*4/5)),
+            'Plane': plane_type,
             'Cobra': 60,
             'Gun': 500,
             'Rocket': 8
@@ -784,9 +787,9 @@ class Game(object):
 
         pygame.quit()
 
+
 if __name__ == '__main__':
-    # CRITICAL > ERROR > WARNING > INFO > DEBUG > NOTSET
-    logging.basicConfig(level=logging.DEBUG,
+    logging.basicConfig(level=logging.DEBUG,  # CRITICAL > ERROR > WARNING > INFO > DEBUG > NOTSET
                         format='%(asctime)s %(filename)s[line:%(lineno)d] [%(levelname)s] %(message)s',
                         datefmt='%Y-%b-%d %H:%M:%S-%a',
                         filename='logger.log',
