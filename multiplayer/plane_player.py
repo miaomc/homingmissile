@@ -77,8 +77,8 @@ WEAPON_CATALOG = {
 
 DEBUG_MODE = True
 LOCALIP = '192.168.0.107'
-OTHERIP = '192.168.0.107'
-PLANE_TYPE = 'J20'
+OTHERIP = '192.168.0.103'
+PLANE_TYPE = 'F35'
 
 SPEED_RATIO = 0.25
 
@@ -578,7 +578,7 @@ class World(object):
         # 如果没操作队列: event_list = key_list = []
         # str_event_list = json.dumps((event_list, id(self), self.syn_frame))
         str_event_list = json.dumps((event_list, self.syn_frame))
-        # logging.info(str_event_list)
+        logging.info('Send---> %s'%str_event_list)
         self.syn_frame += 1
         for player in self.player_list:  # 发送给每一个网卡，包括自己
             # print player.ip
@@ -657,14 +657,14 @@ class World(object):
         while not self.q.empty() or msg_num < self.players_num:  # 等待消息过来
             data, address = self.q.get()
             msg_num += 1  # 初略的判断来了两条消息就是两个玩家的消息
-            data_tmp = json.loads(data)[0]
+            data_tmp = json.loads(data)
             if not data_tmp:
                 continue
             for player in self.player_list:  # 遍历玩家，看这个收到的数据是谁的
                 if player.ip == address[0] and player.win:
-                    player.operation(data_tmp)  # data is list of pygame.key.get_pressed() of json.dumps
+                    player.operation(data_tmp[0])  # data is list of pygame.key.get_pressed() of json.dumps
                     break  # 有一个玩家取完消息就可以了
-                    # logging.info("Get Frame Number:%s, %s"%(str(data_tmp[1]), str(data_tmp[2])))
+            logging.info("Get ----> %s" % (str(data_tmp)))
 
         # n = 0
         # while not self.q.empty():  # [INFO]这么写有可能被阻塞，当一直有消息发过来的时候，采用计数变量n来退出
