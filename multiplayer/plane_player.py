@@ -54,7 +54,7 @@ WEAPON_CATALOG = {
         'init_speed': 0,
         'max_speed': 1500,
         'acc_speed': 120,
-        'damage': 100,
+        'damage': 35,
         'turn_acc': 0,
         'image': './image/homingmissile.png',
         'fuel': 9,
@@ -65,7 +65,7 @@ WEAPON_CATALOG = {
         'max_speed': 1360,
         'acc_speed': 40,
         'turn_acc': 35,
-        'damage': 80,
+        'damage': 25,
         'image': './image/homingmissile.png',
         'fuel': 9,
         'dectect_range': 10000 * 30
@@ -84,7 +84,7 @@ SPEED_RATIO = 0.25
 
 BACKGROUND_COLOR = (168, 168, 168)
 WHITE = (255, 255, 255)
-FPS = 25
+FPS = 50
 SCREEN_SIZE = (1280, 720)
 MARS_SCREEN_SIZE = (8000, 4500)
 MARS_MAP_SIZE = (8000 * 4, 4500 * 4)  # topleft starts: width, height
@@ -201,6 +201,14 @@ image:
         self.velocity += self.acc
         self.location.x += self.velocity.x * SPEED_RATIO / FPS
         self.location.y += self.velocity.y * SPEED_RATIO / FPS
+        if self.location.x < 0:
+            self.location.x = 0
+        if self.location.x > MARS_MAP_SIZE[0]:
+            self.location.x = MARS_MAP_SIZE[0]
+        if self.location.y < 0:
+            self.location.y = 0
+        if self.location.y > MARS_MAP_SIZE[1]:
+            self.location.y = MARS_MAP_SIZE[1]
         self.rect.center = Map.mars_translate((self.location.x, self.location.y))
         # logging.info('acc: %s' % str(self.acc))
         self.acc = Vector(0, 0)
@@ -624,10 +632,10 @@ class World(object):
                     if player.win:
                         data_tmp = json.loads(data)
                         player.operation(data_tmp[0])  # data is list of pygame.key.get_pressed() of json.dumps
-                        logging.info("Get Frame Number:%s, %s"%(str(data_tmp[1]), str(data_tmp[2])))
+                        # logging.info("Get Frame Number:%s, %s"%(str(data_tmp[1]), str(data_tmp[2])))
             n += 1
-            # logging.info('n=%d' % n)
-            if n > 10:  # 防止队列阻塞，每次最多处理10条队列信息
+            logging.info('n=%d' % n)
+            if n > 1:  # 防止队列阻塞，每次最多处理n条队列信息
                 break
 
         # 碰撞处理
@@ -721,7 +729,7 @@ class Game(object):
         else:
             input("select your own ip index:")
             localip = l[index][-1][0]
-            otherip = '192.168.0.106'  # raw_input("Input the other player's ip:")
+            otherip = raw_input("Input the other player's ip:")
         return localip, otherip
 
     def waiting_connect(self, sock, port, localip, otherip):
@@ -760,9 +768,9 @@ class Game(object):
             'location': (randint(MARS_MAP_SIZE[0] / 5, MARS_MAP_SIZE[0] * 4 / 5),
                          randint(MARS_MAP_SIZE[1] / 5, MARS_MAP_SIZE[1] * 4 / 5)),
             'Plane': plane_type,
-            'Cobra': 60,
             'Gun': 500,
-            'Rocket': 8
+            'Rocket': 15,
+            'Cobra': 5,
         }}
         tmp = self.sock_sent_recv(sock, port, otherip, d)  # synthenic msg
         sock.close()
@@ -801,8 +809,10 @@ class Game(object):
         while not self.done:
             event_list = self.event_control()
             world.process(event_list)
-            world.render(self.screen_rect)
             Map.adjust_rect(self.screen_rect, world.map.surface.get_rect())
+            # Map.adjust_rect()
+            world.render(self.screen_rect)
+            
             pygame.display.flip()
             self.clock.tick(self.fps)
 
