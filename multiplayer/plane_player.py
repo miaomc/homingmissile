@@ -15,7 +15,7 @@ PLANE_CATALOG = {
     'J20': {
         'health': 100,
         'max_speed': 1400,
-        'min_speed': 540,
+        'min_speed': 50,#540,
         'acc_speed': 50,
         'turn_acc': 10,
         'max_missile': 6,
@@ -25,7 +25,7 @@ PLANE_CATALOG = {
     'F35': {
         'health': 100,
         'max_speed': 1400,
-        'min_speed': 540,
+        'min_speed': 50,#540,
         'acc_speed': 50,
         'turn_acc': 10,
         'max_missile': 6,
@@ -44,10 +44,10 @@ WEAPON_CATALOG = {
         'max_speed': 2500,
         'acc_speed': 0,
         'turn_acc': 0,
-        'damage': 5,
+        'damage': 2,
         'image': ['./image/gunfire1.png', './image/gunfire2.png'],
         'fuel': 6,
-        'sound_collide_plane': ['./sound/bulletLtoR08','./sound/bulletLtoR09','./sound/bulletLtoR10','./sound/bulletLtoR11','./sound/bulletLtoR12','./sound/bulletLtoR13','./sound/bulletLtoR14']
+        'sound_collide_plane': ['./sound/bulletLtoR08.wav','./sound/bulletLtoR09.wav','./sound/bulletLtoR10.wav','./sound/bulletLtoR11.wav','./sound/bulletLtoR13.wav','./sound/bulletLtoR14.wav']
     },
     'Rocket': {
         'health': 10,
@@ -628,6 +628,7 @@ class World(object):
             if py.plane:
                 self.info.add(u'Health:%d' % py.plane.health)
                 self.info.add(u'Weapon:%s' % str(py.plane.weapon))
+                self.info.add(u'speed:%s,  location:%s,  rect:%s' % (str(py.plane.velocity),str(py.plane.location),str(py.plane.rect)))
             self.info.add(u'Groups:%s' % str(self.plane_group))
 
     def earase(self):
@@ -735,7 +736,7 @@ class Game(object):
         else:
             plane_type = raw_input("choose your plane catalog, 'J20' or 'F35':")
         d = {localip: {
-            'location': (randint(0, MARS_MAP_SIZE[0]*4/5), randint(0, MARS_MAP_SIZE[1]*4/5)),
+            'location': (randint(MARS_MAP_SIZE[0]/5, MARS_MAP_SIZE[0]*4/5), randint(MARS_MAP_SIZE[1]/5, MARS_MAP_SIZE[1]*4/5)),
             'Plane': plane_type,
             'Cobra': 60,
             'Gun': 500,
