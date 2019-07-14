@@ -76,15 +76,15 @@ WEAPON_CATALOG = {
 }
 
 DEBUG_MODE = True
-LOCALIP = '192.168.0.107'
-OTHERIP = '192.168.0.107'
+LOCALIP = '192.168.0.105'
+OTHERIP = '192.168.0.105'
 PLANE_TYPE = 'F35'
 
 SPEED_RATIO = 0.25
 
 BACKGROUND_COLOR = (168, 168, 168)
 WHITE = (255, 255, 255)
-FPS = 50
+FPS = 25
 SCREEN_SIZE = (1280, 720)
 MARS_SCREEN_SIZE = (8000, 4500)
 MARS_MAP_SIZE = (8000 * 4, 4500 * 4)  # topleft starts: width, height
@@ -203,11 +203,11 @@ image:
         self.location.y += self.velocity.y * SPEED_RATIO / FPS
         if self.location.x < 0:
             self.location.x = 0
-        if self.location.x > MARS_MAP_SIZE[0]:
+        elif self.location.x > MARS_MAP_SIZE[0]:
             self.location.x = MARS_MAP_SIZE[0]
         if self.location.y < 0:
             self.location.y = 0
-        if self.location.y > MARS_MAP_SIZE[1]:
+        elif self.location.y > MARS_MAP_SIZE[1]:
             self.location.y = MARS_MAP_SIZE[1]
         self.rect.center = Map.mars_translate((self.location.x, self.location.y))
         # logging.info('acc: %s' % str(self.acc))
@@ -544,7 +544,7 @@ class World(object):
 
     def msg_recv(self):
         while True:
-            self.q.put(self.sock.recvfrom(2048))
+            self.q.put(self.sock.recvfrom(4096))
             # print("socket get msg.")
 
     def add_player(self, player):
@@ -635,7 +635,7 @@ class World(object):
                         # logging.info("Get Frame Number:%s, %s"%(str(data_tmp[1]), str(data_tmp[2])))
             n += 1
             logging.info('n=%d' % n)
-            if n > 1:  # 防止队列阻塞，每次最多处理n条队列信息
+            if n > 10:  # 防止队列阻塞，每次最多处理n条队列信息
                 break
 
         # 碰撞处理
@@ -687,7 +687,7 @@ class Game(object):
 
         self.screen = pygame.display.get_surface()  # 游戏窗口对象
         self.screen_rect = self.screen.get_rect()  # 游戏窗口对象的rect
-        self.move_pixels = 25
+        self.move_pixels = 20
 
         self.fps = FPS
         self.clock = pygame.time.Clock()
@@ -805,7 +805,7 @@ class Game(object):
         world.backup_map()
 
         # PYGAME LOOP
-        pygame.key.set_repeat(10, 10)  # control how held keys are repeated
+        pygame.key.set_repeat(10, 40)  # control how held keys are repeated
         while not self.done:
             event_list = self.event_control()
             world.process(event_list)
