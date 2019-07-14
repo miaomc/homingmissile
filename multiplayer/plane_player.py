@@ -76,9 +76,9 @@ WEAPON_CATALOG = {
 }
 
 DEBUG_MODE = True
-LOCALIP = '192.168.0.105'
-OTHERIP = '192.168.0.105'
-PLANE_TYPE = 'F35'
+LOCALIP = '192.168.0.107'
+OTHERIP = '192.168.0.107'
+PLANE_TYPE = 'J20'
 
 SPEED_RATIO = 0.25
 
@@ -542,6 +542,8 @@ class World(object):
         # Info show
         self.info = Infomation()
 
+        self.players_num = 0
+
     def msg_recv(self):
         while True:
             self.q.put(self.sock.recvfrom(4096))
@@ -550,6 +552,7 @@ class World(object):
     def add_player(self, player):
         self.player_list.append(player)
         self.plane_group.add(player.plane)
+        self.players_num += 1
         # print 'Player:',self.player_list
         # print('Plane::', self.plane_group,player.plane)
 
@@ -572,10 +575,10 @@ class World(object):
         """
         在World类里面实现，TCP/IP的事件信息交互，Player类只做事件的update()
         """
-        if not event_list:  # 如果没操作队列，就不发消息
-            return
-
-        str_event_list = json.dumps((event_list, id(self), self.syn_frame))
+        # 如果没操作队列: event_list = key_list = []
+        # str_event_list = json.dumps((event_list, id(self), self.syn_frame))
+        str_event_list = json.dumps((event_list, self.syn_frame))
+        # logging.info(str_event_list)
         self.syn_frame += 1
         for player in self.player_list:  # 发送给每一个网卡，包括自己
             # print player.ip
@@ -610,6 +613,9 @@ class World(object):
     def process(self, event_list):
         """[WARNING]每个玩家（world）接收自己的消息队列，刷新自己的界面，没有消息同步机制，也没有同步下发机制，
         会导致不同玩家画面不一致情况（尤其在网络延迟大的情况下）"""
+        # 发送同步帧(上来就发送)
+        self.player_communicate(event_list)
+
         self.minimap.update()
         self.weapon_group.update(self.plane_group)
         # self.plane_group.clear(self.map.surface, )
@@ -622,21 +628,6 @@ class World(object):
             if i.target:
                 # print i.target
                 pygame.draw.rect(self.map.surface, (255, 0, 0), i.target.rect, 1)
-        self.player_communicate(event_list)
-
-        n = 0
-        while not self.q.empty():  # [INFO]这么写有可能被阻塞，当一直有消息发过来的时候，采用计数变量n来退出
-            data, address = self.q.get()
-            for player in self.player_list:  # 遍历玩家，看这个收到的数据是谁的
-                if player.ip == address[0]:
-                    if player.win:
-                        data_tmp = json.loads(data)
-                        player.operation(data_tmp[0])  # data is list of pygame.key.get_pressed() of json.dumps
-                        # logging.info("Get Frame Number:%s, %s"%(str(data_tmp[1]), str(data_tmp[2])))
-            n += 1
-            logging.info('n=%d' % n)
-            if n > 10:  # 防止队列阻塞，每次最多处理n条队列信息
-                break
 
         # 碰撞处理
         self.deal_collide()
@@ -654,11 +645,40 @@ class World(object):
             if py.plane:
                 self.info.add(u'Health:%d' % py.plane.health)
                 self.info.add(u'Weapon:%s' % str(py.plane.weapon))
-                self.info.add(u'speed:%s,  location:%s,  rect:%s' % (str(py.plane.velocity),str(py.plane.location),str(py.plane.rect)))
+                self.info.add(u'speed:%s,  location:%s,  rect:%s' % (
+                str(py.plane.velocity), str(py.plane.location), str(py.plane.rect)))
                 #    .info(u'speed:%s,  location:%s,  rect:%s' % (
                 # str(py.plane.velocity), str(py.plane.location), str(py.plane.rect)))
 
             self.info.add(u'Groups:%s' % str(self.plane_group))
+
+        # 收到消息进行操作（最后处理动作，留给消息接收）
+        msg_num = 0
+        while not self.q.empty() or msg_num < self.players_num:  # 等待消息过来
+            data, address = self.q.get()
+            msg_num += 1  # 初略的判断来了两条消息就是两个玩家的消息
+            data_tmp = json.loads(data)[0]
+            if not data_tmp:
+                continue
+            for player in self.player_list:  # 遍历玩家，看这个收到的数据是谁的
+                if player.ip == address[0] and player.win:
+                    player.operation(data_tmp)  # data is list of pygame.key.get_pressed() of json.dumps
+                    break  # 有一个玩家取完消息就可以了
+                    # logging.info("Get Frame Number:%s, %s"%(str(data_tmp[1]), str(data_tmp[2])))
+
+        # n = 0
+        # while not self.q.empty():  # [INFO]这么写有可能被阻塞，当一直有消息发过来的时候，采用计数变量n来退出
+        #     data, address = self.q.get()
+        #     for player in self.player_list:  # 遍历玩家，看这个收到的数据是谁的
+        #         if player.ip == address[0]:
+        #             if player.win:
+        #                 data_tmp = json.loads(data)
+        #                 player.operation(data_tmp[0])  # data is list of pygame.key.get_pressed() of json.dumps
+        #                 # logging.info("Get Frame Number:%s, %s"%(str(data_tmp[1]), str(data_tmp[2])))
+        #     n += 1
+        #     if n > 10:  # 防止队列阻塞，每次最多处理n条队列信息
+        #         break
+        # logging.info('n=%d' % n)
 
     def earase(self):
         # self.weapon_group.clear(self.map.surface, self.clear_callback)
@@ -746,24 +766,23 @@ class Game(object):
         if address[0] == otherip:
             if data == '200 OK':
                 data, address = sock.recvfrom(2048)
-            print 'DATA(repr):', repr(data)
+            # print 'DATA(repr):', repr(data)
             return json.loads(data)
 
     def main(self):
-        # adding game
+        # INPUT to adding game
         localip, otherip = self.adding_game()
-
+        # add player
+        if DEBUG_MODE:
+            plane_type = PLANE_TYPE
+        else:
+            plane_type = raw_input("choose your plane catalog, 'J20' or 'F35':")
         # waiting player2 adding
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         port = 8988
         sock.bind((localip, port))
         self.waiting_connect(sock, port, localip, otherip)  # connect
 
-        # add player
-        if DEBUG_MODE:
-            plane_type = PLANE_TYPE
-        else:
-            plane_type = raw_input("choose your plane catalog, 'J20' or 'F35':")
         d = {localip: {
             'location': (randint(MARS_MAP_SIZE[0] / 5, MARS_MAP_SIZE[0] * 4 / 5),
                          randint(MARS_MAP_SIZE[1] / 5, MARS_MAP_SIZE[1] * 4 / 5)),
@@ -773,17 +792,12 @@ class Game(object):
             'Cobra': 5,
         }}
         tmp = self.sock_sent_recv(sock, port, otherip, d)  # synthenic msg
+        d.update(tmp)  # 字典添加
         sock.close()
-        d.update(tmp)
 
-        # INIT
+        # INIT PYGAME & World
         self.init()
         world = World(self.screen, localip)
-
-        # MAP
-        game_map = Map()  # 8000*4500--->screen, (8000*5)*(4500*5)---->map
-        game_map.add_cloud()
-        world.add_map(game_map)
 
         # add into World()
         for i in d.keys():
@@ -796,26 +810,35 @@ class Game(object):
             player.add_plane(plane)
             world.add_player(player)
 
+        # MAP
+        game_map = Map()  # 8000*4500--->screen, (8000*5)*(4500*5)---->map
+        game_map.add_cloud()
+        world.add_map(game_map)
+        minimap = MiniMap(self.screen, world.map.surface.get_rect(), self.screen_rect, world.plane_group)
+        world.add_minimap(minimap)
+        world.backup_map()
+
         # 根据local player位置移动一次self.screen_rect git
         self.screen_rect.center = Map.mars_translate(d[localip]['location'])
 
-        minimap = MiniMap(self.screen, world.map.surface.get_rect(), self.screen_rect, world.plane_group)
-        world.add_minimap(minimap)
-
-        world.backup_map()
+        # 同步开始循环
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        port = 8988
+        sock.bind((localip, port))
+        self.waiting_connect(sock, port, localip, otherip)  # connect
+        sock.close()
 
         # PYGAME LOOP
-        pygame.key.set_repeat(10, 40)  # control how held keys are repeated
+        pygame.key.set_repeat(10, 10)  # control how held keys are repeated
         while not self.done:
             event_list = self.event_control()
             world.process(event_list)
             Map.adjust_rect(self.screen_rect, world.map.surface.get_rect())
             # Map.adjust_rect()
             world.render(self.screen_rect)
-            
+
             pygame.display.flip()
             self.clock.tick(self.fps)
-
             world.earase()
 
         pygame.quit()
