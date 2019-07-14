@@ -10,12 +10,11 @@ import json
 import logging
 from infomation import Infomation
 
-
 PLANE_CATALOG = {
     'J20': {
         'health': 100,
         'max_speed': 1400,
-        'min_speed': 50,#540,
+        'min_speed': 200,  # 540,
         'acc_speed': 50,
         'turn_acc': 10,
         'max_missile': 6,
@@ -25,7 +24,7 @@ PLANE_CATALOG = {
     'F35': {
         'health': 100,
         'max_speed': 1400,
-        'min_speed': 50,#540,
+        'min_speed': 200,  # 540,
         'acc_speed': 50,
         'turn_acc': 10,
         'max_missile': 6,
@@ -47,7 +46,8 @@ WEAPON_CATALOG = {
         'damage': 2,
         'image': ['./image/gunfire1.png', './image/gunfire2.png'],
         'fuel': 6,
-        'sound_collide_plane': ['./sound/bulletLtoR08.wav','./sound/bulletLtoR09.wav','./sound/bulletLtoR10.wav','./sound/bulletLtoR11.wav','./sound/bulletLtoR13.wav','./sound/bulletLtoR14.wav']
+        'sound_collide_plane': ['./sound/bulletLtoR08.wav', './sound/bulletLtoR09.wav', './sound/bulletLtoR10.wav',
+                                './sound/bulletLtoR11.wav', './sound/bulletLtoR13.wav', './sound/bulletLtoR14.wav']
     },
     'Rocket': {
         'health': 10,
@@ -76,9 +76,9 @@ WEAPON_CATALOG = {
 }
 
 DEBUG_MODE = True
-LOCALIP='192.168.0.107'
-OTHERIP='192.168.0.105'
-PLANE_TYPE='F35'
+LOCALIP = '192.168.0.107'
+OTHERIP = '192.168.0.107'
+PLANE_TYPE = 'F35'
 
 SPEED_RATIO = 0.25
 
@@ -202,7 +202,7 @@ image:
         self.location.x += self.velocity.x * SPEED_RATIO / FPS
         self.location.y += self.velocity.y * SPEED_RATIO / FPS
         self.rect.center = Map.mars_translate((self.location.x, self.location.y))
-
+        # logging.info('acc: %s' % str(self.acc))
         self.acc = Vector(0, 0)
         self.rotate()
         # logging.info('location:%s, rect:%s' % (str(self.location), str(self.rect)))
@@ -263,13 +263,13 @@ class Plane(Base):
 
     def speedup(self):
         self.acc += self.velocity.normalize_vector() * self.acc_speed
-        if self.velocity.length() > self.max_speed:
+        if (self.velocity + self.acc).length() > self.max_speed:
             self.acc = Vector(0, 0)
         # print self.acc, self.velocity, self.rect
 
     def speeddown(self):
         self.acc -= self.velocity.normalize_vector() * self.acc_speed
-        if self.velocity.length() < self.min_speed:
+        if (self.velocity - self.acc).length() < self.min_speed:
             self.acc = Vector(0, 0)
         # print self.acc, self.velocity, self.rect
         # print self.rect
@@ -299,7 +299,8 @@ class Missile(Base):
             image_path = WEAPON_CATALOG['Gun']['image'][randint(0, len(WEAPON_CATALOG['Gun']['image']) - 1)]
             self.sound_fire = pygame.mixer.Sound("./sound/minigun_fire.wav")
             self.sound_fire.play(maxtime=100)
-            self.sound_collide_plane = pygame.mixer.Sound(WEAPON_CATALOG['Gun']['sound_collide_plane'][randint(0, len(WEAPON_CATALOG['Gun']['sound_collide_plane']) - 1)])
+            self.sound_collide_plane = pygame.mixer.Sound(WEAPON_CATALOG['Gun']['sound_collide_plane'][randint(0, len(
+                WEAPON_CATALOG['Gun']['sound_collide_plane']) - 1)])
         else:
             image_path = WEAPON_CATALOG[catalog]['image']
             self.sound_fire = pygame.mixer.Sound("./sound/TPhFi201.wav")
@@ -381,8 +382,8 @@ class Player(object):
                 self.plane.weapon[slot]['number'] -= 1
                 # print dir(self.plane)
                 tmp_rect = Map.mars_unti_translate((
-                                                   self.plane.velocity.normalize_vector().x * self.plane.rect.height,
-                                                   self.plane.velocity.normalize_vector().y * self.plane.rect.height))
+                    self.plane.velocity.normalize_vector().x * self.plane.rect.height,
+                    self.plane.velocity.normalize_vector().y * self.plane.rect.height))
                 location_x = self.plane.location.x + tmp_rect[0]
                 location_y = self.plane.location.y + tmp_rect[1]
                 # print location_x,location_y, '<------------', self.plane.location, self.plane.rect
@@ -442,6 +443,18 @@ class Map(object):
             cloud = Base(location=location, image=cloud_image)
             sprite_group.add(cloud)
         sprite_group.draw(self.surface)
+
+    @staticmethod
+    def adjust_rect(rect, big_rect):
+        """调节rect，不出big_rect的大框框"""
+        if rect.left < big_rect.left:
+            rect.left = big_rect.left
+        if rect.top < big_rect.top:
+            rect.top = big_rect.top
+        if rect.right > big_rect.right:
+            rect.right = big_rect.right
+        if rect.bottom > big_rect.bottom:
+            rect.bottom = big_rect.bottom
 
 
 class MiniMap(object):
@@ -504,6 +517,7 @@ class World(object):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         address = (ip, 8989)
         self.sock.bind(address)
+        self.syn_frame = 0
 
         # UDP listening
         thread1 = threading.Thread(target=self.msg_recv)
@@ -553,7 +567,8 @@ class World(object):
         if not event_list:  # 如果没操作队列，就不发消息
             return
 
-        str_event_list = json.dumps(event_list)
+        str_event_list = json.dumps((event_list, id(self), self.syn_frame))
+        self.syn_frame += 1
         for player in self.player_list:  # 发送给每一个网卡，包括自己
             # print player.ip
             try:
@@ -607,8 +622,11 @@ class World(object):
             for player in self.player_list:  # 遍历玩家，看这个收到的数据是谁的
                 if player.ip == address[0]:
                     if player.win:
-                        player.operation(json.loads(data))  # data is list of pygame.key.get_pressed() of json.dumps
+                        data_tmp = json.loads(data)
+                        player.operation(data_tmp[0])  # data is list of pygame.key.get_pressed() of json.dumps
+                        logging.info("Get Frame Number:%s, %s"%(str(data_tmp[1]), str(data_tmp[2])))
             n += 1
+            # logging.info('n=%d' % n)
             if n > 10:  # 防止队列阻塞，每次最多处理10条队列信息
                 break
 
@@ -629,6 +647,9 @@ class World(object):
                 self.info.add(u'Health:%d' % py.plane.health)
                 self.info.add(u'Weapon:%s' % str(py.plane.weapon))
                 self.info.add(u'speed:%s,  location:%s,  rect:%s' % (str(py.plane.velocity),str(py.plane.location),str(py.plane.rect)))
+                #    .info(u'speed:%s,  location:%s,  rect:%s' % (
+                # str(py.plane.velocity), str(py.plane.location), str(py.plane.rect)))
+
             self.info.add(u'Groups:%s' % str(self.plane_group))
 
     def earase(self):
@@ -658,7 +679,7 @@ class Game(object):
 
         self.screen = pygame.display.get_surface()  # 游戏窗口对象
         self.screen_rect = self.screen.get_rect()  # 游戏窗口对象的rect
-        self.move_pixels = 10
+        self.move_pixels = 25
 
         self.fps = FPS
         self.clock = pygame.time.Clock()
@@ -736,7 +757,8 @@ class Game(object):
         else:
             plane_type = raw_input("choose your plane catalog, 'J20' or 'F35':")
         d = {localip: {
-            'location': (randint(MARS_MAP_SIZE[0]/5, MARS_MAP_SIZE[0]*4/5), randint(MARS_MAP_SIZE[1]/5, MARS_MAP_SIZE[1]*4/5)),
+            'location': (randint(MARS_MAP_SIZE[0] / 5, MARS_MAP_SIZE[0] * 4 / 5),
+                         randint(MARS_MAP_SIZE[1] / 5, MARS_MAP_SIZE[1] * 4 / 5)),
             'Plane': plane_type,
             'Cobra': 60,
             'Gun': 500,
@@ -780,7 +802,7 @@ class Game(object):
             event_list = self.event_control()
             world.process(event_list)
             world.render(self.screen_rect)
-
+            Map.adjust_rect(self.screen_rect, world.map.surface.get_rect())
             pygame.display.flip()
             self.clock.tick(self.fps)
 
