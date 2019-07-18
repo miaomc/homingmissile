@@ -17,7 +17,6 @@ PLANE_CATALOG = {
         'min_speed': 200,  # 540,
         'acc_speed': 50,
         'turn_acc': 10,
-        'max_missile': 6,
         'image': './image/plane_red.png',
         'damage': 100,
     },
@@ -27,7 +26,6 @@ PLANE_CATALOG = {
         'min_speed': 200,  # 540,
         'acc_speed': 50,
         'turn_acc': 10,
-        'max_missile': 6,
         'image': './image/plane_blue.png',
         'damage': 100,
     },
@@ -371,6 +369,7 @@ class Missile(Base):
 class Player(object):
 
     def __init__(self, ip, weapon_group=None):
+        """self.weapon_group = pygame.sprite.Group() in Class Game()"""
         self.ip = ip
         self.plane = None
         self.weapon_group = weapon_group
@@ -507,23 +506,30 @@ class MiniMap(object):
             pygame.draw.rect(self.screen, (255, 0, 255), pygame.Rect(left, top, 2, 2), 4)
 
 
-class World(object):
+class Game(object):
 
-    def __init__(self, screen, ip):
+    # def game_init(self, screen, ip):
+    def game_init(self, localip):
         super(World, self).__init__()
+        logging.basicConfig(level=logging.DEBUG,  # CRITICAL > ERROR > WARNING > INFO > DEBUG > NOTSET
+                            format='%(asctime)s %(filename)s[line:%(lineno)d] [%(levelname)s] %(message)s',
+                            datefmt='%Y-%b-%d %H:%M:%S-%a',
+                            filename='logger.log',
+                            filemode='w')
+
         self.map = None
         self.minimap = None
-        self.screen = screen
         # self.current_rect = self.screen.get_rect()
 
         self.player_list = []
+        # self.players_num = 0
 
         # MSG QUEUE
         self.q = Queue.Queue()
 
         # UDP server
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        address = (ip, 8989)
+        address = (localip, 8989)
         self.sock.bind(address)
         self.syn_frame = 0
 
@@ -542,7 +548,20 @@ class World(object):
         # Info show
         self.info = Infomation()
 
-        self.players_num = 0
+
+    def screen_init(self):
+        os.environ['SDL_VIDEO_CENTERED'] = '1'
+        pygame.init()
+        pygame.mixer.init()  # 声音初始化
+        pygame.display.set_mode(SCREEN_SIZE)  # pygame.display.set_mode(pygame.FULLSCREEN)
+        # Return the size of the window or screen
+        # pygame.display.get_window_size()
+        self.screen = pygame.display.get_surface()  # 游戏窗口对象
+        self.screen_rect = self.screen.get_rect()  # 游戏窗口对象的rect
+        self.move_pixels = 20
+        self.fps = FPS
+        self.clock = pygame.time.Clock()
+        self.done = False
 
     def msg_recv(self):
         while True:
@@ -552,9 +571,32 @@ class World(object):
     def add_player(self, player):
         self.player_list.append(player)
         self.plane_group.add(player.plane)
-        self.players_num += 1
+        # self.players_num += 1
         # print 'Player:',self.player_list
         # print('Plane::', self.plane_group,player.plane)
+
+    def init_local_player(self, localip):
+        if DEBUG_MODE:
+            plane_type = PLANE_TYPE
+        else:
+            plane_type = raw_input("choose your plane catalog, 'J20' or 'F35':")
+
+        msg_player = {'ip': localip,
+            'location': (randint(MARS_MAP_SIZE[0] / 5, MARS_MAP_SIZE[0] * 4 / 5),
+                         randint(MARS_MAP_SIZE[1] / 5, MARS_MAP_SIZE[1] * 4 / 5)),
+            'Plane': plane_type,
+            'Gun': 500,
+            'Rocket': 15,
+            'Cobra': 5,
+        }
+
+        player = Player(weapon_group=self.weapon_group, ip=msg_player['ip'])
+        plane = Plane(catalog=msg_player['Plane'], location=msg_player['location'])
+        plane.load_weapon(catalog='Cobra', number=msg_player['Cobra'])
+        plane.load_weapon(catalog='Gun', number=msg_player['Gun'])
+        plane.load_weapon(catalog='Rocket', number=msg_player['Rocket'])
+        player.add_plane(plane)
+        return player
 
     def add_map(self, big_map):
         self.map = big_map
@@ -654,7 +696,7 @@ class World(object):
 
         # 收到消息进行操作（最后处理动作，留给消息接收）
         msg_num = 0
-        while not self.q.empty() or msg_num < self.players_num:  # 等待消息过来
+        while not self.q.empty() or msg_num < len(self.player_list):  # 等待消息过来
             data, address = self.q.get()
             msg_num += 1  # 初略的判断来了两条消息就是两个玩家的消息
             data_tmp = json.loads(data)
@@ -665,20 +707,6 @@ class World(object):
                     player.operation(data_tmp[0])  # data is list of pygame.key.get_pressed() of json.dumps
                     break  # 有一个玩家取完消息就可以了
             logging.info("Get ----> %s" % (str(data_tmp)))
-
-        # n = 0
-        # while not self.q.empty():  # [INFO]这么写有可能被阻塞，当一直有消息发过来的时候，采用计数变量n来退出
-        #     data, address = self.q.get()
-        #     for player in self.player_list:  # 遍历玩家，看这个收到的数据是谁的
-        #         if player.ip == address[0]:
-        #             if player.win:
-        #                 data_tmp = json.loads(data)
-        #                 player.operation(data_tmp[0])  # data is list of pygame.key.get_pressed() of json.dumps
-        #                 # logging.info("Get Frame Number:%s, %s"%(str(data_tmp[1]), str(data_tmp[2])))
-        #     n += 1
-        #     if n > 10:  # 防止队列阻塞，每次最多处理n条队列信息
-        #         break
-        # logging.info('n=%d' % n)
 
     def earase(self):
         # self.weapon_group.clear(self.map.surface, self.clear_callback)
@@ -693,26 +721,6 @@ class World(object):
         # area = self.origin_map.
         # surf.fill(area, rect)
 
-
-class Game(object):
-
-    def init(self):
-        os.environ['SDL_VIDEO_CENTERED'] = '1'
-        pygame.init()
-        pygame.mixer.init()  # 声音初始化
-        pygame.display.set_mode(SCREEN_SIZE)  # pygame.display.set_mode(pygame.FULLSCREEN)
-
-        # Return the size of the window or screen
-        # pygame.display.get_window_size()
-
-        self.screen = pygame.display.get_surface()  # 游戏窗口对象
-        self.screen_rect = self.screen.get_rect()  # 游戏窗口对象的rect
-        self.move_pixels = 20
-
-        self.fps = FPS
-        self.clock = pygame.time.Clock()
-
-        self.done = False
 
     def event_control(self):
         """
@@ -739,18 +747,29 @@ class Game(object):
                 key_list.append(keys)
         return key_list
 
-    def adding_game(self, ):
+    def get_local_ip(self):
         l = socket.getaddrinfo(socket.gethostname(), None)
         for index, i in enumerate(l):
             print index, i[-1][0]
         if DEBUG_MODE:
             localip = LOCALIP
-            otherip = OTHERIP
         else:
             input("select your own ip index:")
             localip = l[index][-1][0]
-            otherip = raw_input("Input the other player's ip:")
-        return localip, otherip
+        return localip
+
+    # def adding_game(self, ):
+    #     l = socket.getaddrinfo(socket.gethostname(), None)
+    #     for index, i in enumerate(l):
+    #         print index, i[-1][0]
+    #     if DEBUG_MODE:
+    #         localip = LOCALIP
+    #         otherip = OTHERIP
+    #     else:
+    #         input("select your own ip index:")
+    #         localip = l[index][-1][0]
+    #         otherip = raw_input("Input the other player's ip:")
+    #     return localip, otherip
 
     def waiting_connect(self, sock, port, localip, otherip):
         while True:
@@ -770,8 +789,43 @@ class Game(object):
             return json.loads(data)
 
     def main(self):
+        localip = self.get_local_ip()
+        local_player = self.init_local_player(localip)
+        self.add_player(local_player)
+
+        self.game_init(localip)
+
+        if self.create_or_join():
+            self.create()
+        else:
+            self.join()
+
+        ## To be...............
+
+
+
+
+
+        localip, otherip = self.adding_game()
+        if DEBUG_MODE:
+            plane_type = PLANE_TYPE
+        else:
+            plane_type = raw_input("choose your plane catalog, 'J20' or 'F35':")
+
+        msg_player = {localip: {
+            'location': (randint(MARS_MAP_SIZE[0] / 5, MARS_MAP_SIZE[0] * 4 / 5),
+                         randint(MARS_MAP_SIZE[1] / 5, MARS_MAP_SIZE[1] * 4 / 5)),
+            'Plane': plane_type,
+            'Gun': 500,
+            'Rocket': 15,
+            'Cobra': 5,
+        }}
+
+
+    def main_0(self):
         # INPUT to adding game
         localip, otherip = self.adding_game()
+
         # add player
         if DEBUG_MODE:
             plane_type = PLANE_TYPE
@@ -783,7 +837,7 @@ class Game(object):
         sock.bind((localip, port))
         self.waiting_connect(sock, port, localip, otherip)  # connect
 
-        d = {localip: {
+        msg_player = {localip: {
             'location': (randint(MARS_MAP_SIZE[0] / 5, MARS_MAP_SIZE[0] * 4 / 5),
                          randint(MARS_MAP_SIZE[1] / 5, MARS_MAP_SIZE[1] * 4 / 5)),
             'Plane': plane_type,
@@ -792,7 +846,7 @@ class Game(object):
             'Cobra': 5,
         }}
         tmp = self.sock_sent_recv(sock, port, otherip, d)  # synthenic msg
-        d.update(tmp)  # 字典添加
+        msg_player.update(tmp)  # 字典添加
         sock.close()
 
         # INIT PYGAME & World
@@ -845,10 +899,5 @@ class Game(object):
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG,  # CRITICAL > ERROR > WARNING > INFO > DEBUG > NOTSET
-                        format='%(asctime)s %(filename)s[line:%(lineno)d] [%(levelname)s] %(message)s',
-                        datefmt='%Y-%b-%d %H:%M:%S-%a',
-                        filename='logger.log',
-                        filemode='w')
     game = Game()
     game.main()
