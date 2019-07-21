@@ -10,7 +10,7 @@ import json
 import logging
 from infomation import Infomation
 
-DEBUG_MODE = True
+DEBUG_MODE = False
 LOCALIP = '192.168.1.113'
 OTHERIP = '192.168.0.103'
 PLANE_TYPE = 'F35'
@@ -607,9 +607,14 @@ class Game(object):
     def create(self, localip, msg_player):
         print('Game is created. Host IP: %s.' % localip)
         print('waiting players to entering.'),
+        n = 0
         while self.q.empty():
+            n += 1
             print('.'),
+            if n % 20 == 0:
+                print
             pygame.time.wait(500)
+
         data, address = self.q.get()  # 0.0 join get
         if json.loads(data) == 'join':
             self.sock_send('join_ack', address)  # 1.0 join_ack send
@@ -805,6 +810,7 @@ class Game(object):
     def sock_send(self, strs, dest):
         """strs: unicode string or dict object"""
         self.sock.sendto(json.dumps(strs), dest)
+        print('SEND:%s'%json.dumps(strs))
 
     def sock_waitfor(self, msg, dest, delay=100, waiting_times=30):
         count = 0
@@ -815,6 +821,7 @@ class Game(object):
                 print('[ERROR]Sock Waiting Timeout: %s' % msg)
                 return False
         data, address = self.q.get()
+        print('GET:%s'%str(json.loads(data)))
         if address[0] == dest[0]:
             print('[INFO]Sock Msg Get:%s' % json.loads(data))
             return json.loads(data)
@@ -849,9 +856,13 @@ class Game(object):
         self.d[localip] = msg_player
 
         if self.create_or_join():
-            self.create(localip, msg_player)
+            if not self.create(localip, msg_player):
+                print('waiting join failed!')
+                return False
         else:
-            self.join(sock_port, msg_player)
+            if not self.join(sock_port, msg_player):
+                print('join failed!')
+                return False
 
         # Pygame screen init
         self.screen_init()
