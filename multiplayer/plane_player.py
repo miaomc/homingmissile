@@ -605,13 +605,13 @@ class Game(object):
             return False
 
     def create(self, localip, msg_player):
-        print('Game is created. Host IP: %s.' % localip)
+        print('Game is created. Host IP: %s' % localip)
         print('waiting players to entering.'),
         n = 0
         while self.q.empty():
             n += 1
             print('.'),
-            if n % 20 == 0:
+            if n % 45 == 0:
                 print
             pygame.time.wait(500)
 
@@ -737,11 +737,12 @@ class Game(object):
                 # pygame.time.delay(1000/FPS/10)  # 25fps的话，就是等待4ms
                 pass
             data, address = self.q.get()
-            data_tmp = json.loads(data)
+            data_tmp = json.loads(data)[0]  # [key_lists, frame_number]
             if not data_tmp:
                 continue
             for player in self.player_list:  # 遍历玩家，看这个收到的数据是谁的
                 if player.ip == address[0] and player.win:
+                    # print data_tmp
                     for one_data in data_tmp:
                         player.operation(one_data)  # data is list of pygame.key.get_pressed() of json.dumps
                     break  # 一个数据只有可能对应一个玩家的操作，有一个玩家取完消息就可以了
