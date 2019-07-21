@@ -657,11 +657,11 @@ class Game(object):
         # 如果没操作队列: event_list = key_list = []
         # str_event_list = json.dumps((event_list, id(self), self.syn_frame))
         str_event_list = json.dumps((event_list, self.syn_frame))
-        logging.info('Send---> %s' % str_event_list)
         self.syn_frame += 1
         for player in self.player_list:  # 发送给每一个网卡，包括自己
             # print player.ip
             try:
+                logging.info('Send---> %s, %s' % (str((player.ip, 8989)),str_event_list))
                 self.sock.sendto(str_event_list, (player.ip, 8989))
             except Exception, msg:
                 logging.warn('Offline(Socket Error):' + str(msg))
@@ -732,18 +732,20 @@ class Game(object):
             self.info.add(u'Groups:%s' % str(self.plane_group))
 
         # 收到消息进行操作（最后处理动作，留给消息接收）
-        msg_num = 0
-        while not self.q.empty() or msg_num < len(self.player_list):  # 等待消息过来
+        for i in range(len(self.player_list)):  # 一共有两个玩家发送的消息要接受，否则卡死等待
+            while self.q.empty():
+                # pygame.time.delay(1000/FPS/10)  # 25fps的话，就是等待4ms
+                pass
             data, address = self.q.get()
-            msg_num += 1  # 初略的判断来了两条消息就是两个玩家的消息
             data_tmp = json.loads(data)
             if not data_tmp:
                 continue
             for player in self.player_list:  # 遍历玩家，看这个收到的数据是谁的
                 if player.ip == address[0] and player.win:
-                    player.operation(data_tmp[0])  # data is list of pygame.key.get_pressed() of json.dumps
-                    break  # 有一个玩家取完消息就可以了
-            logging.info("Get ----> %s" % (str(data_tmp)))
+                    for one_data in data_tmp:
+                        player.operation(one_data)  # data is list of pygame.key.get_pressed() of json.dumps
+                    break  # 一个数据只有可能对应一个玩家的操作，有一个玩家取完消息就可以了
+            logging.info("Get ----> %s, %s" % (str(address) ,str(data_tmp)))
 
     def erase(self):
         # self.weapon_group.clear(self.map.surface, self.clear_callback)
@@ -755,8 +757,6 @@ class Game(object):
         # self.screen.blit(source=self.map.surface, dest=(0, 0), area=self.current_rect)
         # blit(source, dest, area=None, special_flags=0) -> Rect
         surf.blit(source=self.origin_map_surface, dest=rect, area=rect)
-        # area = self.origin_map.
-        # surf.fill(area, rect)
 
     def event_control(self):
         """
@@ -790,8 +790,7 @@ class Game(object):
         if DEBUG_MODE:
             localip = LOCALIP
         else:
-            input("select your own ip index:")
-            localip = l[index][-1][0]
+            localip = l[input("select your own ip index:")][-1][0]
         return localip
 
     # def adding_game(self, ):
