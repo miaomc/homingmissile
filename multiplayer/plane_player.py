@@ -82,7 +82,7 @@ SPEED_RATIO = 0.25
 
 BACKGROUND_COLOR = (168, 168, 168)
 WHITE = (255, 255, 255)
-FPS = 50
+FPS = 30
 SCREEN_SIZE = (1280, 720)
 MARS_SCREEN_SIZE = (8000, 4500)
 MARS_MAP_SIZE = (8000 * 4, 4500 * 4)  # topleft starts: width, height
@@ -713,17 +713,21 @@ class Game(object):
         msg_num = 0
         # get_msg_dir = {ip:False for ip in self.player_list.ip}
         while True:
+            if msg_num >= len(self.player_list):  # 一共有两个玩家发送的消息要接受，否则卡死等待
+                break
             resend_time = 0
             while self.q.empty():
                 resend_time += 1
                 pygame.time.wait(1)  # 等待1ms
-                if resend_time > 200:
+                if resend_time > 100:
                     msg_num += 1
                     print('[ERROR]MSG LOST: %d'%self.syn_frame)
                     break
                     # for ip in get_msg_dir.keys()
                     #     if not get_msg_dir[ip]:
                     #         self.sock_send('package lost',(get_msg_dir[ip], 8989))
+            if self.q.empty():
+                continue
             data, address = self.q.get()
             data_tmp = json.loads(data)[0]  # [key_lists, frame_number]
             for player in self.player_list:  # 遍历玩家，看这个收到的数据是谁的
@@ -737,8 +741,7 @@ class Game(object):
                         logging.info("Get ----> %s, %s" % (str(address), str(data_tmp)))
                     break  # 一个数据只有可能对应一个玩家的操作，有一个玩家取完消息就可以了
 
-            if msg_num >= len(self.player_list):  # 一共有两个玩家发送的消息要接受，否则卡死等待
-                break
+
 
     def erase(self):
         # self.weapon_group.clear(self.map.surface, self.clear_callback)
