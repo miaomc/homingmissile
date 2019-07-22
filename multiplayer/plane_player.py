@@ -17,20 +17,20 @@ PLANE_TYPE = 'F35'
 
 PLANE_CATALOG = {
     'J20': {
-        'health': 100,
-        'max_speed': 1400,
-        'min_speed': 200,  # 540,
-        'acc_speed': 50,
+        'health': 500,
+        'max_speed': 800,
+        'min_speed': 110,  # 540,
+        'acc_speed': 40,
         'turn_acc': 10,
         'image': './image/plane_red.png',
         'damage': 100,
     },
     'F35': {
-        'health': 100,
+        'health': 200,
         'max_speed': 1400,
         'min_speed': 200,  # 540,
         'acc_speed': 50,
-        'turn_acc': 10,
+        'turn_acc': 50,
         'image': './image/plane_blue.png',
         'damage': 100,
     },
