@@ -717,7 +717,8 @@ class Game(object):
             while self.q.empty():
                 resend_time += 1
                 pygame.time.wait(1)  # µÈ´ý1ms
-                if resend_time > 500:
+                if resend_time > 200:
+                    msg_num += 1
                     print('[ERROR]MSG LOST: %d'%self.syn_frame)
                     break
                     # for ip in get_msg_dir.keys()
