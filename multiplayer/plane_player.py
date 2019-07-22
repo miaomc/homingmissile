@@ -82,7 +82,7 @@ SPEED_RATIO = 0.25
 
 BACKGROUND_COLOR = (168, 168, 168)
 WHITE = (255, 255, 255)
-FPS = 25
+FPS = 50
 SCREEN_SIZE = (1280, 720)
 MARS_SCREEN_SIZE = (8000, 4500)
 MARS_MAP_SIZE = (8000 * 4, 4500 * 4)  # topleft starts: width, height
@@ -715,6 +715,7 @@ class Game(object):
             data, address = self.q.get()
             data_tmp = json.loads(data)[0]  # [key_lists, frame_number]
             if not data_tmp:
+                logging.info("Get ----> %s, %s" % (str(address), str(data_tmp)))
                 continue
             for player in self.player_list:  # 遍历玩家，看这个收到的数据是谁的
                 if player.ip == address[0] and player.win:
