@@ -650,6 +650,7 @@ class Game(object):
             try:
                 logging.info('Send---> %s, %s' % (str((player.ip, 8989)),str_event_list))
                 self.sock.sendto(str_event_list, (player.ip, 8989))
+                # self.sock.sendto(str_event_list, (player.ip, 8989))  # 发双份
             except Exception, msg:
                 logging.warn('Offline(Socket Error):' + str(msg))
 
@@ -708,22 +709,35 @@ class Game(object):
             self.info.add(u'Groups:%s' % str(self.plane_group))
 
         # 收到消息进行操作（最后处理动作，留给消息接收）
-        for i in range(len(self.player_list)):  # 一共有两个玩家发送的消息要接受，否则卡死等待
+
+        msg_num = 0
+        # get_msg_dir = {ip:False for ip in self.player_list.ip}
+        while True:
+            resend_time = 0
             while self.q.empty():
-                # pygame.time.delay(1000/FPS/10)  # 25fps的话，就是等待4ms
-                pass
+                resend_time += 1
+                pygame.time.wait(1)  # 等待1ms
+                if resend_time > 500:
+                    print('[ERROR]MSG LOST: %d'%self.syn_frame)
+                    break
+                    # for ip in get_msg_dir.keys()
+                    #     if not get_msg_dir[ip]:
+                    #         self.sock_send('package lost',(get_msg_dir[ip], 8989))
             data, address = self.q.get()
             data_tmp = json.loads(data)[0]  # [key_lists, frame_number]
-            if not data_tmp:
-                logging.info("Get ----> %s, %s" % (str(address), str(data_tmp)))
-                continue
             for player in self.player_list:  # 遍历玩家，看这个收到的数据是谁的
                 if player.ip == address[0] and player.win:
-                    # print data_tmp
-                    # for one_data in data_tmp:
-                    player.operation(data_tmp)  # data is list of pygame.key.get_pressed() of json.dumps
+                    # get_msg_dir[player.ip] = Ture
+                    msg_num += 1
+                    if not data_tmp:
+                        logging.info("Get ----> %s, %s" % (str(address), str(data_tmp)))
+                    else:
+                        player.operation(data_tmp)  # data is list of pygame.key.get_pressed() of json.dumps
+                        logging.info("Get ----> %s, %s" % (str(address), str(data_tmp)))
                     break  # 一个数据只有可能对应一个玩家的操作，有一个玩家取完消息就可以了
-            logging.info("Get ----> %s, %s" % (str(address) ,str(data_tmp)))
+
+            if msg_num >= len(self.player_list):  # 一共有两个玩家发送的消息要接受，否则卡死等待
+                break
 
     def erase(self):
         # self.weapon_group.clear(self.map.surface, self.clear_callback)
