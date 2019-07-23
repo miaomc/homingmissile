@@ -390,29 +390,52 @@ class Player(object):
                 self.weapon_group.add(weapon)
 
     def operation(self, key_list):
-        for keys in key_list:
-            if keys[pygame.K_a]:  # 直接使用 pygame.key.get_pressed() 可以多键同时独立识别
+        for key in key_list:
+            if key == 'a':
                 self.plane.turn_left()
-            if keys[pygame.K_d]:
+            elif key == 'd':
                 self.plane.turn_right()
-            if keys[pygame.K_w]:
+            elif keys=='w':
                 self.plane.speedup()
-            if keys[pygame.K_s]:
+            elif key == 's':
                 self.plane.speeddown()
 
-            if keys[pygame.K_1]:
+            elif key == '1':
                 self.weapon_fire(1)
-            if keys[pygame.K_2] and self.fire_status[2]:
+            elif key == '2' and self.fire_status[2]:
                 self.fire_status[2] = False
                 self.weapon_fire(2)
-            if keys[pygame.K_3] and self.fire_status[3]:
+            elif key == '3' and self.fire_status[3]:
                 self.fire_status[3] = False
                 self.weapon_fire(3)
 
-            if not keys[pygame.K_2]:
+            if keys != '2':
                 self.fire_status[2] = True
-            if not keys[pygame.K_3]:
+            if keys != '3':
                 self.fire_status[3] = True
+        # for keys in key_list:
+        #     if keys[pygame.K_a]:  # 直接使用 pygame.key.get_pressed() 可以多键同时独立识别
+        #         self.plane.turn_left()
+        #     if keys[pygame.K_d]:
+        #         self.plane.turn_right()
+        #     if keys[pygame.K_w]:
+        #         self.plane.speedup()
+        #     if keys[pygame.K_s]:
+        #         self.plane.speeddown()
+        #
+        #     if keys[pygame.K_1]:
+        #         self.weapon_fire(1)
+        #     if keys[pygame.K_2] and self.fire_status[2]:
+        #         self.fire_status[2] = False
+        #         self.weapon_fire(2)
+        #     if keys[pygame.K_3] and self.fire_status[3]:
+        #         self.fire_status[3] = False
+        #         self.weapon_fire(3)
+        #
+        #     if not keys[pygame.K_2]:
+        #         self.fire_status[2] = True
+        #     if not keys[pygame.K_3]:
+        #         self.fire_status[3] = True
 
 
 class Map(object):
@@ -639,17 +662,17 @@ class Game(object):
         self.minimap.draw()
         self.info.show(self.screen)
 
-    def player_communicate(self, event_list):
+    def player_communicate(self, key_list):
         """
         在World类里面实现，TCP/IP的事件信息交互，Player类只做事件的update()
         """
-        str_event_list = json.dumps((event_list, self.syn_frame))  # # 如果没操作队列: event_list = key_list = []
+        str_key_list = json.dumps((key_list, self.syn_frame))  # # 如果没操作队列: event_list = key_list = []
         self.syn_frame += 1
         for player in self.player_list:  # 发送给每一个网卡，包括自己
             # print player.ip
             try:
-                logging.info('Send---> %s, %s' % (str((player.ip, 8989)),str_event_list))
-                self.sock.sendto(str_event_list, (player.ip, 8989))
+                logging.info('Send %d---> %s, %s' % (self.syn_frame, str((player.ip, 8989)),str_key_list))
+                self.sock.sendto(str_key_list, (player.ip, 8989))
                 # self.sock.sendto(str_event_list, (player.ip, 8989))  # 发双份
             except Exception, msg:
                 logging.warn('Offline(Socket Error):' + str(msg))
@@ -729,16 +752,14 @@ class Game(object):
             if self.q.empty():
                 continue
             data, address = self.q.get()
-            data_tmp = json.loads(data)[0]  # [key_lists, frame_number]
+            data_tmp = json.loads(data)[0]  # [key_list, frame_number]
             for player in self.player_list:  # 遍历玩家，看这个收到的数据是谁的
                 if player.ip == address[0] and player.win:
                     # get_msg_dir[player.ip] = Ture
                     msg_num += 1
-                    if not data_tmp:
-                        logging.info("Get ----> %s, %s" % (str(address), str(data_tmp)))
-                    else:
+                    if data_tmp:
                         player.operation(data_tmp)  # data is list of pygame.key.get_pressed() of json.dumps
-                        logging.info("Get ----> %s, %s" % (str(address), str(data_tmp)))
+                    logging.info("Get %d----> %s, %s" % (self.syn_frame, str(address), str(data_tmp)))
                     break  # 一个数据只有可能对应一个玩家的操作，有一个玩家取完消息就可以了
 
 
@@ -758,7 +779,7 @@ class Game(object):
         :return: 返回空列表，或者一个元素为keys的列表
         """
         event_list = pygame.event.get()
-        key_list = []
+        key_list = ''
         for event in event_list:
             if event.type == pygame.KEYDOWN:
                 keys = pygame.key.get_pressed()  # key is queue too
@@ -775,7 +796,10 @@ class Game(object):
                     self.screen_rect.y -= self.move_pixels
                 if keys[pygame.K_DOWN]:
                     self.screen_rect.y += self.move_pixels
-                key_list.append(keys)
+
+                for keyascii in [pygame.K_a,pygame.K_d,pygame.K_w,pygame.K_s,pygame.K_1,pygame.K_2,pygame.K_3]:
+                    if keys[keyascii]:
+                        key_list += chr(keyascii)
         return key_list
 
     def get_local_ip(self):
