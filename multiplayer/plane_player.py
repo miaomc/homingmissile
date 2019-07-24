@@ -82,7 +82,7 @@ SPEED_RATIO = 0.25
 
 BACKGROUND_COLOR = (168, 168, 168)
 WHITE = (255, 255, 255)
-FPS = 30
+FPS = 50
 SCREEN_SIZE = (1280, 720)
 MARS_SCREEN_SIZE = (8000, 4500)
 MARS_MAP_SIZE = (8000 * 4, 4500 * 4)  # topleft starts: width, height
@@ -326,7 +326,7 @@ class Missile(Base):
             """
             飞机、枪弹是一回事，加速度在不去动的情况下，为0；
             """
-            if self.target and abs(self.velocity.angle() - (self.target.location - self.location).angle()) < math.pi / 3\
+            if self.target and abs(self.velocity.angle() - (self.target.location - self.location).angle()) < math.pi / 3 \
                     and (self.location - self.target.location).length() < self.detect_range:
                 angle_between = self.velocity.angle() - (self.target.location - self.location).angle()
                 # print 'on target~',
@@ -395,7 +395,7 @@ class Player(object):
                 self.plane.turn_left()
             elif key == 'd':
                 self.plane.turn_right()
-            elif keys=='w':
+            elif key == 'w':
                 self.plane.speedup()
             elif key == 's':
                 self.plane.speeddown()
@@ -409,9 +409,9 @@ class Player(object):
                 self.fire_status[3] = False
                 self.weapon_fire(3)
 
-            if keys != '2':
+            if key != '2':
                 self.fire_status[2] = True
-            if keys != '3':
+            if key != '3':
                 self.fire_status[3] = True
         # for keys in key_list:
         #     if keys[pygame.K_a]:  # 直接使用 pygame.key.get_pressed() 可以多键同时独立识别
@@ -535,7 +535,9 @@ class Game(object):
         # self.current_rect = self.screen.get_rect()
 
         self.player_list = []
+        self.local_ip = None
         self.other_ip = None
+        self.port = 8989
         self.d = {}
 
         # UDP server
@@ -666,12 +668,11 @@ class Game(object):
         """
         在World类里面实现，TCP/IP的事件信息交互，Player类只做事件的update()
         """
-        str_key_list = json.dumps((key_list, self.syn_frame))  # # 如果没操作队列: event_list = key_list = []
-        self.syn_frame += 1
+        str_key_list = json.dumps((self.syn_frame, key_list))  # # 如果没操作队列: event_list = key_list = []
         for player in self.player_list:  # 发送给每一个网卡，包括自己
             # print player.ip
             try:
-                logging.info('Send %d---> %s, %s' % (self.syn_frame, str((player.ip, 8989)),str_key_list))
+                logging.info('Send %d---> %s, %s' % (self.syn_frame, str((player.ip, 8989)), str_key_list))
                 self.sock.sendto(str_key_list, (player.ip, 8989))
                 # self.sock.sendto(str_event_list, (player.ip, 8989))  # 发双份
             except Exception, msg:
@@ -695,11 +696,25 @@ class Game(object):
             weapon.hitted(plane_collide_lst)  # 发生碰撞相互减血
 
     def process(self, event_list):
-        """[WARNING]每个玩家（world）接收自己的消息队列，刷新自己的界面，没有消息同步机制，也没有同步下发机制，
-        会导致不同玩家画面不一致情况（尤其在网络延迟大的情况下）"""
-        # 发送同步帧(上来就发送)
+        """
+        每个玩家接收自己的消息队列，刷新自己的界面；
+        不管延迟和丢包的问题，接受操作消息等待为resend_time=30ms；
+        每过2帧进行一次状态同步：只将本地玩家飞机状态发送给其他玩家；
+        """
+        # 状态同步, 先状态同步，在发送操作消息
+        self.syn_frame += 1  # 发送同步帧(上来就发送)
+        if self.syn_frame % (2 * FPS) == 0:  # 每2秒同步一次自己状态给对方
+            for player in self.player_list:
+                if player.ip == self.local_ip:
+                    status_msg = json.dumps(('syn_player_status',
+                                             {'location': player.plane.location, 'velocity': player.plane.velocity,
+                                              'health': player.plane.health, }))
+                    self.sock_send(status_msg, (self.other_ip, self.port))
+
+        # 发送普通键盘操作消息
         self.player_communicate(event_list)
 
+        # 进行游戏对象参数计算&渲染
         self.minimap.update()
         self.weapon_group.update(self.plane_group)
         # self.plane_group.clear(self.map.surface, )
@@ -714,25 +729,26 @@ class Game(object):
         # 碰撞处理
         self.deal_collide()
 
+        # 判断游戏是否结束
         for player in self.player_list:
             if player.win:
                 player.update()
                 if not player.plane.alive:  # delete没了的的飞机
                     player.plane = None
                     player.win = False  # End Game
-                    # return True
+                    return True
 
+        # 显示游戏信息
         for py in self.player_list:
             self.info.add(u'Player IP:%s' % py.ip)
             if py.plane:
                 self.info.add(u'Health:%d' % py.plane.health)
                 self.info.add(u'Weapon:%s' % str(py.plane.weapon))
-                self.info.add(u'speed:%s,  location:%s,  rect:%s' % (
-                    str(py.plane.velocity), str(py.plane.location), str(py.plane.rect)))
-            self.info.add(u'Groups:%s' % str(self.plane_group))
+                # self.info.add(u'speed:%s,  location:%s,  rect:%s' % (
+                #     str(py.plane.velocity), str(py.plane.location), str(py.plane.rect)))
+            # self.info.add(u'Groups:%s' % str(self.plane_group))
 
         # 收到消息进行操作（最后处理动作，留给消息接收）
-
         msg_num = 0
         # get_msg_dir = {ip:False for ip in self.player_list.ip}
         while True:
@@ -741,28 +757,35 @@ class Game(object):
             resend_time = 0
             while self.q.empty():
                 resend_time += 1
-                pygame.time.wait(1)  # 等待1ms
-                if resend_time > 100:
+                pygame.time.wait(1)
+                if resend_time >= 30:  # 等待ms
                     msg_num += 1
-                    print('[ERROR]MSG LOST: %d'%self.syn_frame)
+                    print('[ERROR]MSG LOST: %d' % self.syn_frame)
                     break
                     # for ip in get_msg_dir.keys()
                     #     if not get_msg_dir[ip]:
                     #         self.sock_send('package lost',(get_msg_dir[ip], 8989))
             if self.q.empty():
                 continue
+
             data, address = self.q.get()
-            data_tmp = json.loads(data)[0]  # [key_list, frame_number]
-            for player in self.player_list:  # 遍历玩家，看这个收到的数据是谁的
-                if player.ip == address[0] and player.win:
-                    # get_msg_dir[player.ip] = Ture
-                    msg_num += 1
-                    if data_tmp:
-                        player.operation(data_tmp)  # data is list of pygame.key.get_pressed() of json.dumps
-                    logging.info("Get %d----> %s, %s" % (self.syn_frame, str(address), str(data_tmp)))
-                    break  # 一个数据只有可能对应一个玩家的操作，有一个玩家取完消息就可以了
-
-
+            data_tmp = json.loads(data)  # [frame_number, key_list]
+            if data_tmp[0] == 'syn_player_status':  # 状态同步-->对象
+                for player in self.player_list:  # 因为没用{IP:玩家}，所以遍历玩家，看这个收到的数据是谁的
+                    if player.ip == address[0] and player.win:
+                        player.plane.location = data_tmp[1]['location']
+                        player.plane.velocity = data_tmp[1]['velocity']
+                        player.plane.health = data_tmp[1]['health']
+                        break
+            else:
+                for player in self.player_list:  # 遍历玩家，看这个收到的数据是谁的
+                    if player.ip == address[0] and player.win:
+                        # get_msg_dir[player.ip] = Ture
+                        msg_num += 1
+                        if data_tmp[1]:  # 消息-->操作
+                            player.operation(data_tmp[1])  # data is list of pygame.key.get_pressed() of json.dumps
+                        logging.info("Get %d----> %s, %s" % (self.syn_frame, str(address), str(data_tmp)))
+                        break  # 一个数据只有可能对应一个玩家的操作，有一个玩家取完消息就可以了
 
     def erase(self):
         # self.weapon_group.clear(self.map.surface, self.clear_callback)
@@ -772,7 +795,8 @@ class Game(object):
     def clear_callback(self, surf, rect):
         # surf.blit(source=self.map.surface, dest=(0, 0), area=self.current_rect)
         # self.screen.blit(source=self.map.surface, dest=(0, 0), area=self.current_rect)
-        surf.blit(source=self.origin_map_surface, dest=rect, area=rect)  # blit(source, dest, area=None, special_flags=0) -> Rect
+        surf.blit(source=self.origin_map_surface, dest=rect,
+                  area=rect)  # blit(source, dest, area=None, special_flags=0) -> Rect
 
     def event_control(self):
         """
@@ -797,7 +821,7 @@ class Game(object):
                 if keys[pygame.K_DOWN]:
                     self.screen_rect.y += self.move_pixels
 
-                for keyascii in [pygame.K_a,pygame.K_d,pygame.K_w,pygame.K_s,pygame.K_1,pygame.K_2,pygame.K_3]:
+                for keyascii in [pygame.K_a, pygame.K_d, pygame.K_w, pygame.K_s, pygame.K_1, pygame.K_2, pygame.K_3]:
                     if keys[keyascii]:
                         key_list += chr(keyascii)
         return key_list
@@ -810,12 +834,13 @@ class Game(object):
             localip = LOCALIP
         else:
             localip = l[input("select your own ip index:")][-1][0]
+        self.local_ip = localip
         return localip
 
     def sock_send(self, strs, dest):
         """strs: unicode string or dict object"""
         self.sock.sendto(json.dumps(strs), dest)
-        print('SEND:%s'%json.dumps(strs))
+        print('SEND:%s' % json.dumps(strs))
 
     def sock_waitfor(self, msg, dest, delay=100, waiting_times=30):
         count = 0
@@ -826,7 +851,7 @@ class Game(object):
                 print('[ERROR]Sock Waiting Timeout: %s' % msg)
                 return False
         data, address = self.q.get()
-        print('GET:%s'%str(json.loads(data)))
+        print('GET:%s' % str(json.loads(data)))
         if address[0] == dest[0]:
             print('[INFO]Sock Msg Get:%s' % json.loads(data))
             return json.loads(data)
