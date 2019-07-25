@@ -733,7 +733,7 @@ class Game(object):
         # 判断游戏是否结束
         for player in self.player_list:
             if player.win:
-                player.update()
+                player.update() # 更新玩家状态
                 if not player.plane.alive:  # delete没了的的飞机
                     player.plane = None
                     player.win = False  # End Game
@@ -759,7 +759,7 @@ class Game(object):
             while self.q.empty():
                 resend_time += 1
                 pygame.time.wait(1)
-                if resend_time >= 30:  # 等待ms
+                if resend_time >= 50:  # 等待ms
                     msg_num += 1
                     print('[ERROR]MSG LOST: %d' % self.syn_frame)
                     break
@@ -780,7 +780,7 @@ class Game(object):
                         player.plane.location = Vector(data_tmp[1]['location'])
                         player.plane.velocity = Vector(data_tmp[1]['velocity'])
                         player.plane.health = data_tmp[1]['health']
-                        logging.info("Get player status %d----> %s, %s" % (self.syn_frame, str(address), str(data_tmp)))
+                        logging.info("Get player status, local_frame:%d----> %s, %s" % (self.syn_frame, str(address), str(data_tmp)))
                         break
             else:
                 for player in self.player_list:  # 遍历玩家，看这个收到的数据是谁的
@@ -789,12 +789,12 @@ class Game(object):
                         msg_num += 1
                         if data_tmp[1]:  # 消息-->操作
                             player.operation(data_tmp[1])  # data is list of pygame.key.get_pressed() of json.dumps
-                        logging.info("Get %d----> %s, %s" % (self.syn_frame, str(address), str(data_tmp)))
+                        logging.info("Get, other_frame:%d----> %s, %s" % (data_tmp[0], str(address), str(data_tmp)))
                         break  # 一个数据只有可能对应一个玩家的操作，有一个玩家取完消息就可以了
 
     def erase(self):
         # self.weapon_group.clear(self.map.surface, self.clear_callback)
-        # self.plane_group.clear(self.map.surface, self.clear_callback)
+        self.plane_group.clear(self.map.surface, self.clear_callback)
         pass
 
     def clear_callback(self, surf, rect):
@@ -901,10 +901,17 @@ class Game(object):
         self.sock_waitfor('200 OK', (self.other_ip, sock_port))
 
         # PYGAME LOOP
+        self.pause = False
         pygame.key.set_repeat(10, 10)  # control how held keys are repeated
         while not self.done:
             event_list = self.event_control()
-            self.process(event_list)
+            if not self.pause and self.process(event_list):
+                self.done = True
+                for player in self.player_list:
+                    if player.win:
+                        print 'You win.'
+                    else:
+                        print 'You lose.'
             Map.adjust_rect(self.screen_rect, self.map.surface.get_rect())
             # Map.adjust_rect()
             self.render(self.screen_rect)
