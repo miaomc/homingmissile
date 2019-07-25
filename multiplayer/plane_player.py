@@ -528,7 +528,7 @@ class Game(object):
 
     def game_init(self, localip, port):
         logging.basicConfig(level=logging.DEBUG,  # CRITICAL > ERROR > WARNING > INFO > DEBUG > NOTSET
-                            format='%(asctime)s %(filename)s[line:%(lineno)d] [%(levelname)s] %(message)s',
+                            format='%(asctime)s [line:%(lineno)d] [%(levelname)s] %(message)s',
                             datefmt='%Y-%b-%d %H:%M:%S-%a',
                             filename='logger.log',
                             filemode='w')
@@ -704,11 +704,12 @@ class Game(object):
         # 状态同步, 先状态同步，在发送操作消息
         self.syn_frame += 1  # 发送同步帧(上来就发送)
         if self.syn_frame % (2 * FPS) == 0:  # 每2秒同步一次自己状态给对方
-            print self.player_list, self.local_ip, self.other_ip
+            # print self.player_list, self.local_ip, self.other_ip
             for player in self.player_list:
                 if player.ip == self.local_ip:
                     status_msg = ('syn_player_status', {'location': (player.plane.location.x, player.plane.location.y),
-                                                        'velocity': (player.plane.velocity.x, player.plane.velocity.y)})
+                                                        'velocity': (player.plane.velocity.x, player.plane.velocity.y),
+                                                        'health': player.plane.health})
                     self.sock_send(status_msg, (self.other_ip, self.port))
 
         # 发送普通键盘操作消息
@@ -778,7 +779,7 @@ class Game(object):
                     if player.ip == address[0] and player.win:
                         player.plane.location = Vector(data_tmp[1]['location'])
                         player.plane.velocity = Vector(data_tmp[1]['velocity'])
-                        # player.plane.health = data_tmp[1]['health']
+                        player.plane.health = data_tmp[1]['health']
                         logging.info("Get player status %d----> %s, %s" % (self.syn_frame, str(address), str(data_tmp)))
                         break
             else:
