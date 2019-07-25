@@ -17,25 +17,31 @@ PLANE_TYPE = 'F35'
 
 PLANE_CATALOG = {
     'J20': {
-        'health': 500,
-        'max_speed': 800,
-        'min_speed': 110,  # 540,
+        'health': 200,
+        'max_speed': 2800,
+        'min_speed': 540,
         'acc_speed': 40,
-        'turn_acc': 10,
+        'turn_acc': 20,
         'image': './image/plane_red.png',
         'damage': 100,
     },
     'F35': {
         'health': 200,
-        'max_speed': 1400,
-        'min_speed': 200,  # 540,
+        'max_speed': 2400,
+        'min_speed': 540,
         'acc_speed': 50,
-        'turn_acc': 50,
+        'turn_acc': 25,
         'image': './image/plane_blue.png',
         'damage': 100,
     },
-    'F22': {
-        # ...
+    'PDH': {
+        'health': 200,
+        'max_speed': 2400,
+        'min_speed': 540,
+        'acc_speed': 50,
+        'turn_acc': 25,
+        'image': './image/airplane.png',
+        'damage': 100,
     }
 }
 
@@ -48,7 +54,7 @@ WEAPON_CATALOG = {
         'turn_acc': 0,
         'damage': 2,
         'image': ['./image/gunfire1.png', './image/gunfire2.png'],
-        'fuel': 6,
+        'fuel': 8,
         'sound_collide_plane': ['./sound/bulletLtoR08.wav', './sound/bulletLtoR09.wav', './sound/bulletLtoR10.wav',
                                 './sound/bulletLtoR11.wav', './sound/bulletLtoR13.wav', './sound/bulletLtoR14.wav']
     },
@@ -60,7 +66,7 @@ WEAPON_CATALOG = {
         'damage': 35,
         'turn_acc': 0,
         'image': './image/homingmissile.png',
-        'fuel': 9,
+        'fuel': 12,
     },
     'Cobra': {
         'health': 10,
@@ -234,9 +240,12 @@ class Plane(Base):
 
     def __init__(self, location, catalog='J20'):
         image_path = PLANE_CATALOG[catalog]['image']
-        self.image_original = pygame.image.load(image_path).convert()
-        self.image = self.image_original.subsurface((0, 0, 39, 39))
-        self.image.set_colorkey(WHITE)
+        if catalog in ['J20', 'F35']:  # 非透明图
+            self.image_original = pygame.image.load(image_path).convert()
+            self.image = self.image_original.subsurface((0, 0, 39, 39))
+            self.image.set_colorkey(WHITE)
+        else:
+            self.image = pygame.image.load(image_path).convert_alpha()  # 透明色的搞法
         super(Plane, self).__init__(location=location, image=self.image)
 
         self.max_speed = PLANE_CATALOG[catalog]['max_speed']
@@ -589,9 +598,9 @@ class Game(object):
         if DEBUG_MODE:
             plane_type = PLANE_TYPE
         else:
-            plane_type = raw_input("choose your plane catalog, 'J20' or 'F35':")
-            while plane_type not in ['J20', 'F35']:
-                plane_type = raw_input("spell fault, choose your plane catalog, 'J20' or 'F35':")
+            plane_type = raw_input("choose your plane catalog in %s:"%str(PLANE_CATALOG.keys()))
+            while plane_type not in PLANE_CATALOG.keys():
+                plane_type = raw_input("spell fault, choose your plane catalog, %s:"%str(PLANE_CATALOG.keys()))
 
         msg_player = {'ip': localip,
                       'location': (randint(MARS_MAP_SIZE[0] / 5, MARS_MAP_SIZE[0] * 4 / 5),
