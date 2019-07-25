@@ -548,9 +548,9 @@ class Game(object):
         # MSG QUEUE
         self.q = Queue.Queue()
         # UDP listening
-        thread1 = threading.Thread(target=self.msg_recv)
-        thread1.setDaemon(True)  # True:不关注这个子线程，主线程跑完就结束整个python process
-        thread1.start()
+        self.thread1 = threading.Thread(target=self.msg_recv)
+        self.thread1.setDaemon(True)  # True:不关注这个子线程，主线程跑完就结束整个python process
+        self.thread1.start()
 
         # sprite group
         self.plane_group = pygame.sprite.Group()
@@ -901,11 +901,10 @@ class Game(object):
         self.sock_waitfor('200 OK', (self.other_ip, sock_port))
 
         # PYGAME LOOP
-        self.pause = False
         pygame.key.set_repeat(10, 10)  # control how held keys are repeated
         while not self.done:
             event_list = self.event_control()
-            if not self.pause and self.process(event_list):
+            if self.process(event_list):
                 self.done = True
                 for player in self.player_list:
                     if player.ip==self.local_ip:
@@ -913,6 +912,7 @@ class Game(object):
                             print '[%s]YOU WIN.'%self.local_ip
                         else:
                             print '[%s]GAME OVER'%self.local_ip
+                break
             Map.adjust_rect(self.screen_rect, self.map.surface.get_rect())
             # Map.adjust_rect()
             self.render(self.screen_rect)
@@ -921,6 +921,7 @@ class Game(object):
             self.clock.tick(self.fps)
             self.erase()
 
+        # self.thread1.close
         self.sock.close()
         pygame.quit()
 
