@@ -578,7 +578,7 @@ class Game(object):
 
     def msg_recv(self):
         while True:
-            self.q.put(self.sock.recvfrom(4096))
+            self.q.put(self.sock.recvfrom(1487))
             # print("socket get msg.")
 
     def add_player(self, player):
@@ -709,8 +709,7 @@ class Game(object):
                 if player.ip == self.local_ip:
                     status_msg = json.dumps(('syn_player_status',
                                              {'location': (player.plane.location.x, player.plane.location.y),
-                                              'velocity': (player.plane.velocity.x, player.plane.velocity.y),
-                                              'health': player.plane.health, }))
+                                              'velocity': (player.plane.velocity.x, player.plane.velocity.y)}))
                     self.sock_send(status_msg, (self.other_ip, self.port))
 
         # 发送普通键盘操作消息
@@ -771,13 +770,16 @@ class Game(object):
                 continue
 
             data, address = self.q.get()
-            data_tmp = json.loads(data)  # [frame_number, key_list]
+            data_tmp = json.loads(data)  # [frame_number, key_list], ['syn_player_status', dict]
+            if len(str(data_tmp))>15:
+                print type(data_tmp),'===',data_tmp,'---', data_tmp[0]
             if data_tmp[0] == 'syn_player_status':  # 状态同步-->对象
+                print 'in status.....',address
                 for player in self.player_list:  # 因为没用{IP:玩家}，所以遍历玩家，看这个收到的数据是谁的
                     if player.ip == address[0] and player.win:
                         player.plane.location = Vector(data_tmp[1]['location'])
                         player.plane.velocity = Vector(data_tmp[1]['velocity'])
-                        player.plane.health = data_tmp[1]['health']
+                        # player.plane.health = data_tmp[1]['health']
                         logging.info("Get player status %d----> %s, %s" % (self.syn_frame, str(address), str(data_tmp)))
                         break
             else:
@@ -843,7 +845,7 @@ class Game(object):
     def sock_send(self, strs, dest):
         """strs: unicode string or dict object"""
         self.sock.sendto(json.dumps(strs), dest)
-        print('SEND:%s' % json.dumps(strs))
+        # print('SEND:%s' % json.dumps(strs))
 
     def sock_waitfor(self, msg, dest, delay=100, waiting_times=30):
         count = 0
