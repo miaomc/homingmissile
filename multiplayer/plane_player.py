@@ -521,9 +521,12 @@ class MiniMap(object):
 
 class Game(object):
 
-    # def game_init(self, screen, ip):
+    def __init__(self):
+        self.local_ip = None
+        self.other_ip = None
+        self.port = 8989
+
     def game_init(self, localip, port):
-        super(Game, self).__init__()
         logging.basicConfig(level=logging.DEBUG,  # CRITICAL > ERROR > WARNING > INFO > DEBUG > NOTSET
                             format='%(asctime)s %(filename)s[line:%(lineno)d] [%(levelname)s] %(message)s',
                             datefmt='%Y-%b-%d %H:%M:%S-%a',
@@ -535,9 +538,6 @@ class Game(object):
         # self.current_rect = self.screen.get_rect()
 
         self.player_list = []
-        self.local_ip = None
-        self.other_ip = None
-        self.port = 8989
         self.d = {}
 
         # UDP server
@@ -704,10 +704,12 @@ class Game(object):
         # 状态同步, 先状态同步，在发送操作消息
         self.syn_frame += 1  # 发送同步帧(上来就发送)
         if self.syn_frame % (2 * FPS) == 0:  # 每2秒同步一次自己状态给对方
+            print self.player_list, self.local_ip, self.other_ip
             for player in self.player_list:
                 if player.ip == self.local_ip:
                     status_msg = json.dumps(('syn_player_status',
-                                             {'location': player.plane.location, 'velocity': player.plane.velocity,
+                                             {'location': (player.plane.location.x, player.plane.location.y),
+                                              'velocity': (player.plane.velocity.x, player.plane.velocity.y),
                                               'health': player.plane.health, }))
                     self.sock_send(status_msg, (self.other_ip, self.port))
 
@@ -773,8 +775,8 @@ class Game(object):
             if data_tmp[0] == 'syn_player_status':  # 状态同步-->对象
                 for player in self.player_list:  # 因为没用{IP:玩家}，所以遍历玩家，看这个收到的数据是谁的
                     if player.ip == address[0] and player.win:
-                        player.plane.location = data_tmp[1]['location']
-                        player.plane.velocity = data_tmp[1]['velocity']
+                        player.plane.location = Vector(data_tmp[1]['location'])
+                        player.plane.velocity = Vector(data_tmp[1]['velocity'])
                         player.plane.health = data_tmp[1]['health']
                         logging.info("Get player status %d----> %s, %s" % (self.syn_frame, str(address), str(data_tmp)))
                         break
