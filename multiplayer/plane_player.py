@@ -706,7 +706,7 @@ class Game(object):
         if self.syn_frame % (2 * FPS) == 0:  # 每2秒同步一次自己状态给对方
             # print self.player_list, self.local_ip, self.other_ip
             for player in self.player_list:
-                if player.ip == self.local_ip:
+                if player.ip == self.local_ip and player.win:
                     status_msg = ('syn_player_status', {'location': (player.plane.location.x, player.plane.location.y),
                                                         'velocity': (player.plane.velocity.x, player.plane.velocity.y),
                                                         'health': player.plane.health})
