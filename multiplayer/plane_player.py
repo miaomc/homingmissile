@@ -908,10 +908,11 @@ class Game(object):
             if not self.pause and self.process(event_list):
                 self.done = True
                 for player in self.player_list:
-                    if player.win:
-                        print 'You win.'
-                    else:
-                        print 'You lose.'
+                    if player.ip==self.local_ip:
+                        if player.win:
+                            print '[%s]YOU WIN.'%self.local_ip
+                        else:
+                            print '[%s]GAME OVER'%self.local_ip
             Map.adjust_rect(self.screen_rect, self.map.surface.get_rect())
             # Map.adjust_rect()
             self.render(self.screen_rect)
