@@ -707,9 +707,8 @@ class Game(object):
             print self.player_list, self.local_ip, self.other_ip
             for player in self.player_list:
                 if player.ip == self.local_ip:
-                    status_msg = json.dumps(('syn_player_status',
-                                             {'location': (player.plane.location.x, player.plane.location.y),
-                                              'velocity': (player.plane.velocity.x, player.plane.velocity.y)}))
+                    status_msg = ('syn_player_status', {'location': (player.plane.location.x, player.plane.location.y),
+                                                        'velocity': (player.plane.velocity.x, player.plane.velocity.y)})
                     self.sock_send(status_msg, (self.other_ip, self.port))
 
         # 发送普通键盘操作消息
@@ -771,10 +770,10 @@ class Game(object):
 
             data, address = self.q.get()
             data_tmp = json.loads(data)  # [frame_number, key_list], ['syn_player_status', dict]
-            if len(str(data_tmp))>15:
-                print type(data_tmp),'===',data_tmp,'---', data_tmp[0]
+            # if len(str(data_tmp)) > 15:
+            #     print type(data_tmp), '===', data_tmp, '---', data_tmp[0]
             if data_tmp[0] == 'syn_player_status':  # 状态同步-->对象
-                print 'in status.....',address
+                # print 'in status.....', address
                 for player in self.player_list:  # 因为没用{IP:玩家}，所以遍历玩家，看这个收到的数据是谁的
                     if player.ip == address[0] and player.win:
                         player.plane.location = Vector(data_tmp[1]['location'])
@@ -842,9 +841,9 @@ class Game(object):
         self.local_ip = localip
         return localip
 
-    def sock_send(self, strs, dest):
+    def sock_send(self, msg, dest):
         """strs: unicode string or dict object"""
-        self.sock.sendto(json.dumps(strs), dest)
+        self.sock.sendto(json.dumps(msg), dest)
         # print('SEND:%s' % json.dumps(strs))
 
     def sock_waitfor(self, msg, dest, delay=100, waiting_times=30):
