@@ -776,6 +776,7 @@ class Game(object):
                         player.plane.location = data_tmp[1]['location']
                         player.plane.velocity = data_tmp[1]['velocity']
                         player.plane.health = data_tmp[1]['health']
+                        logging.info("Get player status %d----> %s, %s" % (self.syn_frame, str(address), str(data_tmp)))
                         break
             else:
                 for player in self.player_list:  # 遍历玩家，看这个收到的数据是谁的
