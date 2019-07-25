@@ -525,6 +525,7 @@ class Game(object):
         self.local_ip = None
         self.other_ip = None
         self.port = 8989
+        self.done = False
 
     def game_init(self, localip, port):
         logging.basicConfig(level=logging.DEBUG,  # CRITICAL > ERROR > WARNING > INFO > DEBUG > NOTSET
@@ -574,10 +575,9 @@ class Game(object):
         self.move_pixels = 20
         self.fps = FPS
         self.clock = pygame.time.Clock()
-        self.done = False
 
     def msg_recv(self):
-        while True:
+        while not self.done:
             self.q.put(self.sock.recvfrom(1487))
             # print("socket get msg.")
 
