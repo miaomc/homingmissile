@@ -234,6 +234,8 @@ image:
             base.health -= self.damage
             if self.catalog == 'Gun' and isinstance(base, Plane):
                 self.sound_collide_plane.play()
+            if self.catalog in ['Rocket', 'Cobra']:
+                self.sound_collide_plane.play()
 
 
 class Plane(Base):
@@ -302,7 +304,7 @@ class Missile(Base):
     def __init__(self, catalog, location, velocity):
         if catalog == 'Gun':
             image_path = WEAPON_CATALOG['Gun']['image'][randint(0, len(WEAPON_CATALOG['Gun']['image']) - 1)]
-            self.sound_fire = pygame.mixer.Sound("./sound/minigun_fire.wav")
+            self.sound_fire = pygame.mixer.Sound("./sound/ClipEmpty_Rifle.wav")
             self.sound_fire.play(maxtime=100)
             self.sound_collide_plane = pygame.mixer.Sound(WEAPON_CATALOG['Gun']['sound_collide_plane'][randint(0, len(
                 WEAPON_CATALOG['Gun']['sound_collide_plane']) - 1)])
@@ -311,6 +313,7 @@ class Missile(Base):
             self.sound_fire = pygame.mixer.Sound("./sound/TPhFi201.wav")
             self.sound_fire.play()
             self.sound_kill = pygame.mixer.Sound("./sound/ric5.wav")
+            self.sound_collide_plane = pygame.mixer.Sound("./sound/shotgun_fire_1.wav")
         if catalog == 'Cobra':
             self.detect_range = WEAPON_CATALOG[catalog]['dectect_range']
         self.image_original = pygame.image.load(image_path).convert()
@@ -704,14 +707,7 @@ class Game(object):
             plane_collide_lst = pygame.sprite.spritecollide(weapon, self.plane_group, False)
             weapon.hitted(plane_collide_lst)  # 发生碰撞相互减血
 
-    def process(self, event_list):
-        """
-        每个玩家接收自己的消息队列，刷新自己的界面；
-        不管延迟和丢包的问题，接受操作消息等待为resend_time=30ms；
-        每过2帧进行一次状态同步：只将本地玩家飞机状态发送给其他玩家；
-        """
-        # 状态同步, 先状态同步，在发送操作消息
-        self.syn_frame += 1  # 发送同步帧(上来就发送)
+    def syn_status(self):
         if self.syn_frame % (2 * FPS) == 0:  # 每2秒同步一次自己状态给对方
             # print self.player_list, self.local_ip, self.other_ip
             for player in self.player_list:
@@ -720,6 +716,16 @@ class Game(object):
                                                         'velocity': (player.plane.velocity.x, player.plane.velocity.y),
                                                         'health': player.plane.health})
                     self.sock_send(status_msg, (self.other_ip, self.port))
+
+    def process(self, event_list):
+        """
+        每个玩家接收自己的消息队列，刷新自己的界面；
+        不管延迟和丢包的问题，接受操作消息等待为resend_time=30ms；
+        每过2帧进行一次状态同步：只将本地玩家飞机状态发送给其他玩家；
+        """
+        self.syn_frame += 1  # 发送同步帧(上来就发送)
+        # 状态同步, 先状态同步，在发送操作消息
+        self.syn_frame()
 
         # 发送普通键盘操作消息
         self.player_communicate(event_list)
@@ -788,7 +794,7 @@ class Game(object):
                     if player.ip == address[0] and player.win:
                         player.plane.location = Vector(data_tmp[1]['location'])
                         player.plane.velocity = Vector(data_tmp[1]['velocity'])
-                        player.plane.health = data_tmp[1]['health']
+                        player.plane.health = data_tmp[1]['health'] # !!!!!!!!会出现掉血了，然后回退回去的情况
                         logging.info("Get player status, local_frame:%d----> %s, %s" % (self.syn_frame, str(address), str(data_tmp)))
                         break
             else:
