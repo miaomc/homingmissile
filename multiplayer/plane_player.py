@@ -12,7 +12,7 @@ from infomation import Infomation
 
 DEBUG_MODE = False
 LOCALIP = '192.168.1.113'
-OTHERIP = '192.168.0.103'
+HOSTIP = '192.168.0.103'
 PLANE_TYPE = 'F35'
 C_OR_J = 'c'
 
@@ -543,6 +543,7 @@ class Game(object):
         self.re_local_ip = LOCALIP
         self.re_plane_type = PLANE_TYPE
         self.re_c_or_j = C_OR_J
+        self.re_host_ip = HOSTIP
 
     def game_init(self, localip, port):
         logging.basicConfig(level=logging.DEBUG,  # CRITICAL > ERROR > WARNING > INFO > DEBUG > NOTSET
@@ -667,7 +668,11 @@ class Game(object):
         return False
 
     def join(self, port, msg_player):
-        host_ip = raw_input('Input a host ip to join a game:')
+        if DEBUG_MODE:
+            host_ip = self.re_host_ip
+        else:
+            host_ip = raw_input('Input a host ip to join a game:')
+            self.re_host_ip
         address = (host_ip, port)
         self.sock_send('join', address)  # 0.1 join send
         if self.sock_waitfor('join_ack', address) == 'join_ack':  # 1.1 join_ack get
@@ -736,7 +741,7 @@ class Game(object):
         """
         self.syn_frame += 1  # 发送同步帧(上来就发送)
         # 状态同步, 先状态同步，在发送操作消息
-        self.syn_frame()
+        self.syn_status()
 
         # 发送普通键盘操作消息
         self.player_communicate(event_list)
