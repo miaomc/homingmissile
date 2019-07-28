@@ -547,12 +547,14 @@ class Game(object):
     def __init__(self):
         self.local_ip = None
         self.other_ip = None
+        self.sock = None
         self.port = 8989
 
         self.re_local_ip = LOCALIP
         self.re_plane_type = PLANE_TYPE
         self.re_c_or_j = C_OR_J
         self.re_host_ip = HOSTIP
+
 
     def game_init(self, localip):
         logging.basicConfig(level=logging.DEBUG,  # CRITICAL > ERROR > WARNING > INFO > DEBUG > NOTSET
@@ -570,9 +572,15 @@ class Game(object):
         self.d = {}
 
         # UDP server
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         address = (localip, self.port)
-        self.sock.bind(address)
+        if self.sock is None:
+            self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.sock.bind(address)
+        else:
+            pygame.time.wait(1200)
+            while not self.q.empty():
+                self.q.get()
+
         self.syn_frame = 0
         # MSG QUEUE
         self.q = Queue.Queue()
@@ -803,7 +811,8 @@ class Game(object):
                 pygame.time.wait(1)
                 if resend_time >= 50:  # 等待ms
                     msg_num += 1
-                    print('[ERROR]MSG LOST: %d' % self.syn_frame)
+                    if not self.done:
+                        print('[ERROR]MSG LOST: %d' % self.syn_frame)
                     break
                     # for ip in get_msg_dir.keys()
                     #     if not get_msg_dir[ip]:
@@ -912,7 +921,7 @@ class Game(object):
         print self.re_c_or_j
         print self.re_plane_type
         print self.re_host_ip
-        self.port += 1
+        # self.port += 1
         localip = self.get_local_ip()
         msg_player = self.init_local_player(localip)  # !!需要修改这个msg_player,json好发送
 
@@ -923,19 +932,12 @@ class Game(object):
         if self.create_or_join():
             if not self.create(localip, msg_player):
                 self.done = True
-                pygame.time.wait(100)
                 print('waiting join failed!')
-                self.sock.close()
-                pygame.time.wait(1000)
                 return False
         else:
             if not self.join(msg_player):
                 self.done = True
-                pygame.time.wait(100)
                 print('join failed!')
-                self.port -= 1
-                self.sock.close()
-                pygame.time.wait(1000)
                 return False
 
         # Pygame screen init
@@ -979,8 +981,8 @@ class Game(object):
             self.erase()
 
         # self.thread1.close
-        self.sock.close()
-        pygame.time.wait(1000)
+        # self.sock.close()
+        # pygame.time.wait(1000)
         pygame.quit()
 
 
@@ -990,3 +992,4 @@ if __name__ == '__main__':
     while raw_input('press "r" to restart game:') == 'r':
         DEBUG_MODE = True
         game.main()
+    game.sock.close()
