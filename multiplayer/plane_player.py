@@ -907,10 +907,10 @@ class Game(object):
             return False
 
     def main(self):
-        # print self.re_local_ip
-        # print self.re_c_or_j
-        # print self.re_plane_type
-        # print self.re_host_ip
+        print self.re_local_ip
+        print self.re_c_or_j
+        print self.re_plane_type
+        print self.re_host_ip
         localip = self.get_local_ip()
         msg_player = self.init_local_player(localip)  # !!需要修改这个msg_player,json好发送
 
@@ -921,11 +921,17 @@ class Game(object):
 
         if self.create_or_join():
             if not self.create(localip, msg_player):
+                self.done = True
+                pygame.time.wait(100)
                 print('waiting join failed!')
+                self.sock.close()
                 return False
         else:
             if not self.join(sock_port, msg_player):
+                self.done = True
+                pygame.time.wait(100)
                 print('join failed!')
+                self.sock.close()
                 return False
 
         # Pygame screen init
