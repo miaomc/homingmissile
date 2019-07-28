@@ -554,7 +554,7 @@ class Game(object):
         self.re_c_or_j = C_OR_J
         self.re_host_ip = HOSTIP
 
-    def game_init(self, localip, port):
+    def game_init(self, localip):
         logging.basicConfig(level=logging.DEBUG,  # CRITICAL > ERROR > WARNING > INFO > DEBUG > NOTSET
                             format='%(asctime)s [line:%(lineno)d] [%(levelname)s] %(message)s',
                             datefmt='%Y-%b-%d %H:%M:%S-%a',
@@ -571,7 +571,7 @@ class Game(object):
 
         # UDP server
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        address = (localip, port)
+        address = (localip, self.port)
         self.sock.bind(address)
         self.syn_frame = 0
         # MSG QUEUE
@@ -678,13 +678,13 @@ class Game(object):
                     return True
         return False
 
-    def join(self, port, msg_player):
+    def join(self, msg_player):
         if DEBUG_MODE:
             host_ip = self.re_host_ip
         else:
             host_ip = raw_input('Input a host ip to join a game:')
             self.re_host_ip = host_ip
-        address = (host_ip, port)
+        address = (host_ip, self.port)
         self.sock_send('join', address)  # 0.1 join send
         if self.sock_waitfor('join_ack', address) == 'join_ack':  # 1.1 join_ack get
             self.sock_send(msg_player, address)  # 2.0 msg_player send
@@ -711,9 +711,9 @@ class Game(object):
         for player in self.player_list:  # 发送给每一个网卡，包括自己
             # print player.ip
             try:
-                logging.info('Send %d---> %s, %s' % (self.syn_frame, str((player.ip, 8989)), str_key_list))
-                self.sock.sendto(str_key_list, (player.ip, 8989))
-                # self.sock.sendto(str_event_list, (player.ip, 8989))  # 发双份
+                logging.info('Send %d---> %s, %s' % (self.syn_frame, str((player.ip, self.port)), str_key_list))
+                self.sock.sendto(str_key_list, (player.ip, self.port))
+                # self.sock.sendto(str_event_list, (player.ip, self.port))  # 发双份
             except Exception, msg:
                 logging.warn('Offline(Socket Error):' + str(msg))
 
@@ -807,7 +807,7 @@ class Game(object):
                     break
                     # for ip in get_msg_dir.keys()
                     #     if not get_msg_dir[ip]:
-                    #         self.sock_send('package lost',(get_msg_dir[ip], 8989))
+                    #         self.sock_send('package lost',(get_msg_dir[ip], self.port))
             if self.q.empty():
                 continue
 
@@ -912,12 +912,12 @@ class Game(object):
         print self.re_c_or_j
         print self.re_plane_type
         print self.re_host_ip
+        self.port += 1
         localip = self.get_local_ip()
         msg_player = self.init_local_player(localip)  # !!需要修改这个msg_player,json好发送
 
         # self.sock & self.q is ready.
-        sock_port = 8989
-        self.game_init(localip, sock_port)
+        self.game_init(localip)
         self.d[localip] = msg_player
 
         if self.create_or_join():
@@ -929,7 +929,7 @@ class Game(object):
                 pygame.time.wait(1000)
                 return False
         else:
-            if not self.join(sock_port, msg_player):
+            if not self.join(msg_player):
                 self.done = True
                 pygame.time.wait(100)
                 print('join failed!')
@@ -952,8 +952,8 @@ class Game(object):
         self.screen_rect.center = Map.mars_translate(msg_player['location'])
 
         # 同步开始循环
-        self.sock_send('200 OK', (self.other_ip, sock_port))
-        self.sock_waitfor('200 OK', (self.other_ip, sock_port))
+        self.sock_send('200 OK', (self.other_ip, self.port))
+        self.sock_waitfor('200 OK', (self.other_ip, self.port))
 
         # PYGAME LOOP
         pygame.key.set_repeat(10, 10)  # control how held keys are repeated
