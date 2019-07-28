@@ -252,6 +252,7 @@ class Plane(Base):
 
     def __init__(self, location, catalog='J20'):
         image_path = PLANE_CATALOG[catalog]['image']
+        self.sound_kill = pygame.mixer.Sound("./sound/explode3.wav")
         if catalog in ['J20', 'F35']:  # ·ÇÍ¸Ã÷Í¼
             self.image_original = pygame.image.load(image_path).convert()
             self.image = self.image_original.subsurface((0, 0, 39, 39))
@@ -925,6 +926,7 @@ class Game(object):
                 pygame.time.wait(100)
                 print('waiting join failed!')
                 self.sock.close()
+                pygame.time.wait(1000)
                 return False
         else:
             if not self.join(sock_port, msg_player):
@@ -932,6 +934,7 @@ class Game(object):
                 pygame.time.wait(100)
                 print('join failed!')
                 self.sock.close()
+                pygame.time.wait(1000)
                 return False
 
         # Pygame screen init
@@ -975,6 +978,7 @@ class Game(object):
 
         # self.thread1.close
         self.sock.close()
+        pygame.time.wait(1000)
         pygame.quit()
 
 
