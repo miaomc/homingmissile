@@ -36,7 +36,7 @@ PLANE_CATALOG = {
         'damage': 100,
     },
     'PDH': {
-        'health': 200,
+        'health': 300,
         'max_speed': 2400,
         'min_speed': 540,
         'acc_speed': 50,
@@ -45,7 +45,7 @@ PLANE_CATALOG = {
         'damage': 100,
     },
     'PPDH': {
-        'health': 200,
+        'health': 500,
         'max_speed': 2400,
         'min_speed': 540,
         'acc_speed': 50,
