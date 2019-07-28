@@ -547,7 +547,6 @@ class Game(object):
         self.local_ip = None
         self.other_ip = None
         self.port = 8989
-        self.done = False
 
         self.re_local_ip = LOCALIP
         self.re_plane_type = PLANE_TYPE
@@ -561,6 +560,7 @@ class Game(object):
                             filename='logger.log',
                             filemode='w')
 
+        self.done = False
         self.map = None
         self.minimap = None
         # self.current_rect = self.screen.get_rect()
@@ -907,6 +907,10 @@ class Game(object):
             return False
 
     def main(self):
+        print self.re_local_ip
+        print self.re_c_or_j
+        print self.re_plane_type
+        print self.re_host_ip
         localip = self.get_local_ip()
         msg_player = self.init_local_player(localip)  # !!需要修改这个msg_player,json好发送
 
