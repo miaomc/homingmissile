@@ -555,7 +555,6 @@ class Game(object):
         self.re_c_or_j = C_OR_J
         self.re_host_ip = HOSTIP
 
-
     def game_init(self, localip):
         logging.basicConfig(level=logging.DEBUG,  # CRITICAL > ERROR > WARNING > INFO > DEBUG > NOTSET
                             format='%(asctime)s [line:%(lineno)d] [%(levelname)s] %(message)s',
@@ -625,9 +624,9 @@ class Game(object):
         if DEBUG_MODE:
             plane_type = self.re_plane_type
         else:
-            plane_type = raw_input("choose your plane catalog in %s:"%str(PLANE_CATALOG.keys()))
+            plane_type = raw_input("choose your plane catalog in %s:" % str(PLANE_CATALOG.keys()))
             while plane_type not in PLANE_CATALOG.keys():
-                plane_type = raw_input("spell fault, choose your plane catalog, %s:"%str(PLANE_CATALOG.keys()))
+                plane_type = raw_input("spell fault, choose your plane catalog, %s:" % str(PLANE_CATALOG.keys()))
             self.re_plane_type = plane_type
         msg_player = {'ip': localip,
                       'location': (randint(MARS_MAP_SIZE[0] / 5, MARS_MAP_SIZE[0] * 4 / 5),
@@ -662,7 +661,7 @@ class Game(object):
             return False
 
     def create(self, localip, msg_player):
-        print('Game is created. Host IP: %s:%d' % (localip,self.port))
+        print('Game is created. Host IP: %s:%d' % (localip, self.port))
         print('waiting players to entering.'),
         n = 0
         while self.q.empty():
@@ -783,7 +782,7 @@ class Game(object):
         # 判断游戏是否结束
         for player in self.player_list:
             if player.win:
-                player.update() # 更新玩家状态
+                player.update()  # 更新玩家状态
                 if not player.plane.alive:  # delete没了的的飞机
                     player.plane = None
                     player.win = False  # End Game
@@ -830,8 +829,9 @@ class Game(object):
                     if player.ip == address[0] and player.win:
                         player.plane.location = Vector(data_tmp[1]['location'])
                         player.plane.velocity = Vector(data_tmp[1]['velocity'])
-                        player.plane.health = data_tmp[1]['health'] # !!!!!!!!会出现掉血了，然后回退回去的情况
-                        logging.info("Get player status, local_frame:%d----> %s, %s" % (self.syn_frame, str(address), str(data_tmp)))
+                        player.plane.health = data_tmp[1]['health']  # !!!!!!!!会出现掉血了，然后回退回去的情况
+                        logging.info("Get player status, local_frame:%d----> %s, %s" % (
+                        self.syn_frame, str(address), str(data_tmp)))
                         break
             else:
                 for player in self.player_list:  # 遍历玩家，看这个收到的数据是谁的
@@ -897,7 +897,7 @@ class Game(object):
     def sock_send(self, msg, dest):
         """strs: unicode string or dict object"""
         self.sock.sendto(json.dumps(msg), dest)
-        # print('SEND:%s' % json.dumps(strs))
+        print('SEND [%s]:%s' % (str(dest), json.dumps(msg)))
 
     def sock_waitfor(self, msg, dest, delay=100, waiting_times=30):
         count = 0
@@ -957,7 +957,7 @@ class Game(object):
         # 同步开始循环
         self.sock_send('200 OK', (self.other_ip, self.port))
         self.sock_waitfor('200 OK', (self.other_ip, self.port))
-        print('Game Start.My IP&PORT: %s - %d'%(self.local_ip,self.port))
+        print('Game Start.My IP&PORT: %s - %d' % (self.local_ip, self.port))
 
         # PYGAME LOOP
         pygame.key.set_repeat(10, 10)  # control how held keys are repeated
@@ -966,11 +966,11 @@ class Game(object):
             if self.process(event_list):
                 self.done = True
                 for player in self.player_list:
-                    if player.ip==self.local_ip:
+                    if player.ip == self.local_ip:
                         if player.win:
-                            print '[%s]YOU WIN.'%self.local_ip
+                            print '[%s]YOU WIN.' % self.local_ip
                         else:
-                            print '[%s]GAME OVER'%self.local_ip
+                            print '[%s]GAME OVER' % self.local_ip
                 break
             Map.adjust_rect(self.screen_rect, self.map.surface.get_rect())
             # Map.adjust_rect()
