@@ -14,6 +14,7 @@ DEBUG_MODE = False
 LOCALIP = '192.168.1.113'
 OTHERIP = '192.168.0.103'
 PLANE_TYPE = 'F35'
+C_OR_J = 'c'
 
 PLANE_CATALOG = {
     'J20': {
@@ -539,6 +540,10 @@ class Game(object):
         self.port = 8989
         self.done = False
 
+        self.re_local_ip = LOCALIP
+        self.re_plane_type = PLANE_TYPE
+        self.re_c_or_j = C_OR_J
+
     def game_init(self, localip, port):
         logging.basicConfig(level=logging.DEBUG,  # CRITICAL > ERROR > WARNING > INFO > DEBUG > NOTSET
                             format='%(asctime)s [line:%(lineno)d] [%(levelname)s] %(message)s',
@@ -599,12 +604,12 @@ class Game(object):
 
     def init_local_player(self, localip):
         if DEBUG_MODE:
-            plane_type = PLANE_TYPE
+            plane_type = self.re_plane_type
         else:
             plane_type = raw_input("choose your plane catalog in %s:"%str(PLANE_CATALOG.keys()))
             while plane_type not in PLANE_CATALOG.keys():
                 plane_type = raw_input("spell fault, choose your plane catalog, %s:"%str(PLANE_CATALOG.keys()))
-
+            self.re_plane_type = plane_type
         msg_player = {'ip': localip,
                       'location': (randint(MARS_MAP_SIZE[0] / 5, MARS_MAP_SIZE[0] * 4 / 5),
                                    randint(MARS_MAP_SIZE[1] / 5, MARS_MAP_SIZE[1] * 4 / 5)),
@@ -625,7 +630,13 @@ class Game(object):
         return player
 
     def create_or_join(self):
+        if DEBUG_MODE:
+            if self.re_c_or_j == 'c':
+                return True
+            else:
+                return False
         if raw_input('Input "c" to create game, else "j" to join a game:') == 'c':
+            self.re_c_or_j = 'c'
             return True
         else:
             return False
@@ -851,9 +862,10 @@ class Game(object):
         for index, i in enumerate(l):
             print index, i[-1][0]
         if DEBUG_MODE:
-            localip = LOCALIP
+            localip = self.re_local_ip
         else:
             localip = l[input("select your own ip index:")][-1][0]
+            self.re_local_ip = localip  # for repeat
         self.local_ip = localip
         return localip
 
@@ -944,3 +956,6 @@ class Game(object):
 if __name__ == '__main__':
     game = Game()
     game.main()
+    while raw_input('press "r" to restart game:') == 'r':
+        DEBUG_MODE = True
+        game.main()
