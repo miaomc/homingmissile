@@ -14,7 +14,7 @@ DEBUG_MODE = False
 LOCALIP = '192.168.1.113'
 HOSTIP = '192.168.0.103'
 PLANE_TYPE = 'F35'
-C_OR_J = 'c'
+C_OR_J = ''
 
 PLANE_CATALOG = {
     'J20': {
@@ -43,7 +43,16 @@ PLANE_CATALOG = {
         'turn_acc': 25,
         'image': './image/airplane.png',
         'damage': 100,
-    }
+    },
+    'PPDH': {
+        'health': 200,
+        'max_speed': 2400,
+        'min_speed': 540,
+        'acc_speed': 50,
+        'turn_acc': 25,
+        'image': './image/airplane1.png',
+        'damage': 100,
+    },
 }
 
 WEAPON_CATALOG = {
@@ -640,6 +649,7 @@ class Game(object):
             self.re_c_or_j = 'c'
             return True
         else:
+            self.re_c_or_j = 'j'
             return False
 
     def create(self, localip, msg_player):
