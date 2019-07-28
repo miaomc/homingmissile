@@ -654,7 +654,7 @@ class Game(object):
             return False
 
     def create(self, localip, msg_player):
-        print('Game is created. Host IP: %s' % localip)
+        print('Game is created. Host IP: %s:%d' % (localip,self.port))
         print('waiting players to entering.'),
         n = 0
         while self.q.empty():
@@ -933,6 +933,7 @@ class Game(object):
                 self.done = True
                 pygame.time.wait(100)
                 print('join failed!')
+                self.port -= 1
                 self.sock.close()
                 pygame.time.wait(1000)
                 return False
@@ -954,6 +955,7 @@ class Game(object):
         # 同步开始循环
         self.sock_send('200 OK', (self.other_ip, self.port))
         self.sock_waitfor('200 OK', (self.other_ip, self.port))
+        print('Game Start.My IP&PORT: %s - %d'%(self.local_ip,self.port))
 
         # PYGAME LOOP
         pygame.key.set_repeat(10, 10)  # control how held keys are repeated
