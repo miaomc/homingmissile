@@ -682,7 +682,7 @@ class Game(object):
             host_ip = self.re_host_ip
         else:
             host_ip = raw_input('Input a host ip to join a game:')
-            self.re_host_ip
+            self.re_host_ip = host_ip
         address = (host_ip, port)
         self.sock_send('join', address)  # 0.1 join send
         if self.sock_waitfor('join_ack', address) == 'join_ack':  # 1.1 join_ack get
@@ -907,10 +907,10 @@ class Game(object):
             return False
 
     def main(self):
-        print self.re_local_ip
-        print self.re_c_or_j
-        print self.re_plane_type
-        print self.re_host_ip
+        # print self.re_local_ip
+        # print self.re_c_or_j
+        # print self.re_plane_type
+        # print self.re_host_ip
         localip = self.get_local_ip()
         msg_player = self.init_local_player(localip)  # !!需要修改这个msg_player,json好发送
 
