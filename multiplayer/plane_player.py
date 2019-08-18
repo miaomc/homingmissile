@@ -10,14 +10,21 @@ import json
 import logging
 from infomation import Infomation
 
-SINGLE_TEST = False
+SINGLE_TEST = True
+MAP_RATIO = 5
 RESTART_MODE = False
 LOCALIP = '192.168.1.113'
 HOSTIP = '192.168.0.103'
 PLANE_TYPE = 'F35'
 C_OR_J = ''
 
-
+TAIL_CATALOG = {
+    'Point': {
+        'image': './image/point.png',
+        'init_time': -5,
+        'life': 250,
+    },
+}
 
 PLANE_CATALOG = {
     'J20': {
@@ -103,9 +110,9 @@ SPEED_RATIO = 0.25
 BACKGROUND_COLOR = (168, 168, 168)
 WHITE = (255, 255, 255)
 FPS = 50
-SCREEN_SIZE = (1920, 880)
+SCREEN_SIZE = (1300, 800)
 MARS_SCREEN_SIZE = (8000, 4500)
-MARS_MAP_SIZE = (8000 * 4, 4500 * 4)  # topleft starts: width, height
+MARS_MAP_SIZE = (8000 * MAP_RATIO, 4500 * MAP_RATIO)  # topleft starts: width, height
 CLOUD_IMAGE_LIST = ['./image/cloud1.png', './image/cloud2.png', './image/cloud3.png', './image/cloud4.png']
 
 
@@ -135,6 +142,9 @@ class Vector:
 
     def __str__(self):
         return str(self.x) + ', ' + str(self.y)
+
+    def __len__(self):
+        return 2
 
     # def __neg__(self):
     #     return Vector(-self.x, -self.y)
@@ -190,6 +200,7 @@ image:
         self.location = Vector(location)  # 采用 self.location记录位置，因为self.rect里面的值都是个整数
         # print self.location
         self.rect = self.image.get_rect(center=location)  # rect of Sprite
+        self.rect.center = Map.mars_translate((self.location.x, self.location.y))  # !!!!!!!!!!这个坐标需要转换，这里需要重新设计
 
         # 图像翻转
         self.origin_image = self.image.copy()
@@ -251,6 +262,21 @@ image:
             if self.catalog in ['Rocket', 'Cobra']:
                 self.sound_collide_plane.play()
 
+class Tail(Base):
+    def __init__(self, location, catalog='Point'):
+        image_path = TAIL_CATALOG[catalog]['image']
+        self.image = pygame.image.load(image_path).convert()
+        self.image.set_colorkey(WHITE)
+        super(Tail, self).__init__(location=location, image=self.image)
+        self.live_time = TAIL_CATALOG[catalog]['init_time']
+        self.life = TAIL_CATALOG[catalog]['life']
+        # print self.location
+
+    def update(self):
+        self.live_time += 1
+        # print self.live_time,self.life
+        if self.live_time > self.life:
+            self.delete()
 
 class Plane(Base):
 
@@ -567,6 +593,7 @@ class Game(object):
         # sprite group
         self.plane_group = pygame.sprite.Group()
         self.weapon_group = pygame.sprite.Group()
+        self.tail_group = pygame.sprite.Group()
 
         # backup map
         self.origin_map = None
@@ -578,7 +605,13 @@ class Game(object):
         os.environ['SDL_VIDEO_CENTERED'] = '1'
         pygame.init()
         pygame.mixer.init()  # 声音初始化
-        pygame.display.set_mode(SCREEN_SIZE)  # pygame.display.set_mode(pygame.FULLSCREEN)
+        pygame.display.init()  # 初始化
+        display_info = pygame.display.Info()
+        screen_size_fittable = (display_info.current_w*19/20, display_info.current_h*17/20)
+        if screen_size_fittable[0]*screen_size_fittable[1]>0:
+            pygame.display.set_mode(screen_size_fittable)
+        else:
+            pygame.display.set_mode(SCREEN_SIZE)  # pygame.display.set_mode(pygame.FULLSCREEN)
         # Return the size of the window or screen
         # pygame.display.get_window_size()
         self.screen = pygame.display.get_surface()  # 游戏窗口对象
@@ -732,10 +765,13 @@ class Game(object):
         # 进行游戏对象参数计算&渲染
         self.minimap.update()
         self.weapon_group.update(self.plane_group)
+        self.tail_group.update()  # update尾焰
         # self.map.surface = self.origin_map_surface.copy()  # [WARNING]很吃性能！！！！！极有可能pygame.display()渲染不吃时间，这个copy（）很吃时间
-        self.plane_group.draw(self.map.surface)
-        if self.syn_frame % 5 == 0:  # !!!!!!!!!!!!!!!!!!!!!!!!To be continue
-            self.weapon_group.draw(self.map.surface)
+        if self.syn_frame % 5 == 0:  # 添加尾焰轨迹
+            self.add_tail(self.weapon_group)
+        self.tail_group.draw(self.map.surface)  # draw尾焰
+        self.plane_group.draw(self.map.surface)  # draw飞机
+        self.weapon_group.draw(self.map.surface)  # draw武器
         for i in self.weapon_group:
             if i.target:
                 # print i.target
@@ -759,6 +795,7 @@ class Game(object):
             if py.plane:
                 self.info.add(u'Health:%d' % py.plane.health)
                 self.info.add(u'Weapon:%s' % str(py.plane.weapon))
+                self.info.add(u'Tail:%s'%self.tail_group)
                 # self.info.add(u'speed:%s,  location:%s,  rect:%s' % (
                 #     str(py.plane.velocity), str(py.plane.location), str(py.plane.rect)))
             # self.info.add(u'Groups:%s' % str(self.plane_group))
@@ -808,9 +845,16 @@ class Game(object):
                         logging.info("Get, other_frame:%d----> %s, %s" % (data_tmp[0], str(address), str(data_tmp)))
                         break  # 一个数据只有可能对应一个玩家的操作，有一个玩家取完消息就可以了
 
+    def add_tail(self, weapon_group):
+        for weapon in weapon_group:
+            if weapon.catalog == 'Rocket' or weapon.catalog == 'Cobra':
+                self.tail_group.add(Tail((weapon.location.x,weapon.location.y)))
+
     def erase(self):
-        # self.weapon_group.clear(self.map.surface, self.clear_callback)
+        self.weapon_group.clear(self.map.surface, self.clear_callback)
         self.plane_group.clear(self.map.surface, self.clear_callback)
+        self.tail_group.clear(self.map.surface, self.clear_callback)
+        pass
 
     def clear_callback(self, surf, rect):
         # surf.blit(source=self.map.surface, dest=(0, 0), area=self.current_rect)
