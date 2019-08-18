@@ -10,11 +10,14 @@ import json
 import logging
 from infomation import Infomation
 
-DEBUG_MODE = False
+SINGLE_TEST = False
+RESTART_MODE = False
 LOCALIP = '192.168.1.113'
 HOSTIP = '192.168.0.103'
 PLANE_TYPE = 'F35'
 C_OR_J = ''
+
+
 
 PLANE_CATALOG = {
     'J20': {
@@ -58,12 +61,13 @@ PLANE_CATALOG = {
 WEAPON_CATALOG = {
     'Gun': {
         'health': 10,
-        'init_speed': 1500,
+        'init_speed': 5000,
         'max_speed': 2500,
         'acc_speed': 0,
         'turn_acc': 0,
         'damage': 2,
-        'image': ['./image/gunfire1.png', './image/gunfire2.png'],
+        'image': ['./image/gunfire1.png', './image/gunfire2.png', './image/gunfire3.png',
+                  './image/gunfire4.png', './image/gunfire5.png', './image/gunfire6.png'],
         'fuel': 8,
         'sound_collide_plane': ['./sound/bulletLtoR08.wav', './sound/bulletLtoR09.wav', './sound/bulletLtoR10.wav',
                                 './sound/bulletLtoR11.wav', './sound/bulletLtoR13.wav', './sound/bulletLtoR14.wav']
@@ -71,8 +75,8 @@ WEAPON_CATALOG = {
     'Rocket': {
         'health': 10,
         'init_speed': 0,
-        'max_speed': 1500,
-        'acc_speed': 120,
+        'max_speed': 3500,
+        'acc_speed': 35,
         'damage': 35,
         'turn_acc': 0,
         'image': './image/homingmissile.png',
@@ -81,11 +85,11 @@ WEAPON_CATALOG = {
     'Cobra': {
         'health': 10,
         'init_speed': 0,
-        'max_speed': 1360,
-        'acc_speed': 40,
+        'max_speed': 3000, # 1360
+        'acc_speed': 25,
         'turn_acc': 35,
         'damage': 25,
-        'image': './image/homingmissile.png',
+        'image': './image/homingmissile2.png',
         'fuel': 9,
         'dectect_range': 10000 * 30
     },
@@ -99,7 +103,7 @@ SPEED_RATIO = 0.25
 BACKGROUND_COLOR = (168, 168, 168)
 WHITE = (255, 255, 255)
 FPS = 50
-SCREEN_SIZE = (1280, 720)
+SCREEN_SIZE = (1920, 880)
 MARS_SCREEN_SIZE = (8000, 4500)
 MARS_MAP_SIZE = (8000 * 4, 4500 * 4)  # topleft starts: width, height
 CLOUD_IMAGE_LIST = ['./image/cloud1.png', './image/cloud2.png', './image/cloud3.png', './image/cloud4.png']
@@ -315,8 +319,8 @@ class Missile(Base):
     def __init__(self, catalog, location, velocity):
         if catalog == 'Gun':
             image_path = WEAPON_CATALOG['Gun']['image'][randint(0, len(WEAPON_CATALOG['Gun']['image']) - 1)]
-            self.sound_fire = pygame.mixer.Sound("./sound/ClipEmpty_Rifle.wav")
-            self.sound_fire.play(maxtime=100)
+            self.sound_fire = pygame.mixer.Sound("./sound/minigun_fire.wav")
+            self.sound_fire.play(maxtime=200)
             self.sound_collide_plane = pygame.mixer.Sound(WEAPON_CATALOG['Gun']['sound_collide_plane'][randint(0, len(
                 WEAPON_CATALOG['Gun']['sound_collide_plane']) - 1)])
         else:
@@ -334,6 +338,7 @@ class Missile(Base):
         self.health = WEAPON_CATALOG[catalog]['health']
         self.damage = WEAPON_CATALOG[catalog]['damage']
         self.init_speed = WEAPON_CATALOG[catalog]['init_speed']
+        self.max_speed = WEAPON_CATALOG[catalog]['max_speed']
         self.turn_acc = WEAPON_CATALOG[catalog]['turn_acc']
         self.acc_speed = WEAPON_CATALOG[catalog]['acc_speed']
         self.acc = self.velocity.normalize_vector() * self.acc_speed
@@ -369,7 +374,7 @@ class Missile(Base):
                             (self.location - plane.location).length() < self.detect_range:
                         self.target = plane
                         break
-
+        # print self.min_speed, self.velocity.length(), self.max_speed
         if self.min_speed < self.velocity.length() < self.max_speed:
             self.acc += self.velocity.normalize_vector() * self.acc_speed  # 加上垂直速度
 
@@ -386,7 +391,7 @@ class Player(object):
         self.ip = ip
         self.plane = None
         self.weapon_group = weapon_group
-        self.fire_status = {1: True, 2: True, 3: True}
+        self.fire_status = {1: 0, 2: 0, 3: 0}
         self.win = True
 
     def add_plane(self, plane):
@@ -412,7 +417,7 @@ class Player(object):
                                  velocity=self.plane.velocity)
                 self.weapon_group.add(weapon)
 
-    def operation(self, key_list):
+    def operation(self, key_list, syn_frame):
         for key in key_list:
             if key == 'a':
                 self.plane.turn_left()
@@ -425,41 +430,12 @@ class Player(object):
 
             elif key == '1':
                 self.weapon_fire(1)
-            elif key == '2' and self.fire_status[2]:
-                self.fire_status[2] = False
+            elif key == '2' and syn_frame-self.fire_status[2]>FPS:
+                self.fire_status[2] = syn_frame
                 self.weapon_fire(2)
-            elif key == '3' and self.fire_status[3]:
-                self.fire_status[3] = False
+            elif key == '3' and syn_frame-self.fire_status[3]>FPS:
+                self.fire_status[3] = syn_frame
                 self.weapon_fire(3)
-
-            if key != '2':
-                self.fire_status[2] = True
-            if key != '3':
-                self.fire_status[3] = True
-        # for keys in key_list:
-        #     if keys[pygame.K_a]:  # 直接使用 pygame.key.get_pressed() 可以多键同时独立识别
-        #         self.plane.turn_left()
-        #     if keys[pygame.K_d]:
-        #         self.plane.turn_right()
-        #     if keys[pygame.K_w]:
-        #         self.plane.speedup()
-        #     if keys[pygame.K_s]:
-        #         self.plane.speeddown()
-        #
-        #     if keys[pygame.K_1]:
-        #         self.weapon_fire(1)
-        #     if keys[pygame.K_2] and self.fire_status[2]:
-        #         self.fire_status[2] = False
-        #         self.weapon_fire(2)
-        #     if keys[pygame.K_3] and self.fire_status[3]:
-        #         self.fire_status[3] = False
-        #         self.weapon_fire(3)
-        #
-        #     if not keys[pygame.K_2]:
-        #         self.fire_status[2] = True
-        #     if not keys[pygame.K_3]:
-        #         self.fire_status[3] = True
-
 
 class Map(object):
 
@@ -551,7 +527,7 @@ class Game(object):
         self.port = 8989
 
         self.re_local_ip = LOCALIP
-        self.re_plane_type = PLANE_TYPE
+        self.re_msg_player = None
         self.re_c_or_j = C_OR_J
         self.re_host_ip = HOSTIP
 
@@ -620,14 +596,7 @@ class Game(object):
         self.player_list.append(player)
         self.plane_group.add(player.plane)
 
-    def init_local_player(self, localip):
-        if DEBUG_MODE:
-            plane_type = self.re_plane_type
-        else:
-            plane_type = raw_input("choose your plane catalog in %s:" % str(PLANE_CATALOG.keys()))
-            while plane_type not in PLANE_CATALOG.keys():
-                plane_type = raw_input("spell fault, choose your plane catalog, %s:" % str(PLANE_CATALOG.keys()))
-            self.re_plane_type = plane_type
+    def init_local_player(self, localip, plane_type):
         msg_player = {'ip': localip,
                       'location': (randint(MARS_MAP_SIZE[0] / 5, MARS_MAP_SIZE[0] * 4 / 5),
                                    randint(MARS_MAP_SIZE[1] / 5, MARS_MAP_SIZE[1] * 4 / 5)),
@@ -648,7 +617,7 @@ class Game(object):
         return player
 
     def create_or_join(self):
-        if DEBUG_MODE:
+        if RESTART_MODE:
             if self.re_c_or_j == 'c':
                 return True
             else:
@@ -672,6 +641,7 @@ class Game(object):
             pygame.time.wait(500)
 
         data, address = self.q.get()  # 0.0 join get
+        print 'Create:GET_INFO:%s %s'%(str(data),str(address))
         if json.loads(data) == 'join':
             self.sock_send('join_ack', address)  # 1.0 join_ack send
             tmp = self.sock_waitfor('msg_player', address)  # 2.1 msg_player get
@@ -685,12 +655,7 @@ class Game(object):
                     return True
         return False
 
-    def join(self, msg_player):
-        if DEBUG_MODE:
-            host_ip = self.re_host_ip
-        else:
-            host_ip = raw_input('Input a host ip to join a game:')
-            self.re_host_ip = host_ip
+    def join(self, msg_player, host_ip):
         address = (host_ip, self.port)
         self.sock_send('join', address)  # 0.1 join send
         if self.sock_waitfor('join_ack', address) == 'join_ack':  # 1.1 join_ack get
@@ -767,10 +732,10 @@ class Game(object):
         # 进行游戏对象参数计算&渲染
         self.minimap.update()
         self.weapon_group.update(self.plane_group)
-        # self.plane_group.clear(self.map.surface, )
         # self.map.surface = self.origin_map_surface.copy()  # [WARNING]很吃性能！！！！！极有可能pygame.display()渲染不吃时间，这个copy（）很吃时间
         self.plane_group.draw(self.map.surface)
-        self.weapon_group.draw(self.map.surface)
+        if self.syn_frame % 5 == 0:  # !!!!!!!!!!!!!!!!!!!!!!!!To be continue
+            self.weapon_group.draw(self.map.surface)
         for i in self.weapon_group:
             if i.target:
                 # print i.target
@@ -839,14 +804,13 @@ class Game(object):
                         # get_msg_dir[player.ip] = Ture
                         msg_num += 1
                         if data_tmp[1]:  # 消息-->操作
-                            player.operation(data_tmp[1])  # data is list of pygame.key.get_pressed() of json.dumps
+                            player.operation(data_tmp[1], self.syn_frame)  # data is list of pygame.key.get_pressed() of json.dumps
                         logging.info("Get, other_frame:%d----> %s, %s" % (data_tmp[0], str(address), str(data_tmp)))
                         break  # 一个数据只有可能对应一个玩家的操作，有一个玩家取完消息就可以了
 
     def erase(self):
         # self.weapon_group.clear(self.map.surface, self.clear_callback)
         self.plane_group.clear(self.map.surface, self.clear_callback)
-        pass
 
     def clear_callback(self, surf, rect):
         # surf.blit(source=self.map.surface, dest=(0, 0), area=self.current_rect)
@@ -858,35 +822,39 @@ class Game(object):
         """
         :return: 返回空列表，或者一个元素为keys的列表
         """
-        event_list = pygame.event.get()
+        event_list = pygame.event.get()  # 一定要把操作get()出来
         key_list = ''
-        for event in event_list:
-            if event.type == pygame.KEYDOWN:
-                keys = pygame.key.get_pressed()  # key is queue too
-                # print '    KEY:', keys
-                # if event.type == pygame.QUIT or keys[pygame.K_ESCAPE]:
-                if keys[pygame.K_ESCAPE]:
-                    self.done = True
-                    return  # EXIT GAME
-                if keys[pygame.K_LEFT]:  # 直接使用 pygame.key.get_pressed() 可以多键同时独立识别
-                    self.screen_rect.x -= self.move_pixels
-                if keys[pygame.K_RIGHT]:
-                    self.screen_rect.x += self.move_pixels
-                if keys[pygame.K_UP]:
-                    self.screen_rect.y -= self.move_pixels
-                if keys[pygame.K_DOWN]:
-                    self.screen_rect.y += self.move_pixels
+        # n_break = 0
+        if pygame.key.get_focused():
+            keys = pygame.key.get_pressed()  # key is queue too
+            # print '    KEY:', keys
+            if keys[pygame.K_ESCAPE]:
+                self.done = True
+                return  # EXIT GAME
+            if keys[pygame.K_LEFT]:  # 直接使用 pygame.key.get_pressed() 可以多键同时独立识别
+                self.screen_rect.x -= self.move_pixels
+            if keys[pygame.K_RIGHT]:
+                self.screen_rect.x += self.move_pixels
+            if keys[pygame.K_UP]:
+                self.screen_rect.y -= self.move_pixels
+            if keys[pygame.K_DOWN]:
+                self.screen_rect.y += self.move_pixels
 
-                for keyascii in [pygame.K_a, pygame.K_d, pygame.K_w, pygame.K_s, pygame.K_1, pygame.K_2, pygame.K_3]:
-                    if keys[keyascii]:
-                        key_list += chr(keyascii)
+            for keyascii in [pygame.K_a, pygame.K_d, pygame.K_w, pygame.K_s, pygame.K_1, pygame.K_2, pygame.K_3]:
+                if keys[keyascii]:
+                    key_list += chr(keyascii)
+
+            # n_break += 1
+            # if n_break > 3:
+            #     break
+
         return key_list
 
     def get_local_ip(self):
         l = socket.getaddrinfo(socket.gethostname(), None)
         for index, i in enumerate(l):
             print index, i[-1][0]
-        if DEBUG_MODE:
+        if RESTART_MODE:
             localip = self.re_local_ip
         else:
             localip = l[input("select your own ip index:")][-1][0]
@@ -897,7 +865,7 @@ class Game(object):
     def sock_send(self, msg, dest):
         """strs: unicode string or dict object"""
         self.sock.sendto(json.dumps(msg), dest)
-        print('SEND [%s]:%s' % (str(dest), json.dumps(msg)))
+        # print('SEND [%s]:%s' % (str(dest), json.dumps(msg)))
 
     def sock_waitfor(self, msg, dest, delay=100, waiting_times=30):
         count = 0
@@ -917,28 +885,48 @@ class Game(object):
             return False
 
     def main(self):
-        print self.re_local_ip
-        print self.re_c_or_j
-        print self.re_plane_type
-        print self.re_host_ip
+        # print self.re_local_ip
+        # print self.re_c_or_j
+        # print self.re_plane_type
+        # print self.re_host_ip
         # self.port += 1
-        localip = self.get_local_ip()
-        msg_player = self.init_local_player(localip)  # !!需要修改这个msg_player,json好发送
-
-        # self.sock & self.q is ready.
-        self.game_init(localip)
-        self.d[localip] = msg_player
-
-        if self.create_or_join():
-            if not self.create(localip, msg_player):
-                self.done = True
-                print('waiting join failed!')
-                return False
+        if SINGLE_TEST:
+            localip = '192.168.0.107'
+            plane_type = 'F35'
+            msg_player = self.init_local_player(localip, plane_type)
+            self.game_init(localip)
+            self.d[localip] = msg_player
+            self.local_ip = self.other_ip = localip
         else:
-            if not self.join(msg_player):
-                self.done = True
-                print('join failed!')
-                return False
+            localip = self.get_local_ip()
+            if RESTART_MODE:
+                player_type = self.re_player_type
+            else:
+                plane_type = raw_input("choose your plane catalog in %s:" % str(PLANE_CATALOG.keys()))
+                while plane_type not in PLANE_CATALOG.keys():
+                    plane_type = raw_input("spell fault, choose your plane catalog, %s:" % str(PLANE_CATALOG.keys()))
+                self.re_player_type = plane_type
+            msg_player = self.init_local_player(localip, plane_type)  # !!需要修改这个msg_player,json好发送
+
+            # self.sock & self.q is ready.
+            self.game_init(localip)
+            self.d[localip] = msg_player
+
+            if self.create_or_join():
+                if not self.create(localip, msg_player):
+                    self.done = True
+                    print('waiting join failed!')
+                    return False
+            else:
+                if RESTART_MODE:
+                    host_ip = self.re_host_ip
+                else:
+                    host_ip = raw_input('Input a host ip to join a game:')
+                    self.re_host_ip = host_ip
+                if not self.join(msg_player, host_ip):
+                    self.done = True
+                    print('join failed!')
+                    return False
 
         # Pygame screen init
         self.screen_init()
@@ -960,7 +948,7 @@ class Game(object):
         print('Game Start.My IP&PORT: %s - %d' % (self.local_ip, self.port))
 
         # PYGAME LOOP
-        pygame.key.set_repeat(10, 10)  # control how held keys are repeated
+        pygame.key.set_repeat(10)  # control how held keys are repeated
         while not self.done:
             event_list = self.event_control()
             if self.process(event_list):
@@ -989,7 +977,7 @@ class Game(object):
 if __name__ == '__main__':
     game = Game()
     game.main()
-    while raw_input('press "r" to restart game:') == 'r':
-        DEBUG_MODE = True
-        game.main()
+    # while raw_input('press "r" to restart game:') == 'r':
+    #     RESTART_MODE = True
+    #     game.main()
     game.sock.close()
