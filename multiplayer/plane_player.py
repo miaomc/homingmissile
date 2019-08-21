@@ -10,12 +10,17 @@ import json
 import logging
 from infomation import Infomation
 
+"""
+随机弹药包, 补血包
+ok空格键回到飞机位置
+pok爆炸效果（目前只制作了F35和J20飞机的效果）
+"""
 SINGLE_TEST = True
 MAP_RATIO = 5
 RESTART_MODE = False
-LOCALIP = '192.168.1.113'
+LOCALIP = '192.168.0.107'
 HOSTIP = '192.168.0.103'
-PLANE_TYPE = 'F35'
+PLANE_TYPE = 'J20'
 C_OR_J = ''
 
 TAIL_CATALOG = {
@@ -107,7 +112,7 @@ WEAPON_CATALOG = {
 
 SPEED_RATIO = 0.25
 
-BACKGROUND_COLOR = (168, 168, 168)
+BACKGROUND_COLOR = (255,228,225)
 WHITE = (255, 255, 255)
 FPS = 50
 SCREEN_SIZE = (1300, 800)
@@ -145,6 +150,12 @@ class Vector:
 
     def __len__(self):
         return 2
+
+    def __getitem__(self, item):
+        if item == 0:
+            return self.x
+        if item == 1:
+            return self.y
 
     # def __neg__(self):
     #     return Vector(-self.x, -self.y)
@@ -221,6 +232,8 @@ image:
         self.acc = Vector(0, 0)
 
         self.sound_kill = None
+        self.destruct_image_index = 0  # 爆炸图片不在这个里面，未设计To be continue
+        self.self_destruction = 0
 
     def rotate(self):
         angle = math.atan2(self.velocity.x, self.velocity.y) * 360 / 2 / math.pi - 180  # 这个角度是以当前方向结合默认朝上的原图进行翻转的
@@ -245,10 +258,24 @@ image:
         # logging.info('location:%s, rect:%s' % (str(self.location), str(self.rect)))
 
     def delete(self):
-        self.kill()  # remove the Sprite from all Groups
-        self.alive = False
-        if self.sound_kill:
-            self.sound_kill.play()
+        if self.alive:  # 第一次进行的操作
+            # self.kill()  # remove the Sprite from all Groups
+            self.alive = False
+            if self.sound_kill:
+                self.sound_kill.play()
+
+        # 启动自爆动画
+        self.self_destruction += 0.2
+        # print self.self_destruction
+        if self.self_destruction < self.destruct_image_index:
+            # print [self.self_destruction//2*40, 0, 39, 39],self.self_destruction,self.image.get_rect()
+            self.origin_image = self.image = self.image_original.subsurface([self.self_destruction // 2 * 40, 0, 39, 39])
+            self.image.set_colorkey(WHITE)
+            self.rotate()
+            return False
+        else:
+            self.kill()
+            return True
 
     def hitted(self, base_lst):
         for base in base_lst:
@@ -305,6 +332,9 @@ class Plane(Base):
         self.weapon = {1: {}, 2: {}, 3: {}}  # 默认没有武器
 
         self.sound_kill = pygame.mixer.Sound("./sound/explode3.wav")
+        self.destruct_image_index = self.image_original.get_width() / self.image_original.get_height()
+        # self.catalog = catalog
+
 
     def turn_left(self):
         self.acc += self.velocity.vertical_left() * self.turn_acc
@@ -336,9 +366,14 @@ class Plane(Base):
         self.weapon[index]['number'] = number
 
     def update(self):
+        if not self.alive:  # 如果挂了,就启动自爆动画
+            super(Plane, self).update()
+            return self.delete()
+
         super(Plane, self).update()
+        # self.health -= 5
         if self.health <= 0:
-            self.delete()
+            return  self.delete()
 
 
 class Missile(Base):
@@ -424,7 +459,7 @@ class Player(object):
         self.plane = plane
 
     def update(self):
-        self.plane.update()
+        return self.plane.update()
 
     def weapon_fire(self, slot):
         # print 'Plane:', self.plane.velocity
@@ -482,7 +517,7 @@ class Map(object):
     def add_cloud(self, cloud_num=100):
         sprite_group = pygame.sprite.Group()
         for i in range(cloud_num):  # make 100 clouds randomly
-            location = [randint(0, self.size[0]), randint(0, self.size[1])]
+            location = [randint(0, MARS_MAP_SIZE[0]), randint(0, MARS_MAP_SIZE[1])]
             cloud_image_path = CLOUD_IMAGE_LIST[randint(0, len(CLOUD_IMAGE_LIST)) - 1]  # print location , cloud_image
             cloud_image = pygame.image.load(cloud_image_path).convert_alpha()
             cloud = Base(location=location, image=cloud_image)
@@ -556,6 +591,8 @@ class Game(object):
         self.re_msg_player = None
         self.re_c_or_j = C_OR_J
         self.re_host_ip = HOSTIP
+
+        self.local_player = None
 
     def game_init(self, localip):
         logging.basicConfig(level=logging.DEBUG,  # CRITICAL > ERROR > WARNING > INFO > DEBUG > NOTSET
@@ -783,8 +820,7 @@ class Game(object):
         # 判断游戏是否结束
         for player in self.player_list:
             if player.win:
-                player.update()  # 更新玩家状态
-                if not player.plane.alive:  # delete没了的的飞机
+                if player.update():  # # 更新玩家状态,player.update()-->plane.update()-->plane.delete(),delete没了的的飞机
                     player.plane = None
                     player.win = False  # End Game
                     return True
@@ -883,6 +919,8 @@ class Game(object):
                 self.screen_rect.y -= self.move_pixels
             if keys[pygame.K_DOWN]:
                 self.screen_rect.y += self.move_pixels
+            if keys[pygame.K_SPACE]:
+                self.screen_rect.center = Map.mars_translate(self.local_player.plane.location)
 
             for keyascii in [pygame.K_a, pygame.K_d, pygame.K_w, pygame.K_s, pygame.K_1, pygame.K_2, pygame.K_3]:
                 if keys[keyascii]:
@@ -935,8 +973,8 @@ class Game(object):
         # print self.re_host_ip
         # self.port += 1
         if SINGLE_TEST:
-            localip = '192.168.0.107'
-            plane_type = 'F35'
+            localip = LOCALIP
+            plane_type = PLANE_TYPE
             msg_player = self.init_local_player(localip, plane_type)
             self.game_init(localip)
             self.d[localip] = msg_player
@@ -986,6 +1024,11 @@ class Game(object):
         # 根据local player位置移动一次self.screen_rect git
         self.screen_rect.center = Map.mars_translate(msg_player['location'])
 
+        # 获取本地玩家对象
+        for player in self.player_list:
+            if player.ip == self.local_ip:
+                self.local_player = player
+
         # 同步开始循环
         self.sock_send('200 OK', (self.other_ip, self.port))
         self.sock_waitfor('200 OK', (self.other_ip, self.port))
@@ -997,12 +1040,12 @@ class Game(object):
             event_list = self.event_control()
             if self.process(event_list):
                 self.done = True
-                for player in self.player_list:
-                    if player.ip == self.local_ip:
-                        if player.win:
-                            print '[%s]YOU WIN.' % self.local_ip
-                        else:
-                            print '[%s]GAME OVER' % self.local_ip
+                # for player in self.player_list:
+                #     if player.ip == self.local_ip:
+                if self.local_player.win:
+                    print '[%s]YOU WIN.' % self.local_ip
+                else:
+                    print '[%s]GAME OVER' % self.local_ip
                 break
             Map.adjust_rect(self.screen_rect, self.map.surface.get_rect())
             # Map.adjust_rect()
