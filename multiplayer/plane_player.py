@@ -12,8 +12,10 @@ from infomation import Infomation
 
 """
 随机弹药包, 补血包
+飞机受伤烟雾，随机产生在飞机身上
+13.209.137.170
 ok空格键回到飞机位置
-pok爆炸效果（目前只制作了F35和J20飞机的效果）
+ok爆炸效果（目前只制作了F35和J20飞机的效果）
 """
 SINGLE_TEST = True
 MAP_RATIO = 5
@@ -112,7 +114,8 @@ WEAPON_CATALOG = {
 
 SPEED_RATIO = 0.25
 
-BACKGROUND_COLOR = (255,228,225)
+PINK = (255,228,225)
+BACKGROUND_COLOR = (168,168,168)
 WHITE = (255, 255, 255)
 FPS = 50
 SCREEN_SIZE = (1300, 800)
@@ -793,7 +796,7 @@ class Game(object):
         每过2帧进行一次状态同步：只将本地玩家飞机状态发送给其他玩家；
         """
         self.syn_frame += 1  # 发送同步帧(上来就发送)
-        # 状态同步, 先状态同步，在发送操作消息
+        # 状态同步, 先状态同步，再发送操作消息
         self.syn_status()
 
         # 发送普通键盘操作消息
