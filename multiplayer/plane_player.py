@@ -17,13 +17,28 @@ from infomation import Infomation
 ok空格键回到飞机位置
 ok爆炸效果（目前只制作了F35和J20飞机的效果）
 """
-SINGLE_TEST = True
+SINGLE_TEST = False
 MAP_RATIO = 5
 RESTART_MODE = False
 LOCALIP = '192.168.0.107'
 HOSTIP = '192.168.0.103'
 PLANE_TYPE = 'J20'
 C_OR_J = ''
+
+
+SPEED_RATIO = 0.25
+
+PINK = (255,228,225)
+DARK_GREEN = (49,79,79)
+GRAY =  (168,168,168)
+BACKGROUND_COLOR = DARK_GREEN
+WHITE = (255, 255, 255)
+FPS = 50
+SCREEN_SIZE = (1300, 800)
+MARS_SCREEN_SIZE = (8000, 4500)
+MARS_MAP_SIZE = (8000 * MAP_RATIO, 4500 * MAP_RATIO)  # topleft starts: width, height
+CLOUD_IMAGE_LIST = ['./image/cloud1.png', './image/cloud2.png', './image/cloud3.png', './image/cloud4.png']
+
 
 TAIL_CATALOG = {
     'Point': {
@@ -94,7 +109,7 @@ WEAPON_CATALOG = {
         'damage': 35,
         'turn_acc': 0,
         'image': './image/homingmissile.png',
-        'fuel': 12,
+        'fuel': 20,
     },
     'Cobra': {
         'health': 10,
@@ -104,24 +119,13 @@ WEAPON_CATALOG = {
         'turn_acc': 35,
         'damage': 25,
         'image': './image/homingmissile2.png',
-        'fuel': 9,
+        'fuel': 16,
         'dectect_range': 10000 * 30
     },
     'Pili': {
         # ...,
     }
 }
-
-SPEED_RATIO = 0.25
-
-PINK = (255,228,225)
-BACKGROUND_COLOR = (168,168,168)
-WHITE = (255, 255, 255)
-FPS = 50
-SCREEN_SIZE = (1300, 800)
-MARS_SCREEN_SIZE = (8000, 4500)
-MARS_MAP_SIZE = (8000 * MAP_RATIO, 4500 * MAP_RATIO)  # topleft starts: width, height
-CLOUD_IMAGE_LIST = ['./image/cloud1.png', './image/cloud2.png', './image/cloud3.png', './image/cloud4.png']
 
 
 class Vector:
