@@ -1,4 +1,4 @@
-﻿零.命令(Git使用方法（精心整理，绝对够用）https://blog.csdn.net/xukai0110/article/details/80637902)：
+零.命令(Git使用方法（精心整理，绝对够用）https://blog.csdn.net/xukai0110/article/details/80637902)：
 git clone https://github.com/miaomc/homingmissile.git
 git add ReadMe.txt
 git config --global user.email "you@example.com"
@@ -9,7 +9,8 @@ git push
 git pull
 
 一.有效文件: 
-﻿版本V1.00， 回合制，鼠标操作：
+------版本V1.00------
+“回合制，多人单机，鼠标操作”
 single_player/ 主程序，还未拆解：main.py(all in one)
 multiplayer/main.py 以及拆解了的版本，类似于single_player目录下的main.py
 操作说明：
@@ -17,7 +18,8 @@ multiplayer/main.py 以及拆解了的版本，类似于single_player目录下�
 （2）F键发射普通导弹（走直线，射程长）
 （3）H键发射跟踪导弹（能跟踪，射程短），需要右键选择飞机对象，才算是完成操作
 
-﻿版本V2.00， 即时制，键盘操作，大小地图：
+------版本V2.00------
+“即时制，多机联网，键盘操作，大小地图”
 multiplayer/plane_player.py
 操作说明：
 （1）“W”、“S”、“A”、“D”控制飞机加速减速和转向
@@ -25,7 +27,7 @@ multiplayer/plane_player.py
 （3）键盘方向键“↑↓←→”，控制大小地图移动
 （4）空格键，将当前地图切换到以己方飞机为中心的位置
 
-﻿其他
+------其他------
 tmp/ 其他能运行,都在tmp目录下： missileV3_can_run.py,...,其中,mainV3.0_can_play.py已经可以玩了，真实的对战。
 multiplayer/ 已经拆分,入口能够运行，正在增加联机模式
 main_tmp.py  之前的轨迹思路，之前还没编写完成
