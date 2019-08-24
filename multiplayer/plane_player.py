@@ -13,7 +13,10 @@ from infomation import Infomation
 """
 随机弹药包, 补血包
 飞机受伤烟雾，随机产生在飞机身上
+开始菜单、游戏操作说明、restart game
 13.209.137.170
+ok转弯+加速不能同时使用
+ok飞机爆炸之后要可以继续游戏，显示win lose ， press esc to exit
 ok空格键回到飞机位置
 ok爆炸效果（目前只制作了F35和J20飞机的效果）
 """
@@ -350,14 +353,14 @@ class Plane(Base):
         self.acc += self.velocity.vertical_right() * self.turn_acc
 
     def speedup(self):
-        self.acc += self.velocity.normalize_vector() * self.acc_speed
-        if (self.velocity + self.acc).length() > self.max_speed:
-            self.acc = Vector(0, 0)
+        acc_tmp = self.acc + self.velocity.normalize_vector() * self.acc_speed
+        if (self.velocity + acc_tmp).length() < self.max_speed:
+            self.acc = acc_tmp
 
     def speeddown(self):
-        self.acc -= self.velocity.normalize_vector() * self.acc_speed
-        if (self.velocity - self.acc).length() < self.min_speed:
-            self.acc = Vector(0, 0)
+        acc_tmp = self.acc - self.velocity.normalize_vector() * self.acc_speed
+        if (self.velocity - acc_tmp).length() > self.min_speed:
+            self.acc = acc_tmp
 
     def load_weapon(self, catalog='Cobra', number=6):
         """self.weapon = { 1: {catalog:<Gun>, number=500},
@@ -378,8 +381,8 @@ class Plane(Base):
             return self.delete()
 
         super(Plane, self).update()
-        # self.health -= 5
-        if self.health <= 0:
+        # self.health -= 50
+        if self.health <= 0 :
             return  self.delete()
 
 
@@ -486,6 +489,7 @@ class Player(object):
                 self.weapon_group.add(weapon)
 
     def operation(self, key_list, syn_frame):
+        # print key_list
         for key in key_list:
             if key == 'a':
                 self.plane.turn_left()
@@ -600,6 +604,7 @@ class Game(object):
         self.re_host_ip = HOSTIP
 
         self.local_player = None
+        self.num_player = 0
 
     def game_init(self, localip):
         logging.basicConfig(level=logging.DEBUG,  # CRITICAL > ERROR > WARNING > INFO > DEBUG > NOTSET
@@ -672,6 +677,7 @@ class Game(object):
     def add_player(self, player):
         self.player_list.append(player)
         self.plane_group.add(player.plane)
+        self.num_player += 1
 
     def init_local_player(self, localip, plane_type):
         msg_player = {'ip': localip,
@@ -751,6 +757,7 @@ class Game(object):
         self.screen.blit(source=self.map.surface, dest=(0, 0), area=self.current_rect)
         self.minimap.draw()
         self.info.show(self.screen)
+        self.info.show_end(self.screen)
 
     def player_communicate(self, key_list):
         """
@@ -792,101 +799,6 @@ class Game(object):
                                                         'velocity': (player.plane.velocity.x, player.plane.velocity.y),
                                                         'health': player.plane.health})
                     self.sock_send(status_msg, (self.other_ip, self.port))
-
-    def process(self, event_list):
-        """
-        每个玩家接收自己的消息队列，刷新自己的界面；
-        不管延迟和丢包的问题，接受操作消息等待为resend_time=30ms；
-        每过2帧进行一次状态同步：只将本地玩家飞机状态发送给其他玩家；
-        """
-        self.syn_frame += 1  # 发送同步帧(上来就发送)
-        # 状态同步, 先状态同步，再发送操作消息
-        self.syn_status()
-
-        # 发送普通键盘操作消息
-        self.player_communicate(event_list)
-
-        # 进行游戏对象参数计算&渲染
-        self.minimap.update()
-        self.weapon_group.update(self.plane_group)
-        self.tail_group.update()  # update尾焰
-        # self.map.surface = self.origin_map_surface.copy()  # [WARNING]很吃性能！！！！！极有可能pygame.display()渲染不吃时间，这个copy（）很吃时间
-        if self.syn_frame % 5 == 0:  # 添加尾焰轨迹
-            self.add_tail(self.weapon_group)
-        self.tail_group.draw(self.map.surface)  # draw尾焰
-        self.plane_group.draw(self.map.surface)  # draw飞机
-        self.weapon_group.draw(self.map.surface)  # draw武器
-        for i in self.weapon_group:
-            if i.target:
-                # print i.target
-                pygame.draw.rect(self.map.surface, (255, 0, 0), i.target.rect, 1)
-
-        # 碰撞处理
-        self.deal_collide()
-
-        # 判断游戏是否结束
-        for player in self.player_list:
-            if player.win:
-                if player.update():  # # 更新玩家状态,player.update()-->plane.update()-->plane.delete(),delete没了的的飞机
-                    player.plane = None
-                    player.win = False  # End Game
-                    return True
-
-        # 显示游戏信息
-        for py in self.player_list:
-            self.info.add(u'Player IP:%s' % py.ip)
-            if py.plane:
-                self.info.add(u'Health:%d' % py.plane.health)
-                self.info.add(u'Weapon:%s' % str(py.plane.weapon))
-                self.info.add(u'Tail:%s'%self.tail_group)
-                # self.info.add(u'speed:%s,  location:%s,  rect:%s' % (
-                #     str(py.plane.velocity), str(py.plane.location), str(py.plane.rect)))
-            # self.info.add(u'Groups:%s' % str(self.plane_group))
-
-        # 收到消息进行操作（最后处理动作，留给消息接收）
-        msg_num = 0
-        # get_msg_dir = {ip:False for ip in self.player_list.ip}
-        while True:
-            if msg_num >= len(self.player_list):  # 一共有两个玩家发送的消息要接受，否则卡死等待
-                break
-            resend_time = 0
-            while self.q.empty():
-                resend_time += 1
-                pygame.time.wait(1)
-                if resend_time >= 50:  # 等待ms
-                    msg_num += 1
-                    if not self.done:
-                        print('[ERROR]MSG LOST: %d' % self.syn_frame)
-                    break
-                    # for ip in get_msg_dir.keys()
-                    #     if not get_msg_dir[ip]:
-                    #         self.sock_send('package lost',(get_msg_dir[ip], self.port))
-            if self.q.empty():
-                continue
-
-            data, address = self.q.get()
-            data_tmp = json.loads(data)  # [frame_number, key_list], ['syn_player_status', dict]
-            # if len(str(data_tmp)) > 15:
-            #     print type(data_tmp), '===', data_tmp, '---', data_tmp[0]
-            if data_tmp[0] == 'syn_player_status':  # 状态同步-->对象
-                # print 'in status.....', address
-                for player in self.player_list:  # 因为没用{IP:玩家}，所以遍历玩家，看这个收到的数据是谁的
-                    if player.ip == address[0] and player.win:
-                        player.plane.location = Vector(data_tmp[1]['location'])
-                        player.plane.velocity = Vector(data_tmp[1]['velocity'])
-                        player.plane.health = data_tmp[1]['health']  # !!!!!!!!会出现掉血了，然后回退回去的情况
-                        logging.info("Get player status, local_frame:%d----> %s, %s" % (
-                        self.syn_frame, str(address), str(data_tmp)))
-                        break
-            else:
-                for player in self.player_list:  # 遍历玩家，看这个收到的数据是谁的
-                    if player.ip == address[0] and player.win:
-                        # get_msg_dir[player.ip] = Ture
-                        msg_num += 1
-                        if data_tmp[1]:  # 消息-->操作
-                            player.operation(data_tmp[1], self.syn_frame)  # data is list of pygame.key.get_pressed() of json.dumps
-                        logging.info("Get, other_frame:%d----> %s, %s" % (data_tmp[0], str(address), str(data_tmp)))
-                        break  # 一个数据只有可能对应一个玩家的操作，有一个玩家取完消息就可以了
 
     def add_tail(self, weapon_group):
         for weapon in weapon_group:
@@ -973,6 +885,111 @@ class Game(object):
             print('[ERROR]Sock Wrong Msg:%s %s' % (str(address), json.loads(data)))
             return False
 
+    def process(self, event_list):
+        """
+        每个玩家接收自己的消息队列，刷新自己的界面；
+        不管延迟和丢包的问题，接受操作消息等待为resend_time=30ms；
+        每过2帧进行一次状态同步：只将本地玩家飞机状态发送给其他玩家；
+        """
+        self.syn_frame += 1  # 发送同步帧(上来就发送)
+        # 状态同步, 先状态同步，再发送操作消息
+        self.syn_status()
+
+        # 发送普通键盘操作消息
+        self.player_communicate(event_list)
+
+        # 进行游戏对象参数计算&渲染
+        self.minimap.update()
+        self.weapon_group.update(self.plane_group)
+        self.tail_group.update()  # update尾焰
+        # self.map.surface = self.origin_map_surface.copy()  # [WARNING]很吃性能！！！！！极有可能pygame.display()渲染不吃时间，这个copy（）很吃时间
+        if self.syn_frame % 5 == 0:  # 添加尾焰轨迹
+            self.add_tail(self.weapon_group)
+        self.tail_group.draw(self.map.surface)  # draw尾焰
+        self.plane_group.draw(self.map.surface)  # draw飞机
+        self.weapon_group.draw(self.map.surface)  # draw武器
+        for i in self.weapon_group:
+            if i.target:
+                # print i.target
+                pygame.draw.rect(self.map.surface, (255, 0, 0), i.target.rect, 1)
+
+        # 碰撞处理
+        self.deal_collide()
+
+        # 判断游戏是否结束
+        for player in self.player_list:
+            if player.win:
+                if player.update():  # 更新玩家状态,player.update()-->plane.update()-->plane.delete(),delete没了的的飞机
+                    player.plane = None  # player.update()为True说明飞机已经delete了
+                    player.win = False  # End Game
+                    self.num_player -= 1
+                    # return True
+
+        # 显示游戏信息
+        for py in self.player_list:
+            self.info.add(u'Player IP:%s' % py.ip)
+            if py.plane:
+                self.info.add(u'Health:%d' % py.plane.health)
+                self.info.add(u'Weapon:%s' % str(py.plane.weapon))
+                self.info.add(u'Tail:%s'%self.tail_group)
+                # self.info.add(u'speed:%s,  location:%s,  rect:%s' % (
+                #     str(py.plane.velocity), str(py.plane.location), str(py.plane.rect)))
+            # self.info.add(u'Groups:%s' % str(self.plane_group))
+
+        if not self.local_player.win: # 本地玩家
+            self.info.add_middle('YOU LOST.')
+            self.info.add_middle_below('press "ESC" to exit the game.')
+            self.info.add_middle_below('press "r" to restart.')
+        elif self.num_player == 1: # 只剩你一个人了
+            self.info.add_middle('YOU WIN!')
+            self.info.add_middle_below('press "ESC" to exit the game.')
+            self.info.add_middle_below('press "r" to restart.')
+
+        # 收到消息进行操作（最后处理动作，留给消息接收）
+        msg_num = 0
+        # get_msg_dir = {ip:False for ip in self.player_list.ip}
+        while True:
+            if msg_num >= self.num_player:  # 一共有两个玩家发送的消息要接受，否则卡死等待
+                break
+            resend_time = 0
+            while self.q.empty():
+                resend_time += 1
+                pygame.time.wait(1)
+                if resend_time >= 50:  # 等待ms
+                    msg_num += 1
+                    if not self.done:
+                        print('[ERROR]MSG LOST: %d' % self.syn_frame)
+                    break
+                    # for ip in get_msg_dir.keys()
+                    #     if not get_msg_dir[ip]:
+                    #         self.sock_send('package lost',(get_msg_dir[ip], self.port))
+            if self.q.empty():
+                continue
+
+            data, address = self.q.get()
+            data_tmp = json.loads(data)  # [frame_number, key_list], ['syn_player_status', dict]
+            # if len(str(data_tmp)) > 15:
+            #     print type(data_tmp), '===', data_tmp, '---', data_tmp[0]
+            if data_tmp[0] == 'syn_player_status':  # 状态同步-->对象
+                # print 'in status.....', address
+                for player in self.player_list:  # 因为没用{IP:玩家}，所以遍历玩家，看这个收到的数据是谁的
+                    if player.ip == address[0] and player.win:
+                        player.plane.location = Vector(data_tmp[1]['location'])
+                        player.plane.velocity = Vector(data_tmp[1]['velocity'])
+                        player.plane.health = data_tmp[1]['health']  # !!!!!!!!会出现掉血了，然后回退回去的情况
+                        logging.info("Get player status, local_frame:%d----> %s, %s" % (
+                        self.syn_frame, str(address), str(data_tmp)))
+                        break
+            else:
+                for player in self.player_list:  # 遍历玩家，看这个收到的数据是谁的
+                    if player.ip == address[0] and player.win:
+                        # get_msg_dir[player.ip] = Ture
+                        msg_num += 1
+                        if data_tmp[1]:  # 消息-->操作
+                            player.operation(data_tmp[1], self.syn_frame)  # data is list of pygame.key.get_pressed() of json.dumps
+                        logging.info("Get, other_frame:%d----> %s, %s" % (data_tmp[0], str(address), str(data_tmp)))
+                        break  # 一个数据只有可能对应一个玩家的操作，有一个玩家取完消息就可以了
+
     def main(self):
         # print self.re_local_ip
         # print self.re_c_or_j
@@ -1049,10 +1066,10 @@ class Game(object):
                 self.done = True
                 # for player in self.player_list:
                 #     if player.ip == self.local_ip:
-                if self.local_player.win:
-                    print '[%s]YOU WIN.' % self.local_ip
-                else:
-                    print '[%s]GAME OVER' % self.local_ip
+                # if self.local_player.win:
+                #     print '[%s]YOU WIN.' % self.local_ip
+                # else:
+                #     print '[%s]GAME OVER' % self.local_ip
                 break
             Map.adjust_rect(self.screen_rect, self.map.surface.get_rect())
             # Map.adjust_rect()
