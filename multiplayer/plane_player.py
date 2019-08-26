@@ -695,7 +695,7 @@ class Game(object):
             while not self.q.empty():
                 self.q.get()
 
-        self.syn_frame = 0
+        self.syn_frame = -1
         # MSG QUEUE
         self.q = Queue.Queue()
         # UDP listening
@@ -749,9 +749,9 @@ class Game(object):
                       'location': (randint(MARS_MAP_SIZE[0] / 5, MARS_MAP_SIZE[0] * 4 / 5),
                                    randint(MARS_MAP_SIZE[1] / 5, MARS_MAP_SIZE[1] * 4 / 5)),
                       'Plane': plane_type,
-                      'Gun': 500,
-                      'Rocket': 15,
-                      'Cobra': 5,
+                      'Gun': 200,
+                      'Rocket': 10,
+                      'Cobra': 3,
                       }
         return msg_player
 
@@ -962,8 +962,7 @@ class Game(object):
             location = [randint(0, MARS_MAP_SIZE[0]), randint(0, MARS_MAP_SIZE[1])]
             status_msg = ('box_status', {'location': location, 'catalog': choice(BOX_CATALOG.keys())})
             for player in self.player_list:
-                if player.win:
-                    self.sock_send(status_msg, (player.ip, self.port))
+                self.sock_send(status_msg, (player.ip, self.port))
 
     def process(self, event_list):
         """
@@ -1041,7 +1040,7 @@ class Game(object):
             while self.q.empty():
                 resend_time += 1
                 pygame.time.wait(1)
-                if resend_time >= 50:  # µÈ´ýms
+                if resend_time >= 20:  # µÈ´ýms
                     msg_num += 1  # ³¬Ê±++++++++++1
                     if not self.done:
                         print('[ERROR]MSG LOST: %d' % self.syn_frame)
