@@ -1012,6 +1012,8 @@ class Game(object):
                     player.plane = None  # player.update()为True说明飞机已经delete了
                     player.win = False  # End Game
                     self.num_player -= 1
+                    logging.info("Player lost: %s" % player.ip)
+                    print("Player lost: %s" % player.ip)
                     # return True
 
         # 显示游戏信息
@@ -1047,7 +1049,7 @@ class Game(object):
             while self.q.empty():
                 resend_time += 1
                 pygame.time.wait(1)
-                if resend_time >= 20:  # 等待ms
+                if resend_time >= 25:  # 等待ms
                     msg_num += 1  # 超时++++++++++1
                     if not self.done:
                         print('[ERROR]MSG LOST: %d' % self.syn_frame)
@@ -1066,7 +1068,8 @@ class Game(object):
                 for player in self.player_list:  # 遍历玩家，看这个收到的数据是谁的
                     if player.ip == address[0] and player.win:
                         # get_msg_dir[player.ip] = Ture
-                        msg_num += 1  # 获取到有效消息++++++++++1
+                        if data_tmp[0] >= self.syn_frame:
+                            msg_num += 1  # 获取到有效消息++++++++++1
                         if data_tmp[1]:  # 消息-->操作
                             player.operation(data_tmp[1],
                                              self.syn_frame)  # data is list of pygame.key.get_pressed() of json.dumps
