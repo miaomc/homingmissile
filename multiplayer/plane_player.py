@@ -911,7 +911,8 @@ class Game(object):
             if keys[pygame.K_DOWN]:
                 self.screen_rect.y += self.move_pixels
             if keys[pygame.K_SPACE]:
-                self.screen_rect.center = Map.mars_translate(self.local_player.plane.location)
+                if self.local_player.plane:
+                    self.screen_rect.center = Map.mars_translate(self.local_player.plane.location)
 
             for keyascii in [pygame.K_a, pygame.K_d, pygame.K_w, pygame.K_s, pygame.K_1, pygame.K_2, pygame.K_3]:
                 if keys[keyascii]:
@@ -1031,6 +1032,9 @@ class Game(object):
             self.info.add_middle_below('press "r" to restart.')
 
         # 收到消息进行操作（最后处理动作，留给消息接收）
+        self.get_deal_msg()
+
+    def get_deal_msg(self):
         msg_num = 0
         # get_msg_dir = {ip:False for ip in self.player_list.ip}
         while True:
@@ -1040,7 +1044,7 @@ class Game(object):
             while self.q.empty():
                 resend_time += 1
                 pygame.time.wait(1)
-                if resend_time >= 20:  # 等待ms
+                if resend_time >= 10:  # 等待ms
                     msg_num += 1  # 超时++++++++++1
                     if not self.done:
                         print('[ERROR]MSG LOST: %d' % self.syn_frame)
