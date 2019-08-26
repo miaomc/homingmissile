@@ -21,7 +21,7 @@ ok飞机爆炸之后要可以继续游戏，显示win lose ， press esc to exit
 ok空格键回到飞机位置
 ok爆炸效果（目前只制作了F35和J20飞机的效果）
 """
-SINGLE_TEST = False
+SINGLE_TEST = True
 MAP_RATIO = 5
 RESTART_MODE = False
 LOCALIP = '192.168.0.107'
@@ -139,7 +139,7 @@ WEAPON_CATALOG = {
     'Cobra': {
         'health': 10,
         'init_speed': 0,
-        'max_speed': 6000, # 1360
+        'max_speed': 4500, # 1360
         'acc_speed': 25,
         'turn_acc': 35,
         'damage': 25,
