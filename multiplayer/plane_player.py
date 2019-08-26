@@ -11,7 +11,7 @@ import logging
 from infomation import Infomation
 
 """
-随机弹药包, 补血包,还需要同步才行，要不然每个玩家得到的Box不一样
+ok随机弹药包, 补血包,还需要同步才行，要不然每个玩家得到的Box不一样
 飞机受伤烟雾，随机产生在飞机身上
 开始菜单、游戏操作说明、restart game
 13.209.137.170
@@ -53,15 +53,15 @@ BOX_CATALOG = {
     # },
     'Gunfire_num':{
         'image': './image/box_gunfire_num.png',
-        'num': 200,
+        'num': 100,
     },
     'Rocket_num': {
         'image': './image/box_rocket_num.png',
-        'num': 20,
+        'num': 10,
     },
     'Cobra_num': {
         'image': './image/box_cobra_num.png',
-        'num': 20,
+        'num': 5,
     },
 }
 
@@ -827,7 +827,10 @@ class Game(object):
     def player_communicate(self, key_list):
         """
         在World类里面实现，TCP/IP的事件信息交互，Player类只做事件的update()
+        发送本地玩家的操作
         """
+        if not self.local_player.win:
+            return
         str_key_list = json.dumps((self.syn_frame, key_list))  # # 如果没操作队列: event_list = key_list = []
         for player in self.player_list:  # 发送给每一个网卡，包括自己
             # print player.ip
@@ -1044,7 +1047,7 @@ class Game(object):
             while self.q.empty():
                 resend_time += 1
                 pygame.time.wait(1)
-                if resend_time >= 10:  # 等待ms
+                if resend_time >= 20:  # 等待ms
                     msg_num += 1  # 超时++++++++++1
                     if not self.done:
                         print('[ERROR]MSG LOST: %d' % self.syn_frame)
@@ -1052,9 +1055,9 @@ class Game(object):
                     # for ip in get_msg_dir.keys()
                     #     if not get_msg_dir[ip]:
                     #         self.sock_send('package lost',(get_msg_dir[ip], self.port))
-            if self.q.empty():
-                continue
 
+            if self.q.empty():  # 空就不进行读取处理
+                continue
             data, address = self.q.get()
             data_tmp = json.loads(data)  # [frame_number, key_list], ['syn_player_status', dict]，['box_status', dict]
             # if len(str(data_tmp)) > 15:
