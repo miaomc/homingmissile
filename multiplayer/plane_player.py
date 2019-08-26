@@ -2,7 +2,7 @@
 import pygame
 import math
 import os
-from random import randint
+from random import randint,choice
 import socket
 import threading
 import Queue
@@ -11,10 +11,11 @@ import logging
 from infomation import Infomation
 
 """
-随机弹药包, 补血包
+随机弹药包, 补血包,还需要同步才行，要不然每个玩家得到的Box不一样
 飞机受伤烟雾，随机产生在飞机身上
 开始菜单、游戏操作说明、restart game
 13.209.137.170
+被导弹跟踪了之后的滴滴滴声音
 ok转弯+加速不能同时使用
 ok飞机爆炸之后要可以继续游戏，显示win lose ， press esc to exit
 ok空格键回到飞机位置
@@ -42,6 +43,27 @@ MARS_SCREEN_SIZE = (8000, 4500)
 MARS_MAP_SIZE = (8000 * MAP_RATIO, 4500 * MAP_RATIO)  # topleft starts: width, height
 CLOUD_IMAGE_LIST = ['./image/cloud1.png', './image/cloud2.png', './image/cloud3.png', './image/cloud4.png']
 
+BOX_CATALOG = {
+    'Medic':{
+        'image': './image/box_medic.png',
+        'health': 80,
+    },
+    # 'Power':{
+    #     'image': './image/box_power.png',
+    # },
+    'Gunfire_num':{
+        'image': './image/box_gunfire_num.png',
+        'num': 200,
+    },
+    'Rocket_num': {
+        'image': './image/box_rocket_num.png',
+        'num': 20,
+    },
+    'Cobra_num': {
+        'image': './image/box_cobra_num.png',
+        'num': 20,
+    },
+}
 
 TAIL_CATALOG = {
     'Point': {
@@ -299,6 +321,34 @@ image:
             if self.catalog in ['Rocket', 'Cobra']:
                 self.sound_collide_plane.play()
 
+class Box(Base):
+    def __init__(self, location, catalog):
+        image_path = BOX_CATALOG[catalog]['image']
+        self.image = pygame.image.load(image_path).convert()
+        self.image.set_colorkey(WHITE)
+        super(Box,self).__init__(location=location, image=self.image)
+
+        self.sound_kill = pygame.mixer.Sound("./sound/beep.wav")
+        self.catalog = catalog
+        if catalog == 'Medic':
+            self.health = BOX_CATALOG[catalog]['health']
+        elif catalog == 'Power':
+            pass
+        elif catalog in ['Gunfire_num','Rocket_num','Cobra_num']:
+            self.num = BOX_CATALOG[catalog]['num']
+
+    def effect(self, plane_object):
+        if self.catalog == 'Medic':
+            plane_object.change_health(self.health)
+        # elif catalog == 'Power':  # 这个后面再做威力加强，武器是发射时，加载在飞机的weapon_group上
+        #     pass
+        elif self.catalog =='Gunfire_num':
+            plane_object.change_weapon('Gun', self.num)
+        elif self.catalog =='Rocket_num':
+            plane_object.change_weapon('Rocket', self.num)
+        elif self.catalog == 'Cobra_num':
+            plane_object.change_weapon('Cobra', self.num)
+
 class Tail(Base):
     def __init__(self, location, catalog='Point'):
         image_path = TAIL_CATALOG[catalog]['image']
@@ -336,7 +386,7 @@ class Plane(Base):
         self.health = PLANE_CATALOG[catalog]['health']
 
         self.speed = (self.max_speed + self.min_speed) / 2  # 初速度为一半
-        self.velocity = Vector(1, 1).normalize_vector() * self.speed  # Vector
+        self.velocity = Vector(randint(-100,100), randint(-100,100)).normalize_vector() * self.speed  # Vector
         self.acc = Vector(0, 0)
 
         self.weapon = {1: {}, 2: {}, 3: {}}  # 默认没有武器
@@ -362,6 +412,9 @@ class Plane(Base):
         if (self.velocity - acc_tmp).length() > self.min_speed:
             self.acc = acc_tmp
 
+    def change_health(self, num):
+        self.health += num
+
     def load_weapon(self, catalog='Cobra', number=6):
         """self.weapon = { 1: {catalog:<Gun>, number=500},
             2:{catalog:<Cobra>, number=6},
@@ -375,6 +428,14 @@ class Plane(Base):
         self.weapon[index]['catalog'] = catalog
         self.weapon[index]['number'] = number
 
+    def change_weapon(self, catalog, number):
+        if catalog == 'Gun':
+            self.weapon[1]['number'] += number
+        elif catalog == 'Rocket':
+            self.weapon[2]['number'] += number
+        elif catalog == 'Cobra':
+            self.weapon[3]['number'] += number
+
     def update(self):
         if not self.alive:  # 如果挂了,就启动自爆动画
             super(Plane, self).update()
@@ -386,25 +447,28 @@ class Plane(Base):
             return  self.delete()
 
 
-class Missile(Base):
+class Weapon(Base):
     def __init__(self, catalog, location, velocity):
         if catalog == 'Gun':
             image_path = WEAPON_CATALOG['Gun']['image'][randint(0, len(WEAPON_CATALOG['Gun']['image']) - 1)]
+            self.image_original = pygame.image.load(image_path).convert()
+            self.image_original.set_colorkey(WHITE)
+            super(Weapon, self).__init__(location=location, image=self.image_original)
             self.sound_fire = pygame.mixer.Sound("./sound/minigun_fire.wav")
             self.sound_fire.play(maxtime=200)
             self.sound_collide_plane = pygame.mixer.Sound(WEAPON_CATALOG['Gun']['sound_collide_plane'][randint(0, len(
                 WEAPON_CATALOG['Gun']['sound_collide_plane']) - 1)])
         else:
             image_path = WEAPON_CATALOG[catalog]['image']
+            self.image_original = pygame.image.load(image_path).convert()
+            self.image_original.set_colorkey(WHITE)
+            super(Weapon, self).__init__(location=location, image=self.image_original)
             self.sound_fire = pygame.mixer.Sound("./sound/TPhFi201.wav")
             self.sound_fire.play()
             self.sound_kill = pygame.mixer.Sound("./sound/ric5.wav")
             self.sound_collide_plane = pygame.mixer.Sound("./sound/shotgun_fire_1.wav")
         if catalog == 'Cobra':
             self.detect_range = WEAPON_CATALOG[catalog]['dectect_range']
-        self.image_original = pygame.image.load(image_path).convert()
-        self.image_original.set_colorkey(WHITE)
-        super(Missile, self).__init__(location=location, image=self.image_original)
 
         self.health = WEAPON_CATALOG[catalog]['health']
         self.damage = WEAPON_CATALOG[catalog]['damage']
@@ -449,7 +513,7 @@ class Missile(Base):
         if self.min_speed < self.velocity.length() < self.max_speed:
             self.acc += self.velocity.normalize_vector() * self.acc_speed  # 加上垂直速度
 
-        super(Missile, self).update()  # 正常更新
+        super(Weapon, self).update()  # 正常更新
         self.fuel -= 1
         if self.fuel <= 0 or self.health <= 0:
             self.delete()
@@ -483,7 +547,7 @@ class Player(object):
                 location_x = self.plane.location.x + tmp_rect[0]
                 location_y = self.plane.location.y + tmp_rect[1]
                 # print location_x,location_y, '<------------', self.plane.location, self.plane.rect
-                weapon = Missile(catalog=self.plane.weapon[slot]['catalog'],
+                weapon = Weapon(catalog=self.plane.weapon[slot]['catalog'],
                                  location=(location_x, location_y),
                                  velocity=self.plane.velocity)
                 self.weapon_group.add(weapon)
@@ -643,6 +707,7 @@ class Game(object):
         self.plane_group = pygame.sprite.Group()
         self.weapon_group = pygame.sprite.Group()
         self.tail_group = pygame.sprite.Group()
+        self.box_group = pygame.sprite.Group()
 
         # backup map
         self.origin_map = None
@@ -790,6 +855,13 @@ class Game(object):
             plane_collide_lst = pygame.sprite.spritecollide(weapon, self.plane_group, False)
             weapon.hitted(plane_collide_lst)  # 发生碰撞相互减血
 
+    def deal_collide_with_box(self):
+        for plane in self.plane_group:  # 进行飞机与Box之间碰撞探测
+            box_collide_lst = pygame.sprite.spritecollide(plane, self.box_group, False)
+            for box in box_collide_lst:
+                box.effect(plane)
+                box.delete()
+
     def syn_status(self):
         if self.syn_frame % (2 * FPS) == 0:  # 每2秒同步一次自己状态给对方
             # print self.player_list, self.local_ip, self.other_ip
@@ -809,7 +881,7 @@ class Game(object):
         self.weapon_group.clear(self.map.surface, self.clear_callback)
         self.plane_group.clear(self.map.surface, self.clear_callback)
         self.tail_group.clear(self.map.surface, self.clear_callback)
-        pass
+        self.box_group.clear(self.map.surface, self.clear_callback)
 
     def clear_callback(self, surf, rect):
         # surf.blit(source=self.map.surface, dest=(0, 0), area=self.current_rect)
@@ -885,6 +957,14 @@ class Game(object):
             print('[ERROR]Sock Wrong Msg:%s %s' % (str(address), json.loads(data)))
             return False
 
+    def box_msg_send(self):
+        if self.syn_frame % (1 * FPS) == 0:  # 每n秒同步一次自己状态给对方
+            location = [randint(0, MARS_MAP_SIZE[0]), randint(0, MARS_MAP_SIZE[1])]
+            status_msg = ('box_status', {'location': location, 'catalog': choice(BOX_CATALOG.keys())})
+            for player in self.player_list:
+                if player.win:
+                    self.sock_send(status_msg, (player.ip, self.port))
+
     def process(self, event_list):
         """
         每个玩家接收自己的消息队列，刷新自己的界面；
@@ -892,6 +972,10 @@ class Game(object):
         每过2帧进行一次状态同步：只将本地玩家飞机状态发送给其他玩家；
         """
         self.syn_frame += 1  # 发送同步帧(上来就发送)
+
+        # 产生随机奖励Box，并发送
+        self.box_msg_send()
+
         # 状态同步, 先状态同步，再发送操作消息
         self.syn_status()
 
@@ -905,6 +989,7 @@ class Game(object):
         # self.map.surface = self.origin_map_surface.copy()  # [WARNING]很吃性能！！！！！极有可能pygame.display()渲染不吃时间，这个copy（）很吃时间
         if self.syn_frame % 5 == 0:  # 添加尾焰轨迹
             self.add_tail(self.weapon_group)
+        self.box_group.draw(self.map.surface)  # draw随机Box
         self.tail_group.draw(self.map.surface)  # draw尾焰
         self.plane_group.draw(self.map.surface)  # draw飞机
         self.weapon_group.draw(self.map.surface)  # draw武器
@@ -915,6 +1000,7 @@ class Game(object):
 
         # 碰撞处理
         self.deal_collide()
+        self.deal_collide_with_box()
 
         # 判断游戏是否结束
         for player in self.player_list:
@@ -956,7 +1042,7 @@ class Game(object):
                 resend_time += 1
                 pygame.time.wait(1)
                 if resend_time >= 50:  # 等待ms
-                    msg_num += 1
+                    msg_num += 1  # 超时++++++++++1
                     if not self.done:
                         print('[ERROR]MSG LOST: %d' % self.syn_frame)
                     break
@@ -967,10 +1053,20 @@ class Game(object):
                 continue
 
             data, address = self.q.get()
-            data_tmp = json.loads(data)  # [frame_number, key_list], ['syn_player_status', dict]
+            data_tmp = json.loads(data)  # [frame_number, key_list], ['syn_player_status', dict]，['box_status', dict]
             # if len(str(data_tmp)) > 15:
             #     print type(data_tmp), '===', data_tmp, '---', data_tmp[0]
-            if data_tmp[0] == 'syn_player_status':  # 状态同步-->对象
+            if isinstance(data_tmp[0], int):
+                for player in self.player_list:  # 遍历玩家，看这个收到的数据是谁的
+                    if player.ip == address[0] and player.win:
+                        # get_msg_dir[player.ip] = Ture
+                        msg_num += 1  # 获取到有效消息++++++++++1
+                        if data_tmp[1]:  # 消息-->操作
+                            player.operation(data_tmp[1],
+                                             self.syn_frame)  # data is list of pygame.key.get_pressed() of json.dumps
+                        logging.info("Get, other_frame:%d----> %s, %s" % (data_tmp[0], str(address), str(data_tmp)))
+                        break  # 一个数据只有可能对应一个玩家的操作，有一个玩家取完消息就可以了
+            elif data_tmp[0] == 'syn_player_status':  # 状态同步-->对象
                 # print 'in status.....', address
                 for player in self.player_list:  # 因为没用{IP:玩家}，所以遍历玩家，看这个收到的数据是谁的
                     if player.ip == address[0] and player.win:
@@ -980,15 +1076,8 @@ class Game(object):
                         logging.info("Get player status, local_frame:%d----> %s, %s" % (
                         self.syn_frame, str(address), str(data_tmp)))
                         break
-            else:
-                for player in self.player_list:  # 遍历玩家，看这个收到的数据是谁的
-                    if player.ip == address[0] and player.win:
-                        # get_msg_dir[player.ip] = Ture
-                        msg_num += 1
-                        if data_tmp[1]:  # 消息-->操作
-                            player.operation(data_tmp[1], self.syn_frame)  # data is list of pygame.key.get_pressed() of json.dumps
-                        logging.info("Get, other_frame:%d----> %s, %s" % (data_tmp[0], str(address), str(data_tmp)))
-                        break  # 一个数据只有可能对应一个玩家的操作，有一个玩家取完消息就可以了
+            elif data_tmp[0] == 'box_status':  # 接受并处理Box
+                self.box_group.add(Box(location=data_tmp[1]['location'], catalog=data_tmp[1]['catalog']))
 
     def main(self):
         # print self.re_local_ip
