@@ -57,11 +57,11 @@ BOX_CATALOG = {
     },
     'Rocket_num': {
         'image': './image/box_rocket_num.png',
-        'num': 10,
+        'num': 5,
     },
     'Cobra_num': {
         'image': './image/box_cobra_num.png',
-        'num': 5,
+        'num': 3,
     },
 }
 
@@ -76,10 +76,10 @@ TAIL_CATALOG = {
 PLANE_CATALOG = {
     'J20': {
         'health': 200,
-        'max_speed': 2800,
+        'max_speed': 3000,
         'min_speed': 540,
-        'acc_speed': 40,
-        'turn_acc': 20,
+        'acc_speed': 60,
+        'turn_acc': 35,  # 20
         'image': './image/plane_red.png',
         'damage': 100,
     },
@@ -129,8 +129,8 @@ WEAPON_CATALOG = {
     'Rocket': {
         'health': 10,
         'init_speed': 0,
-        'max_speed': 3500,
-        'acc_speed': 35,
+        'max_speed': 8000,
+        'acc_speed': 65,
         'damage': 35,
         'turn_acc': 0,
         'image': './image/homingmissile.png',
@@ -139,7 +139,7 @@ WEAPON_CATALOG = {
     'Cobra': {
         'health': 10,
         'init_speed': 0,
-        'max_speed': 3000, # 1360
+        'max_speed': 6000, # 1360
         'acc_speed': 25,
         'turn_acc': 35,
         'damage': 25,
