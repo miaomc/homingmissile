@@ -21,10 +21,10 @@ ok飞机爆炸之后要可以继续游戏，显示win lose ， press esc to exit
 ok空格键回到飞机位置
 ok爆炸效果（目前只制作了F35和J20飞机的效果）
 """
-SINGLE_TEST = True
-MAP_RATIO = 5
+SINGLE_TEST = False
+MAP_RATIO = 3
 RESTART_MODE = False
-LOCALIP = '192.168.0.107'
+LOCALIP = '10.221.87.108'
 HOSTIP = '192.168.0.103'
 PLANE_TYPE = 'J20'
 C_OR_J = ''
@@ -703,6 +703,10 @@ class Game(object):
         self.thread1.setDaemon(True)  # True:不关注这个子线程，主线程跑完就结束整个python process
         self.thread1.start()
 
+        # MSG deal
+        self.thread_msg = threading.Thread(target=self.get_deal_msg)
+        self.thread_msg.setDaemon(True)  # True:不关注这个子线程，主线程跑完就结束整个python process
+
         # sprite group
         self.plane_group = pygame.sprite.Group()
         self.weapon_group = pygame.sprite.Group()
@@ -1037,9 +1041,47 @@ class Game(object):
             self.info.add_middle_below('press "r" to restart.')
 
         # 收到消息进行操作（最后处理动作，留给消息接收）
-        self.get_deal_msg()
+        # self.get_deal_msg()
 
     def get_deal_msg(self):
+        while True:
+            # 游戏结束判定
+            if self.done:
+                break
+
+            # 空就不进行读取处理
+            if self.q.empty():  
+                continue
+                pygame.time.wait(1)
+
+            # 处理消息
+            data, address = self.q.get()
+            data_tmp = json.loads(data)  # [frame_number, key_list], ['syn_player_status', dict]，['box_status', dict]
+            if isinstance(data_tmp[0], int):  # Msg Type1:操作类型的消息
+                for player in self.player_list:  # 遍历玩家，看这个收到的数据是谁的
+                    if player.ip == address[0] and player.win:
+                        while data_tmp[0] > self.syn_frame:  # 接收到大于当前帧的消息就等待
+                            pygame.time.wait(1)
+                        if data_tmp[1]:  # 消息-->操作
+                            player.operation(data_tmp[1],
+                                             self.syn_frame)  # data is list of pygame.key.get_pressed() of json.dumps
+                        logging.info("Get, other_frame:%d----> %s, %s" % (data_tmp[0], str(address), str(data_tmp)))
+                        break  # 一个数据只有可能对应一个玩家的操作，有一个玩家取完消息就可以了
+            elif data_tmp[0] == 'syn_player_status':  # Msg Type2:状态同步-->对象，同步类型消息
+                # print 'in status.....', address
+                for player in self.player_list:  # 因为没用{IP:玩家}，所以遍历玩家，看这个收到的数据是谁的
+                    if player.ip == address[0] and player.win:
+                        player.plane.location = Vector(data_tmp[1]['location'])
+                        player.plane.velocity = Vector(data_tmp[1]['velocity'])
+                        player.plane.health = data_tmp[1]['health']  # !!!!!!!!会出现掉血了，然后回退回去的情况
+                        logging.info("Get player status, local_frame:%d----> %s, %s" % (
+                        self.syn_frame, str(address), str(data_tmp)))
+                        break
+            elif data_tmp[0] == 'box_status':  # Msg Type3:接受并处理Box类型消息
+                self.box_group.add(Box(location=data_tmp[1]['location'], catalog=data_tmp[1]['catalog']))
+            
+
+    def get_deal_msg_(self):
         msg_num = 0
         # get_msg_dir = {ip:False for ip in self.player_list.ip}
         while True:
@@ -1158,6 +1200,7 @@ class Game(object):
 
         # PYGAME LOOP
         pygame.key.set_repeat(10)  # control how held keys are repeated
+        self.thread_msg.start()  # 开启玩家处理接受消息的线程
         while not self.done:
             event_list = self.event_control()
             if self.process(event_list):
