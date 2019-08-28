@@ -16,15 +16,16 @@ ok随机弹药包, 补血包,还需要同步才行，要不然每个玩家得到的Box不一样
 开始菜单、游戏操作说明、restart game
 13.209.137.170
 被导弹跟踪了之后的滴滴滴声音
+子弹和导弹的爆炸效果
 ok转弯+加速不能同时使用
 ok飞机爆炸之后要可以继续游戏，显示win lose ， press esc to exit
 ok空格键回到飞机位置
 ok爆炸效果（目前只制作了F35和J20飞机的效果）
 """
-SINGLE_TEST = False
+SINGLE_TEST = True
 MAP_RATIO = 3
 RESTART_MODE = False
-LOCALIP = '10.221.87.108'
+LOCALIP = '192.168.0.107'
 HOSTIP = '192.168.0.103'
 PLANE_TYPE = 'J20'
 C_OR_J = ''
@@ -669,6 +670,7 @@ class Game(object):
 
         self.local_player = None
         self.num_player = 0
+        self.lock_frame = 0
 
     def game_init(self, localip):
         logging.basicConfig(level=logging.DEBUG,  # CRITICAL > ERROR > WARNING > INFO > DEBUG > NOTSET
@@ -695,7 +697,7 @@ class Game(object):
             while not self.q.empty():
                 self.q.get()
 
-        self.syn_frame = -1
+        self.syn_frame = 0
         # MSG QUEUE
         self.q = Queue.Queue()
         # UDP listening
@@ -972,19 +974,26 @@ class Game(object):
             for player in self.player_list:
                 self.sock_send(status_msg, (player.ip, self.port))
 
+    def syn_lock_frame(self):
+        if self.syn_frame % 5 == 0:  # 每5帧发送一次关键帧
+            status_msg = ('syn_lock_frame', self.syn_frame)
+            for player in self.player_list:
+                self.sock_send(status_msg, (player.ip, self.port))
+
     def process(self, event_list):
         """
         每个玩家接收自己的消息队列，刷新自己的界面；
         不管延迟和丢包的问题，接受操作消息等待为resend_time=30ms；
         每过2帧进行一次状态同步：只将本地玩家飞机状态发送给其他玩家；
         """
-        self.syn_frame += 1  # 发送同步帧(上来就发送)
-
         # 产生随机奖励Box，并发送
         self.box_msg_send()
 
         # 状态同步, 先状态同步，再发送操作消息
         self.syn_status()
+
+        # 发送锁定帧
+        self.syn_lock_frame()
 
         # 发送普通键盘操作消息
         self.player_communicate(event_list)
@@ -1043,6 +1052,13 @@ class Game(object):
         # 收到消息进行操作（最后处理动作，留给消息接收）
         # self.get_deal_msg()
 
+        # LockFrame关键帧同步
+        if self.syn_frame > self.lock_frame:
+            pygame.time.wait((self.syn_frame-self.lock_frame)*1000/FPS) # To be continue只需要考虑在线客户的平均帧同步，并且做到平滑的滞后，添加一个滞后因子！！！！
+            self.lock_frame = self.syn_frame  # !!!!!!!!!!!
+
+        self.syn_frame += 1  # 发送同步帧(上来就发送)
+
     def get_deal_msg(self):
         while True:
             # 游戏结束判定
@@ -1079,7 +1095,10 @@ class Game(object):
                         break
             elif data_tmp[0] == 'box_status':  # Msg Type3:接受并处理Box类型消息
                 self.box_group.add(Box(location=data_tmp[1]['location'], catalog=data_tmp[1]['catalog']))
-            
+            elif data_tmp[0] == 'syn_lock_frame':  # Msg Type4:接受并处理LockFrame
+                if data_tmp[1] < self.syn_frame and address[0] != self.local_ip:  # 如果LockFrame小于本系统的同步帧
+                    self.lock_frame = data_tmp[1]
+                    logging.info("Send LockFrame:%d--->%s"%(self.lock_frame, str(data_tmp)))
 
     def get_deal_msg_(self):
         msg_num = 0
