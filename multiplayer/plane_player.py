@@ -22,7 +22,7 @@ ok飞机爆炸之后要可以继续游戏，显示win lose ， press esc to exit
 ok空格键回到飞机位置
 ok爆炸效果（目前只制作了F35和J20飞机的效果）
 """
-SINGLE_TEST = False
+SINGLE_TEST = True
 MAP_RATIO = 3
 RESTART_MODE = False
 LOCALIP = '192.168.0.107'
@@ -31,7 +31,7 @@ PLANE_TYPE = 'J20'
 C_OR_J = ''
 
 SPEED_RATIO = 0.25
-FPS = 50  # 设置在20帧比较有价值，要不然，LOCK帧就会跑到前面去
+FPS = 20  # 设置在20帧比较有价值，要不然，LOCK帧就会跑到前面去
 
 PINK = (255, 228, 225)
 DARK_GREEN = (49, 79, 79)
@@ -732,8 +732,16 @@ class Game(object):
                 self.q.get()
 
         self.syn_frame = 0
+
         # MSG QUEUE
-        self.q = Queue.Queue()
+        self.q = Queue.Queue()  # GET
+        self.q_send = Queue.Queue()
+
+        # UDP sending
+        self.thread_send = threading.Thread(target=self.msg_send)
+        self.thread_send.setDaemon(True)
+        self.thread_send.start()
+
         # UDP listening
         self.thread1 = threading.Thread(target=self.msg_recv)
         self.thread1.setDaemon(True)  # True:不关注这个子线程，主线程跑完就结束整个python process
@@ -784,6 +792,13 @@ class Game(object):
     # def mars_unti_translate(coordinate):
     #     return [int(coordinate[i] * self.mars_ratio[i]) for i in [0, 1]]
 
+    def msg_send(self):
+        while not self.done:
+            if not self.q_send.empty():
+                msg_dumped,dest = self.q_send.get()
+                self.sock.sendto(msg_dumped, dest)
+                logging.info('SEND [%s]:%s' % (str(dest), msg_dumped))
+
     def msg_recv(self):
         while not self.done:
             self.q.put(self.sock.recvfrom(1487))
@@ -791,11 +806,9 @@ class Game(object):
 
     def sock_send(self, msg, dest):
         """strs: unicode string or dict object"""
-        thread_tmp = threading.Thread(target=self.sock.sendto, args=(json.dumps(msg), dest))
-        thread_tmp.setDaemon(True)
-        thread_tmp.start()
+        self.q_send.put((json.dumps(msg), dest))
         # self.sock.sendto(json.dumps(msg), dest)
-        logging.info('SEND [%s]:%s' % (str(dest), json.dumps(msg)))
+
 
     def sock_waitfor(self, msg, dest, delay=100, waiting_times=30):
         count = 0
@@ -906,12 +919,13 @@ class Game(object):
         """
         if not self.local_player.win:
             return
-        str_key_list = json.dumps((self.syn_frame, key_list))  # # 如果没操作队列: event_list = key_list = []
+        # str_key_list = json.dumps((self.syn_frame, key_list))  # # 如果没操作队列: event_list = key_list = []
         for player in self.player_list:  # 发送给每一个网卡，包括自己
             # print player.ip
             try:
-                logging.info('Send %d---> %s, %s' % (self.syn_frame, str((player.ip, self.port)), str_key_list))
-                self.sock.sendto(str_key_list, (player.ip, self.port))
+                # logging.info('Send %d---> %s, %s' % (self.syn_frame, str((player.ip, self.port)), str_key_list))
+                self.sock_send((self.syn_frame, key_list), (player.ip, self.port))
+                # self.sock.sendto(str_key_list, (player.ip, self.port))
                 # self.sock.sendto(str_event_list, (player.ip, self.port))  # 发双份
             except Exception, msg:
                 logging.warn('Offline(Socket Error):' + str(msg))
@@ -1019,7 +1033,7 @@ class Game(object):
         return localip
 
     def box_msg_send(self):
-        if self.syn_frame % (2 * FPS) == 0:  # 每n秒同步一次自己状态给对方
+        if self.syn_frame % (3 * FPS) == 0:  # 每n秒同步一次自己状态给对方
             location = [randint(0, MARS_MAP_SIZE[0]), randint(0, MARS_MAP_SIZE[1])]
             status_msg = ('box_status', {'location': location, 'catalog': choice(BOX_CATALOG.keys())})
             for player in self.player_list:
@@ -1125,6 +1139,7 @@ class Game(object):
         # print stardard_diff_time
         if stardard_diff_time > 0:
             pygame.time.wait(stardard_diff_time)
+            logging.info('WaitingTime:%s' % str(stardard_diff_time))
 
         self.syn_frame += 1  # 发送同步帧(上来就发送)
 
@@ -1315,9 +1330,10 @@ class Game(object):
         self.thread_msg.start()  # 开启玩家处理接受消息的线程
         # if self.host_ip == self.local_ip:  # 主机才发送同步LockFrame
         #     self.thread_lock.start()  # 开启玩家处理接受消息的线程
-        last_time = 0
+        last_time = pygame.time.get_ticks()
         self.start_time = pygame.time.get_ticks()  # 记录开始时间
         while not self.done:
+            logging.info('T1:%d'%pygame.time.get_ticks())
             event_list = self.event_control()
             if self.process(event_list):
                 self.done = True
@@ -1328,15 +1344,20 @@ class Game(object):
                 # else:
                 #     print '[%s]GAME OVER' % self.local_ip
                 break
+            logging.info('T2:%d'%pygame.time.get_ticks()) # T1与T2之间平均花费12ms
             Map.adjust_rect(self.screen_rect, self.map.surface.get_rect())
+            logging.info('T3:%d'%pygame.time.get_ticks())
             # Map.adjust_rect()
-            self.render(self.screen_rect)
+            self.render(self.screen_rect)  # 该函数平均花费26ms！！！！！！！！！！！！！！！！！！
+            logging.info('T4:%d'%pygame.time.get_ticks())
 
             pygame.display.flip()
+            logging.info('T5:%d'%pygame.time.get_ticks())
             logging.info('CostTime:%s' % str(pygame.time.get_ticks() - last_time))
             last_time = pygame.time.get_ticks()
             # self.clock.tick(self.fps)
             self.erase()
+            logging.info('T6:%d'%pygame.time.get_ticks())
 
         # self.thread1.close
         # self.sock.close()
@@ -1344,14 +1365,14 @@ class Game(object):
         pygame.quit()
 
 
-def test_calc_mean_frame_cost_time():
+def test_calc_frame_cost():
     """2019-Sep-01 01:03:39-Sun [line:1305] [INFO] Time:34"""
     with open('logger.log', 'r') as f1:
         s = f1.readlines()
 
     l = []
     for i in s:
-        if 'Time:' in i:
+        if 'CostTime:' in i:
             l.append(i)
 
     l1 = [i.split(':')[-1] for i in l]
@@ -1389,5 +1410,5 @@ if __name__ == '__main__':
     #     RESTART_MODE = True
     #     game.main()
     game.sock.close()
-    test_calc_mean_frame_cost_time()
+    test_calc_frame_cost()
     test_send_get_analyze()
