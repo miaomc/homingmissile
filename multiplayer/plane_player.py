@@ -22,7 +22,7 @@ ok飞机爆炸之后要可以继续游戏，显示win lose ， press esc to exit
 ok空格键回到飞机位置
 ok爆炸效果（目前只制作了F35和J20飞机的效果）
 """
-SINGLE_TEST = True
+SINGLE_TEST = False
 MAP_RATIO = 3
 RESTART_MODE = False
 LOCALIP = '192.168.0.107'
@@ -685,6 +685,7 @@ class Game(object):
     def __init__(self):
         self.local_ip = None
         self.other_ip = None
+        self.host_ip = None
         self.sock = None
         self.port = 8989
 
@@ -731,10 +732,6 @@ class Game(object):
         self.thread1 = threading.Thread(target=self.msg_recv)
         self.thread1.setDaemon(True)  # True:不关注这个子线程，主线程跑完就结束整个python process
         self.thread1.start()
-
-        # MSG deal
-        self.thread_msg = threading.Thread(target=self.get_deal_msg)
-        self.thread_msg.setDaemon(True)  # True:不关注这个子线程，主线程跑完就结束整个python process
 
         # sprite group
         self.plane_group = pygame.sprite.Group()
@@ -1154,7 +1151,7 @@ class Game(object):
                 # if self.syn_frame>data_tmp[1] and address[0] != self.local_ip:  # 如果LockFrame小于本系统的同步帧
                 if self.syn_frame > data_tmp[1]:
                     self.delay_frame = self.syn_frame - data_tmp[1]
-                logging.info("Get delay_frame:%d--->%s"%(self.delay_frame, str(data_tmp)))
+                logging.info("DelayFrames:%d--->%s"%(self.delay_frame, str(data_tmp)))
 
     def get_deal_msg_(self):
         msg_num = 0
@@ -1234,16 +1231,16 @@ class Game(object):
             self.d[localip] = msg_player
 
             if self.create_or_join():
+                self.host_ip = self.local_ip
                 if not self.create(localip, msg_player):
                     self.done = True
                     print('waiting join failed!')
                     return False
             else:
                 if RESTART_MODE:
-                    host_ip = self.re_host_ip
+                    self.host_ip = host_ip = self.re_host_ip
                 else:
-                    host_ip = raw_input('Input a host ip to join a game:')
-                    self.re_host_ip = host_ip
+                    self.host_ip = self.re_host_ip = host_ip = raw_input('Input a host ip to join a game:')
                 if not self.join(msg_player, host_ip):
                     self.done = True
                     print('join failed!')
@@ -1272,20 +1269,28 @@ class Game(object):
         pygame.key.set_repeat(10)  # control how held keys are repeated
         print('Game Start.My IP&PORT: %s - %d' % (self.local_ip, self.port))
 
-        # lockframe deal
-        self.thread_lock = threading.Thread(target=self.syn_lock_frame)
-        self.thread_lock.setDaemon(True)  # True:不关注这个子线程，主线程跑完就结束整个python process
+
 
         # MAIN LOOP
         self.main_loop()
 
     def main_loop(self):
+        # MSG deal
+        if self.host_ip == self.local_ip:  # 主机才发送同步LockFrame
+            self.thread_msg = threading.Thread(target=self.get_deal_msg)
+            self.thread_msg.setDaemon(True)  # True:不关注这个子线程，主线程跑完就结束整个python process
+
+        # lockframe deal
+        self.thread_lock = threading.Thread(target=self.syn_lock_frame)
+        self.thread_lock.setDaemon(True)  # True:不关注这个子线程，主线程跑完就结束整个python process
+
         # 同步开始循环
         self.sock_send('200 OK', (self.other_ip, self.port))
         self.sock_waitfor('200 OK', (self.other_ip, self.port))
 
         self.thread_msg.start()  # 开启玩家处理接受消息的线程
-        self.thread_lock.start()  # 开启玩家处理接受消息的线程
+        if self.host_ip == self.local_ip:  # 主机才发送同步LockFrame
+            self.thread_lock.start()  # 开启玩家处理接受消息的线程
         last_time = 0
         while not self.done:
             event_list = self.event_control()
@@ -1303,7 +1308,7 @@ class Game(object):
             self.render(self.screen_rect)
 
             pygame.display.flip()
-            logging.info('Time:%s'%str(pygame.time.get_ticks()-last_time))
+            logging.info('CostTime:%s'%str(pygame.time.get_ticks()-last_time))
             last_time = pygame.time.get_ticks()
             # self.clock.tick(self.fps)
             self.erase()
