@@ -2,7 +2,7 @@
 import pygame
 import math
 import os
-from random import randint,choice
+from random import randint, choice
 import socket
 import threading
 import Queue
@@ -22,7 +22,7 @@ ok飞机爆炸之后要可以继续游戏，显示win lose ， press esc to exit
 ok空格键回到飞机位置
 ok爆炸效果（目前只制作了F35和J20飞机的效果）
 """
-SINGLE_TEST = True
+SINGLE_TEST = False
 MAP_RATIO = 3
 RESTART_MODE = False
 LOCALIP = '192.168.0.107'
@@ -30,30 +30,30 @@ HOSTIP = '192.168.0.103'
 PLANE_TYPE = 'J20'
 C_OR_J = ''
 
-
 SPEED_RATIO = 0.25
+FPS = 50  # 设置在20帧比较有价值，要不然，LOCK帧就会跑到前面去
 
-PINK = (255,228,225)
-DARK_GREEN = (49,79,79)
-GRAY =  (168,168,168)
+PINK = (255, 228, 225)
+DARK_GREEN = (49, 79, 79)
+GRAY = (168, 168, 168)
 BACKGROUND_COLOR = DARK_GREEN
 WHITE = (255, 255, 255)
-FPS = 20  # 设置在20帧比较有价值，要不然，LOCK帧就会跑到前面去
+
 SCREEN_SIZE = (1300, 800)
 MARS_SCREEN_SIZE = (8000, 4500)
 MARS_MAP_SIZE = (8000 * MAP_RATIO, 4500 * MAP_RATIO)  # topleft starts: width, height
-MARS_RATIO = (float(MARS_SCREEN_SIZE[0])/SCREEN_SIZE[0], float(MARS_SCREEN_SIZE[1])/SCREEN_SIZE[1])
+MARS_RATIO = (float(MARS_SCREEN_SIZE[0]) / SCREEN_SIZE[0], float(MARS_SCREEN_SIZE[1]) / SCREEN_SIZE[1])
 CLOUD_IMAGE_LIST = ['./image/cloud1.png', './image/cloud2.png', './image/cloud3.png', './image/cloud4.png']
 
 BOX_CATALOG = {
-    'Medic':{
+    'Medic': {
         'image': './image/box_medic.png',
         'health': 80,
     },
     # 'Power':{
     #     'image': './image/box_power.png',
     # },
-    'Gunfire_num':{
+    'Gunfire_num': {
         'image': './image/box_gunfire_num.png',
         'num': 100,
     },
@@ -146,7 +146,7 @@ WEAPON_CATALOG = {
     'Cobra': {
         'health': 10,
         'init_speed': 0,
-        'max_speed': 4500, # 1360
+        'max_speed': 4500,  # 1360
         'acc_speed': 25,
         'turn_acc': 35,
         'damage': 25,
@@ -237,6 +237,7 @@ class Base(pygame.sprite.Sprite):
     MARS COORDINATE: location, acc, velocity
     EARTH COORDINATE: rect,
     """
+
     def __init__(self, location, image):
         pygame.sprite.Sprite.__init__(self)
         # cloud.png has transparent color ,use "convert_alpha()"
@@ -307,7 +308,8 @@ class Base(pygame.sprite.Sprite):
         # print self.self_destruction
         if self.self_destruction < self.destruct_image_index:
             # print [self.self_destruction//2*40, 0, 39, 39],self.self_destruction,self.image.get_rect()
-            self.origin_image = self.image = self.image_original.subsurface([self.self_destruction // 2 * 40, 0, 39, 39])
+            self.origin_image = self.image = self.image_original.subsurface(
+                [self.self_destruction // 2 * 40, 0, 39, 39])
             self.image.set_colorkey(WHITE)
             self.rotate()
             return False
@@ -327,12 +329,13 @@ class Base(pygame.sprite.Sprite):
             if self.catalog in ['Rocket', 'Cobra']:
                 self.sound_collide_plane.play()
 
+
 class Box(Base):
     def __init__(self, location, catalog):
         image_path = BOX_CATALOG[catalog]['image']
         self.image = pygame.image.load(image_path).convert()
         self.image.set_colorkey(WHITE)
-        super(Box,self).__init__(location=location, image=self.image)
+        super(Box, self).__init__(location=location, image=self.image)
 
         self.sound_kill = pygame.mixer.Sound("./sound/beep.wav")
         self.catalog = catalog
@@ -340,7 +343,7 @@ class Box(Base):
             self.health = BOX_CATALOG[catalog]['health']
         elif catalog == 'Power':
             pass
-        elif catalog in ['Gunfire_num','Rocket_num','Cobra_num']:
+        elif catalog in ['Gunfire_num', 'Rocket_num', 'Cobra_num']:
             self.num = BOX_CATALOG[catalog]['num']
 
     def effect(self, plane_object):
@@ -348,12 +351,13 @@ class Box(Base):
             plane_object.change_health(self.health)
         # elif catalog == 'Power':  # 这个后面再做威力加强，武器是发射时，加载在飞机的weapon_group上
         #     pass
-        elif self.catalog =='Gunfire_num':
+        elif self.catalog == 'Gunfire_num':
             plane_object.change_weapon('Gun', self.num)
-        elif self.catalog =='Rocket_num':
+        elif self.catalog == 'Rocket_num':
             plane_object.change_weapon('Rocket', self.num)
         elif self.catalog == 'Cobra_num':
             plane_object.change_weapon('Cobra', self.num)
+
 
 class Tail(Base):
     def __init__(self, location, catalog='Point'):
@@ -365,7 +369,7 @@ class Tail(Base):
 
         self.live_time = TAIL_CATALOG[catalog]['init_time']
         self.rect_mark = self.rect
-        self.rect = (0,0)
+        self.rect = (0, 0)
         # print self.location
 
     def update(self):
@@ -380,6 +384,7 @@ class Tail(Base):
     #     """SpriteGroup.draw() 是单独运行的"""
     #     if self.live_time <= 0:
     #         super(Tail,self).draw()
+
 
 class Plane(Base):
 
@@ -402,7 +407,7 @@ class Plane(Base):
         self.health = PLANE_CATALOG[catalog]['health']
 
         self.speed = (self.max_speed + self.min_speed) / 2  # 初速度为一半
-        self.velocity = Vector(randint(-100,100), randint(-100,100)).normalize_vector() * self.speed  # Vector
+        self.velocity = Vector(randint(-100, 100), randint(-100, 100)).normalize_vector() * self.speed  # Vector
         self.acc = Vector(0, 0)
 
         self.weapon = {1: {}, 2: {}, 3: {}}  # 默认没有武器
@@ -410,7 +415,6 @@ class Plane(Base):
         self.sound_kill = pygame.mixer.Sound("./sound/explode3.wav")
         self.destruct_image_index = self.image_original.get_width() / self.image_original.get_height()
         # self.catalog = catalog
-
 
     def turn_left(self):
         self.acc += self.velocity.vertical_left() * self.turn_acc
@@ -459,8 +463,8 @@ class Plane(Base):
 
         super(Plane, self).update()
         # self.health -= 50
-        if self.health <= 0 :
-            return  self.delete()
+        if self.health <= 0:
+            return self.delete()
 
 
 class Weapon(Base):
@@ -564,8 +568,8 @@ class Player(object):
                 location_y = self.plane.location.y + tmp_rect[1]
                 # print location_x,location_y, '<------------', self.plane.location, self.plane.rect
                 weapon = Weapon(catalog=self.plane.weapon[slot]['catalog'],
-                                 location=(location_x, location_y),
-                                 velocity=self.plane.velocity)
+                                location=(location_x, location_y),
+                                velocity=self.plane.velocity)
                 self.weapon_group.add(weapon)
 
     def operation(self, key_list, syn_frame):
@@ -582,12 +586,13 @@ class Player(object):
 
             elif key == '1':
                 self.weapon_fire(1)
-            elif key == '2' and syn_frame-self.fire_status[2]>FPS:
+            elif key == '2' and syn_frame - self.fire_status[2] > FPS:
                 self.fire_status[2] = syn_frame
                 self.weapon_fire(2)
-            elif key == '3' and syn_frame-self.fire_status[3]>FPS:
+            elif key == '3' and syn_frame - self.fire_status[3] > FPS:
                 self.fire_status[3] = syn_frame
                 self.weapon_fire(3)
+
 
 class Map(object):
 
@@ -645,7 +650,7 @@ class MiniMap(object):
         left = 10
         width = self.screen_rect.width / 5
         height = self.screen_rect.height / 4
-        print self.screen_rect,width,height
+        print self.screen_rect, width, height
         top = self.screen_rect.height - 10 - height
         self.rect = pygame.Rect(left, top, width, height)
 
@@ -720,7 +725,7 @@ class Game(object):
         if self.sock is None:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self.sock.bind(address)
-            print('Bind socket %s ok.'%str(address))
+            print('Bind socket %s ok.' % str(address))
         else:
             pygame.time.wait(1200)
             while not self.q.empty():
@@ -752,8 +757,8 @@ class Game(object):
         pygame.mixer.init()  # 声音初始化
         pygame.display.init()  # 初始化
         display_info = pygame.display.Info()
-        screen_size_fittable = (display_info.current_w*19/20, display_info.current_h*17/20)
-        if screen_size_fittable[0]*screen_size_fittable[1]>0:
+        screen_size_fittable = (display_info.current_w * 19 / 20, display_info.current_h * 17 / 20)
+        if screen_size_fittable[0] * screen_size_fittable[1] > 0:
             pygame.display.set_mode(screen_size_fittable)
         else:
             pygame.display.set_mode(SCREEN_SIZE)  # pygame.display.set_mode(pygame.FULLSCREEN)
@@ -783,6 +788,31 @@ class Game(object):
         while not self.done:
             self.q.put(self.sock.recvfrom(1487))
             # print("socket get msg.")
+
+    def sock_send(self, msg, dest):
+        """strs: unicode string or dict object"""
+        thread_tmp = threading.Thread(target=self.sock.sendto, args=(json.dumps(msg), dest))
+        thread_tmp.setDaemon(True)
+        thread_tmp.start()
+        # self.sock.sendto(json.dumps(msg), dest)
+        logging.info('SEND [%s]:%s' % (str(dest), json.dumps(msg)))
+
+    def sock_waitfor(self, msg, dest, delay=100, waiting_times=30):
+        count = 0
+        while self.q.empty():
+            pygame.time.wait(delay)
+            count += 1
+            if count > waiting_times:
+                print('[ERROR]Sock Waiting Timeout: %s' % msg)
+                return False
+        data, address = self.q.get()
+        print('GET:%s' % str(json.loads(data)))
+        if address[0] == dest[0]:
+            print('[INFO]Sock Msg Get:%s' % json.loads(data))
+            return json.loads(data)
+        else:
+            print('[ERROR]Sock Wrong Msg:%s %s' % (str(address), json.loads(data)))
+            return False
 
     def add_player(self, player):
         self.player_list.append(player)
@@ -834,7 +864,7 @@ class Game(object):
             pygame.time.wait(500)
 
         data, address = self.q.get()  # 0.0 join get
-        print 'Create:GET_INFO:%s %s'%(str(data),str(address))
+        print 'Create:GET_INFO:%s %s' % (str(data), str(address))
         if json.loads(data) == 'join':
             self.sock_send('join_ack', address)  # 1.0 join_ack send
             tmp = self.sock_waitfor('msg_player', address)  # 2.1 msg_player get
@@ -923,11 +953,11 @@ class Game(object):
     def add_weapon_tail(self, weapon_group):
         for weapon in weapon_group:
             if weapon.catalog == 'Rocket' or weapon.catalog == 'Cobra':
-                self.tail_group.add(Tail((weapon.location.x,weapon.location.y)))
+                self.tail_group.add(Tail((weapon.location.x, weapon.location.y)))
 
     def add_unit_tail(self, unit_group):
         for unit in unit_group:
-            self.tail_group.add(Tail((unit.location.x,unit.location.y), catalog='Plane_tail'))
+            self.tail_group.add(Tail((unit.location.x, unit.location.y), catalog='Plane_tail'))
 
     def erase(self):
         self.weapon_group.clear(self.map.surface, self.clear_callback)
@@ -945,7 +975,7 @@ class Game(object):
         """
         :return: 返回空列表，或者一个元素为keys的列表
         """
-        event_list = pygame.event.get()  # 一定要把操作get()出来
+        pygame.event.get()  # 一定要把操作get()出来
         key_list = ''
         # n_break = 0
         if pygame.key.get_focused():
@@ -988,28 +1018,6 @@ class Game(object):
         self.local_ip = localip
         return localip
 
-    def sock_send(self, msg, dest):
-        """strs: unicode string or dict object"""
-        self.sock.sendto(json.dumps(msg), dest)
-        logging.info('SEND [%s]:%s' % (str(dest), json.dumps(msg)))
-
-    def sock_waitfor(self, msg, dest, delay=100, waiting_times=30):
-        count = 0
-        while self.q.empty():
-            pygame.time.wait(delay)
-            count += 1
-            if count > waiting_times:
-                print('[ERROR]Sock Waiting Timeout: %s' % msg)
-                return False
-        data, address = self.q.get()
-        print('GET:%s' % str(json.loads(data)))
-        if address[0] == dest[0]:
-            print('[INFO]Sock Msg Get:%s' % json.loads(data))
-            return json.loads(data)
-        else:
-            print('[ERROR]Sock Wrong Msg:%s %s' % (str(address), json.loads(data)))
-            return False
-
     def box_msg_send(self):
         if self.syn_frame % (2 * FPS) == 0:  # 每n秒同步一次自己状态给对方
             location = [randint(0, MARS_MAP_SIZE[0]), randint(0, MARS_MAP_SIZE[1])]
@@ -1032,7 +1040,7 @@ class Game(object):
         不管延迟和丢包的问题，接受操作消息等待为resend_time=30ms；
         每过2帧进行一次状态同步：只将本地玩家飞机状态发送给其他玩家；
         """
-        logging.info("Frame:%s"%self.syn_frame)
+        logging.info("Frame:%s" % self.syn_frame)
 
         # 产生随机奖励Box，并发送
         self.box_msg_send()
@@ -1089,17 +1097,17 @@ class Game(object):
             if py.plane:
                 self.info.add(u'Health:%d' % py.plane.health)
                 self.info.add(u'Weapon:%s' % str(py.plane.weapon))
-                self.info.add(u'Tail:%s'%self.tail_group)
+                self.info.add(u'Tail:%s' % self.tail_group)
                 # self.info.add(u'speed:%s,  location:%s,  rect:%s' % (
                 #     str(py.plane.velocity), str(py.plane.location), str(py.plane.rect)))
             # self.info.add(u'Groups:%s' % str(self.plane_group))
 
         # 屏幕显示
-        if not self.local_player.win: # 本地玩家
+        if not self.local_player.win:  # 本地玩家
             self.info.add_middle('YOU LOST.')
             self.info.add_middle_below('press "ESC" to exit the game.')
             self.info.add_middle_below('press "r" to restart.')
-        elif self.num_player == 1: # 只剩你一个人了
+        elif self.num_player == 1:  # 只剩你一个人了
             self.info.add_middle('YOU WIN!')
             self.info.add_middle_below('press "ESC" to exit the game.')
             self.info.add_middle_below('press "r" to restart.')
@@ -1127,7 +1135,7 @@ class Game(object):
                 break
 
             # 空就不进行读取处理
-            if self.q.empty():  
+            if self.q.empty():
                 continue
                 pygame.time.wait(1)
 
@@ -1157,7 +1165,7 @@ class Game(object):
                         player.plane.velocity = Vector(data_tmp[1]['velocity'])
                         player.plane.health = data_tmp[1]['health']  # !!!!!!!!会出现掉血了，然后回退回去的情况
                         logging.info("Get player status, local_frame:%d----> %s, %s" % (
-                        self.syn_frame, str(address), str(data_tmp)))
+                            self.syn_frame, str(address), str(data_tmp)))
                         break
 
             # Msg Type3:接受并处理Box类型消息
@@ -1215,7 +1223,7 @@ class Game(object):
                         player.plane.velocity = Vector(data_tmp[1]['velocity'])
                         player.plane.health = data_tmp[1]['health']  # !!!!!!!!会出现掉血了，然后回退回去的情况
                         logging.info("Get player status, local_frame:%d----> %s, %s" % (
-                        self.syn_frame, str(address), str(data_tmp)))
+                            self.syn_frame, str(address), str(data_tmp)))
                         break
             elif data_tmp[0] == 'box_status':  # 接受并处理Box
                 self.box_group.add(Box(location=data_tmp[1]['location'], catalog=data_tmp[1]['catalog']))
@@ -1287,8 +1295,6 @@ class Game(object):
         pygame.key.set_repeat(10)  # control how held keys are repeated
         print('Game Start.My IP&PORT: %s - %d' % (self.local_ip, self.port))
 
-
-
         # MAIN LOOP
         self.main_loop()
 
@@ -1327,7 +1333,7 @@ class Game(object):
             self.render(self.screen_rect)
 
             pygame.display.flip()
-            logging.info('CostTime:%s'%str(pygame.time.get_ticks()-last_time))
+            logging.info('CostTime:%s' % str(pygame.time.get_ticks() - last_time))
             last_time = pygame.time.get_ticks()
             # self.clock.tick(self.fps)
             self.erase()
@@ -1337,9 +1343,10 @@ class Game(object):
         # pygame.time.wait(1000)
         pygame.quit()
 
+
 def test_calc_mean_frame_cost_time():
     """2019-Sep-01 01:03:39-Sun [line:1305] [INFO] Time:34"""
-    with open('logger.log','r') as f1:
+    with open('logger.log', 'r') as f1:
         s = f1.readlines()
 
     l = []
@@ -1352,8 +1359,28 @@ def test_calc_mean_frame_cost_time():
     sum = 0
     for i in l1:
         sum += int(i)
-    print  sum/len(l1),'ms'
+    print  sum / len(l1), 'ms'
     return [int(i) for i in l1]
+
+
+def test_send_get_analyze():
+    """
+    2019-09-01 23:30:25,572 [line:1043] [INFO] Frame:15
+2019-09-01 23:30:25,572 [line:913] [INFO] Send 15---> ('192.168.0.107', 8989), [15, "a"]
+2019-09-01 23:30:25,573 [line:1156] [INFO] Get 15----> ('192.168.0.107', 8989), [15, u'a']
+2019-09-01 23:30:25,621 [line:1336] [INFO] CostTime:49
+    :return:
+    """
+    with open('logger.log', 'r') as f1:
+        s = f1.readlines()
+
+    n = 0
+    counts = 0
+    # while True:
+    #     if 'Send %d'%n in line:
+    #         counts += 1
+
+
 
 if __name__ == '__main__':
     game = Game()
@@ -1363,3 +1390,4 @@ if __name__ == '__main__':
     #     game.main()
     game.sock.close()
     test_calc_mean_frame_cost_time()
+    test_send_get_analyze()
