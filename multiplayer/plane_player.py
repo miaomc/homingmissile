@@ -22,7 +22,7 @@ ok飞机爆炸之后要可以继续游戏，显示win lose ， press esc to exit
 ok空格键回到飞机位置
 ok爆炸效果（目前只制作了F35和J20飞机的效果）
 """
-SINGLE_TEST = False
+SINGLE_TEST = True
 MAP_RATIO = 3
 RESTART_MODE = False
 LOCALIP = '192.168.0.107'
@@ -698,11 +698,12 @@ class Game(object):
         self.num_player = 0
         self.lock_frame = 0
         self.delay_frame = 0
+        self.start_time = 0
 
     def game_init(self, localip):
         logging.basicConfig(level=logging.DEBUG,  # CRITICAL > ERROR > WARNING > INFO > DEBUG > NOTSET
                             format='%(asctime)s [line:%(lineno)d] [%(levelname)s] %(message)s',
-                            datefmt='%Y-%b-%d %H:%M:%S-%a',
+
                             filename='logger.log',
                             filemode='w')
 
@@ -1016,14 +1017,14 @@ class Game(object):
             for player in self.player_list:
                 self.sock_send(status_msg, (player.ip, self.port))
 
-    def syn_lock_frame(self):
-        lock_frame = 0
-        while not self.done:
-            pygame.time.wait(1000/FPS)
-            status_msg = ('syn_lock_frame', lock_frame)
-            for player in self.player_list:
-                self.sock_send(status_msg, (player.ip, self.port))
-            lock_frame += 1
+    # def syn_lock_frame(self):
+    #     lock_frame = 0
+    #     while not self.done:
+    #         pygame.time.wait(1000/FPS)
+    #         status_msg = ('syn_lock_frame', lock_frame)
+    #         for player in self.player_list:
+    #             self.sock_send(status_msg, (player.ip, self.port))
+    #         lock_frame += 1
 
     def process(self, event_list):
         """
@@ -1031,6 +1032,8 @@ class Game(object):
         不管延迟和丢包的问题，接受操作消息等待为resend_time=30ms；
         每过2帧进行一次状态同步：只将本地玩家飞机状态发送给其他玩家；
         """
+        logging.info("Frame:%s"%self.syn_frame)
+
         # 产生随机奖励Box，并发送
         self.box_msg_send()
 
@@ -1104,10 +1107,16 @@ class Game(object):
         # 收到消息进行操作（最后处理动作，留给消息接收）
         # self.get_deal_msg()
 
-        # LockFrame关键帧同步, 根据情况每帧多拖累一针
-        if self.delay_frame > 0:
-            pygame.time.wait(1000/FPS)
-            self.delay_frame -= 1
+        # # LockFrame关键帧同步, 根据情况每帧多拖累一针
+        # while self.delay_frame > 0:
+        #     pygame.time.wait(1000/FPS)
+        #     self.delay_frame -= 1
+
+        # 如果走到每帧时间之前了就等一下
+        stardard_diff_time = -(pygame.time.get_ticks() - self.start_time) + self.syn_frame * 1000 / FPS
+        # print stardard_diff_time
+        if stardard_diff_time > 0:
+            pygame.time.wait(stardard_diff_time)
 
         self.syn_frame += 1  # 发送同步帧(上来就发送)
 
@@ -1125,17 +1134,22 @@ class Game(object):
             # 处理消息
             data, address = self.q.get()
             data_tmp = json.loads(data)  # [frame_number, key_list], ['syn_player_status', dict]，['box_status', dict]
-            if isinstance(data_tmp[0], int):  # Msg Type1:操作类型的消息
+
+            # Msg Type1:操作类型的消息
+            if isinstance(data_tmp[0], int):
                 for player in self.player_list:  # 遍历玩家，看这个收到的数据是谁的
                     if player.ip == address[0] and player.win:
-                        while data_tmp[0] > self.syn_frame:  # 接收到大于当前帧的消息就等待
+                        # 接收到大于当前帧的消息就等待, 比如：我自己才发送到第15帧，别人发到15,16,17帧来了我要等待
+                        while data_tmp[0] > self.syn_frame:
                             pygame.time.wait(1)
                         if data_tmp[1]:  # 消息-->操作
                             player.operation(data_tmp[1],
                                              self.syn_frame)  # data is list of pygame.key.get_pressed() of json.dumps
                         logging.info("Get %d----> %s, %s" % (data_tmp[0], str(address), str(data_tmp)))
                         break  # 一个数据只有可能对应一个玩家的操作，有一个玩家取完消息就可以了
-            elif data_tmp[0] == 'syn_player_status':  # Msg Type2:状态同步-->对象，同步类型消息
+            # Msg Type2:状态同步-->对象，同步类型消息
+
+            elif data_tmp[0] == 'syn_player_status':
                 # print 'in status.....', address
                 for player in self.player_list:  # 因为没用{IP:玩家}，所以遍历玩家，看这个收到的数据是谁的
                     if player.ip == address[0] and player.win:
@@ -1145,13 +1159,17 @@ class Game(object):
                         logging.info("Get player status, local_frame:%d----> %s, %s" % (
                         self.syn_frame, str(address), str(data_tmp)))
                         break
-            elif data_tmp[0] == 'box_status':  # Msg Type3:接受并处理Box类型消息
+
+            # Msg Type3:接受并处理Box类型消息
+            elif data_tmp[0] == 'box_status':
                 self.box_group.add(Box(location=data_tmp[1]['location'], catalog=data_tmp[1]['catalog']))
-            elif data_tmp[0] == 'syn_lock_frame':  # Msg Type4:接受并处理LockFrame
-                # if self.syn_frame>data_tmp[1] and address[0] != self.local_ip:  # 如果LockFrame小于本系统的同步帧
-                if self.syn_frame > data_tmp[1]:
-                    self.delay_frame = self.syn_frame - data_tmp[1]
-                logging.info("DelayFrames:%d--->%s"%(self.delay_frame, str(data_tmp)))
+
+            ## Msg Type4:接受并处理LockFrame
+            # elif data_tmp[0] == 'syn_lock_frame':
+            #     # if self.syn_frame>data_tmp[1] and address[0] != self.local_ip:  # 如果LockFrame小于本系统的同步帧
+            #     if self.syn_frame > data_tmp[1]:
+            #         self.delay_frame = self.syn_frame - data_tmp[1]
+            #     logging.info("DelayFrames:%d--->%s"%(self.delay_frame, str(data_tmp)))
 
     def get_deal_msg_(self):
         msg_num = 0
@@ -1276,22 +1294,23 @@ class Game(object):
 
     def main_loop(self):
         # MSG deal
-        if self.host_ip == self.local_ip:  # 主机才发送同步LockFrame
-            self.thread_msg = threading.Thread(target=self.get_deal_msg)
-            self.thread_msg.setDaemon(True)  # True:不关注这个子线程，主线程跑完就结束整个python process
+        self.thread_msg = threading.Thread(target=self.get_deal_msg)
+        self.thread_msg.setDaemon(True)  # True:不关注这个子线程，主线程跑完就结束整个python process
 
-        # lockframe deal
-        self.thread_lock = threading.Thread(target=self.syn_lock_frame)
-        self.thread_lock.setDaemon(True)  # True:不关注这个子线程，主线程跑完就结束整个python process
+        # # lockframe deal
+        # if self.host_ip == self.local_ip:  # 主机才发送同步LockFrame
+        #     self.thread_lock = threading.Thread(target=self.syn_lock_frame)
+        #     self.thread_lock.setDaemon(True)  # True:不关注这个子线程，主线程跑完就结束整个python process
 
         # 同步开始循环
         self.sock_send('200 OK', (self.other_ip, self.port))
         self.sock_waitfor('200 OK', (self.other_ip, self.port))
 
         self.thread_msg.start()  # 开启玩家处理接受消息的线程
-        if self.host_ip == self.local_ip:  # 主机才发送同步LockFrame
-            self.thread_lock.start()  # 开启玩家处理接受消息的线程
+        # if self.host_ip == self.local_ip:  # 主机才发送同步LockFrame
+        #     self.thread_lock.start()  # 开启玩家处理接受消息的线程
         last_time = 0
+        self.start_time = pygame.time.get_ticks()  # 记录开始时间
         while not self.done:
             event_list = self.event_control()
             if self.process(event_list):
