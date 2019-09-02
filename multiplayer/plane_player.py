@@ -22,7 +22,7 @@ ok飞机爆炸之后要可以继续游戏，显示win lose ， press esc to exit
 ok空格键回到飞机位置
 ok爆炸效果（目前只制作了F35和J20飞机的效果）
 """
-SINGLE_TEST = True
+SINGLE_TEST = False
 MAP_RATIO = 3
 RESTART_MODE = False
 LOCALIP = '192.168.0.107'
@@ -907,10 +907,15 @@ class Game(object):
 
     def render(self, screen_rect):
         self.current_rect = screen_rect
+        logging.info('T3.0:%d' % pygame.time.get_ticks())
         self.screen.blit(source=self.map.surface, dest=(0, 0), area=self.current_rect)
+        logging.info('T3.1:%d' % pygame.time.get_ticks())
         self.minimap.draw()
-        self.info.show(self.screen)
-        self.info.show_end(self.screen)
+        logging.info('T3.2:%d' % pygame.time.get_ticks())
+        # self.info.show(self.screen)  # 吃性能所在之处！！！！！！！！！！！！！！！
+        # logging.info('T3.3:%d' % pygame.time.get_ticks())
+        # self.info.show_end(self.screen)  # 吃性能所在之处！！！！！！！！！！！！！！！
+        # logging.info('T3.4:%d' % pygame.time.get_ticks())
 
     def player_communicate(self, key_list):
         """
@@ -1162,9 +1167,9 @@ class Game(object):
             if isinstance(data_tmp[0], int):
                 for player in self.player_list:  # 遍历玩家，看这个收到的数据是谁的
                     if player.ip == address[0] and player.win:
-                        # 接收到大于当前帧的消息就等待, 比如：我自己才发送到第15帧，别人发到15,16,17帧来了我要等待
-                        while data_tmp[0] > self.syn_frame:
-                            pygame.time.wait(1)
+                        # # 接收到大于当前帧的消息就等待, 比如：我自己才发送到第15帧，别人发到15,16,17帧来了我要等待
+                        # while data_tmp[0] > self.syn_frame:
+                        #     pygame.time.wait(1)
                         if data_tmp[1]:  # 消息-->操作
                             player.operation(data_tmp[1],
                                              self.syn_frame)  # data is list of pygame.key.get_pressed() of json.dumps
