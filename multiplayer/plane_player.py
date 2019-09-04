@@ -2,7 +2,7 @@
 import pygame
 import math
 import os
-from random import randint, choice
+from random import randint
 import socket
 import threading
 import Queue
@@ -22,8 +22,8 @@ ok飞机爆炸之后要可以继续游戏，显示win lose ， press esc to exit
 ok空格键回到飞机位置
 ok爆炸效果（目前只制作了F35和J20飞机的效果）
 """
-SINGLE_TEST = False
-MAP_RATIO = 3
+SINGLE_TEST = True
+MAP_RATIO = 1
 RESTART_MODE = False
 LOCALIP = '192.168.0.107'
 HOSTIP = '192.168.0.103'
@@ -127,8 +127,8 @@ WEAPON_CATALOG = {
         'acc_speed': 0,
         'turn_acc': 0,
         'damage': 2,
-        'image': ['./image/gunfire1.png', './image/gunfire2.png', './image/gunfire3.png',
-                  './image/gunfire4.png', './image/gunfire5.png', './image/gunfire6.png'],
+        'image': ['./image/gunfire1.png'],#, './image/gunfire2.png', './image/gunfire3.png',
+                  # './image/gunfire4.png', './image/gunfire5.png', './image/gunfire6.png'],
         'fuel': 8,
         'sound_collide_plane': ['./sound/bulletLtoR08.wav', './sound/bulletLtoR09.wav', './sound/bulletLtoR10.wav',
                                 './sound/bulletLtoR11.wav', './sound/bulletLtoR13.wav', './sound/bulletLtoR14.wav']
@@ -309,7 +309,7 @@ class Base(pygame.sprite.Sprite):
         if self.self_destruction < self.destruct_image_index:
             # print [self.self_destruction//2*40, 0, 39, 39],self.self_destruction,self.image.get_rect()
             self.origin_image = self.image = self.image_original.subsurface(
-                [self.self_destruction // 2 * 40, 0, 39, 39])
+                [self.self_destruction // 2 * self.image_original.get_height(), 0, self.image_original.get_height()-1, self.image_original.get_height()-1])
             self.image.set_colorkey(WHITE)
             self.rotate()
             return False
@@ -473,7 +473,8 @@ class Weapon(Base):
             image_path = WEAPON_CATALOG['Gun']['image'][randint(0, len(WEAPON_CATALOG['Gun']['image']) - 1)]
             self.image_original = pygame.image.load(image_path).convert()
             self.image_original.set_colorkey(WHITE)
-            super(Weapon, self).__init__(location=location, image=self.image_original)
+            self.image = self.image_original.subsurface((0, 0, self.image_original.get_height()-1, self.image_original.get_height()-1))
+            super(Weapon, self).__init__(location=location, image=self.image)
             self.sound_fire = pygame.mixer.Sound("./sound/minigun_fire.wav")
             self.sound_fire.play(maxtime=200)
             self.sound_collide_plane = pygame.mixer.Sound(WEAPON_CATALOG['Gun']['sound_collide_plane'][randint(0, len(
@@ -482,7 +483,9 @@ class Weapon(Base):
             image_path = WEAPON_CATALOG[catalog]['image']
             self.image_original = pygame.image.load(image_path).convert()
             self.image_original.set_colorkey(WHITE)
-            super(Weapon, self).__init__(location=location, image=self.image_original)
+            self.image = self.image_original.subsurface(
+                (0, 0, self.image_original.get_height() - 1, self.image_original.get_height() - 1))
+            super(Weapon, self).__init__(location=location, image=self.image)
             self.sound_fire = pygame.mixer.Sound("./sound/TPhFi201.wav")
             self.sound_fire.play()
             self.sound_kill = pygame.mixer.Sound("./sound/ric5.wav")
@@ -503,6 +506,8 @@ class Weapon(Base):
 
         self.catalog = catalog
         self.target = None
+
+        self.destruct_image_index = self.image_original.get_width() / self.image_original.get_height()
 
     def update(self, plane_group):
         if self.catalog == 'Cobra':
@@ -704,6 +709,8 @@ class Game(object):
         self.lock_frame = 0
         self.delay_frame = 0
         self.start_time = 0
+
+        self.result = False  # 用来显示Win or Lose
 
     def game_init(self, localip):
         logging.basicConfig(level=logging.DEBUG,  # CRITICAL > ERROR > WARNING > INFO > DEBUG > NOTSET
@@ -907,14 +914,15 @@ class Game(object):
 
     def render(self, screen_rect):
         self.current_rect = screen_rect
-        logging.info('T3.0:%d' % pygame.time.get_ticks())
+        # logging.info('T3.0:%d' % pygame.time.get_ticks())
         self.screen.blit(source=self.map.surface, dest=(0, 0), area=self.current_rect)
-        logging.info('T3.1:%d' % pygame.time.get_ticks())
+        # logging.info('T3.1:%d' % pygame.time.get_ticks())
         self.minimap.draw()
-        logging.info('T3.2:%d' % pygame.time.get_ticks())
+        # logging.info('T3.2:%d' % pygame.time.get_ticks())
         # self.info.show(self.screen)  # 吃性能所在之处！！！！！！！！！！！！！！！
         # logging.info('T3.3:%d' % pygame.time.get_ticks())
-        # self.info.show_end(self.screen)  # 吃性能所在之处！！！！！！！！！！！！！！！
+        if self.result:
+            self.info.show_end(self.screen)  # 吃性能所在之处！！！！！！！！！！！！！！！
         # logging.info('T3.4:%d' % pygame.time.get_ticks())
 
     def player_communicate(self, key_list):
@@ -1038,9 +1046,19 @@ class Game(object):
         return localip
 
     def box_msg_send(self):
-        if self.syn_frame % (3 * FPS) == 0:  # 每n秒同步一次自己状态给对方
+        if self.syn_frame % (10 * FPS) == 0:  # 每n秒同步一次自己状态给对方
             location = [randint(0, MARS_MAP_SIZE[0]), randint(0, MARS_MAP_SIZE[1])]
-            status_msg = ('box_status', {'location': location, 'catalog': choice(BOX_CATALOG.keys())})
+            # Medic and so on. -->  10%, 30%, 30%, #0%
+            rand_x = randint(0,100)
+            if rand_x <= 10:
+                rand_catalog = 'Medic'
+            elif rand_x <= 40:
+                rand_catalog = 'Gunfire_num'
+            elif rand_x <= 70:
+                rand_catalog = 'Rocket_num'
+            elif rand_x <= 100:
+                rand_catalog = 'Cobra_num'
+            status_msg = ('box_status', {'location': location, 'catalog': rand_catalog})
             for player in self.player_list:
                 self.sock_send(status_msg, (player.ip, self.port))
 
@@ -1123,10 +1141,12 @@ class Game(object):
 
         # 屏幕显示
         if not self.local_player.win:  # 本地玩家
+            self.result = True
             self.info.add_middle('YOU LOST.')
             self.info.add_middle_below('press "ESC" to exit the game.')
             self.info.add_middle_below('press "r" to restart.')
         elif self.num_player == 1:  # 只剩你一个人了
+            self.result = True
             self.info.add_middle('YOU WIN!')
             self.info.add_middle_below('press "ESC" to exit the game.')
             self.info.add_middle_below('press "r" to restart.')
@@ -1338,7 +1358,7 @@ class Game(object):
         last_time = pygame.time.get_ticks()
         self.start_time = pygame.time.get_ticks()  # 记录开始时间
         while not self.done:
-            logging.info('T1:%d'%pygame.time.get_ticks())
+            # logging.info('T1:%d'%pygame.time.get_ticks())
             event_list = self.event_control()
             if self.process(event_list):
                 self.done = True
@@ -1349,20 +1369,20 @@ class Game(object):
                 # else:
                 #     print '[%s]GAME OVER' % self.local_ip
                 break
-            logging.info('T2:%d'%pygame.time.get_ticks()) # T1与T2之间平均花费12ms
+            # logging.info('T2:%d'%pygame.time.get_ticks()) # T1与T2之间平均花费12ms
             Map.adjust_rect(self.screen_rect, self.map.surface.get_rect())
-            logging.info('T3:%d'%pygame.time.get_ticks())
+            # logging.info('T3:%d'%pygame.time.get_ticks())
             # Map.adjust_rect()
             self.render(self.screen_rect)  # 该函数平均花费26ms！！！！！！！！！！！！！！！！！！
-            logging.info('T4:%d'%pygame.time.get_ticks())
+            # logging.info('T4:%d'%pygame.time.get_ticks())
 
             pygame.display.flip()
-            logging.info('T5:%d'%pygame.time.get_ticks())
+            # logging.info('T5:%d'%pygame.time.get_ticks())
             logging.info('CostTime:%s' % str(pygame.time.get_ticks() - last_time))
             last_time = pygame.time.get_ticks()
             # self.clock.tick(self.fps)
             self.erase()
-            logging.info('T6:%d'%pygame.time.get_ticks())
+            # logging.info('T6:%d'%pygame.time.get_ticks())
 
         # self.thread1.close
         # self.sock.close()
@@ -1385,7 +1405,8 @@ def test_calc_frame_cost():
     sum = 0
     for i in l1:
         sum += int(i)
-    print  sum / len(l1), 'ms'
+    if len(l1)>0:
+        print  sum / len(l1), 'ms'
     return [int(i) for i in l1]
 
 
