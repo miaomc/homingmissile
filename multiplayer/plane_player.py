@@ -22,7 +22,7 @@ ok飞机爆炸之后要可以继续游戏，显示win lose ， press esc to exit
 ok空格键回到飞机位置
 ok爆炸效果（目前只制作了F35和J20飞机的效果）
 """
-SINGLE_TEST = True
+SINGLE_TEST = False
 MAP_RATIO = 1
 RESTART_MODE = False
 LOCALIP = '192.168.0.107'
@@ -127,8 +127,8 @@ WEAPON_CATALOG = {
         'acc_speed': 0,
         'turn_acc': 0,
         'damage': 2,
-        'image': ['./image/gunfire1.png'],#, './image/gunfire2.png', './image/gunfire3.png',
-                  # './image/gunfire4.png', './image/gunfire5.png', './image/gunfire6.png'],
+        'image': ['./image/gunfire1.png', './image/gunfire2.png', './image/gunfire3.png',
+                   './image/gunfire4.png', './image/gunfire5.png', './image/gunfire6.png'],
         'fuel': 8,
         'sound_collide_plane': ['./sound/bulletLtoR08.wav', './sound/bulletLtoR09.wav', './sound/bulletLtoR10.wav',
                                 './sound/bulletLtoR11.wav', './sound/bulletLtoR13.wav', './sound/bulletLtoR14.wav']
@@ -296,7 +296,7 @@ class Base(pygame.sprite.Sprite):
         self.rotate()
         # logging.info('location:%s, rect:%s' % (str(self.location), str(self.rect)))
 
-    def delete(self):
+    def delete(self, hit=False):
         if self.alive:  # 第一次进行的操作
             # self.kill()  # remove the Sprite from all Groups
             self.alive = False
@@ -306,7 +306,7 @@ class Base(pygame.sprite.Sprite):
         # 启动自爆动画
         self.self_destruction += 0.2
         # print self.self_destruction
-        if self.self_destruction < self.destruct_image_index:
+        if hit and self.self_destruction < self.destruct_image_index:
             # print [self.self_destruction//2*40, 0, 39, 39],self.self_destruction,self.image.get_rect()
             self.origin_image = self.image = self.image_original.subsurface(
                 [self.self_destruction // 2 * self.image_original.get_height(), 0, self.image_original.get_height()-1, self.image_original.get_height()-1])
@@ -459,12 +459,12 @@ class Plane(Base):
     def update(self):
         if not self.alive:  # 如果挂了,就启动自爆动画
             super(Plane, self).update()
-            return self.delete()
+            return self.delete(hit=True)
 
         super(Plane, self).update()
         # self.health -= 50
         if self.health <= 0:
-            return self.delete()
+            return self.delete(hit=True)
 
 
 class Weapon(Base):
