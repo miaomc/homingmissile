@@ -8,6 +8,10 @@ git push
 
 git pull
 
+touch .gitignore
+vi .gitignre
+*.pyc
+
 一.有效文件: 
 ------版本V1.00------
 “回合制，多人单机，鼠标操作”
