@@ -12,6 +12,8 @@ touch .gitignore
 vi .gitignre
 *.pyc
 
+git checkout ReadMe.txt
+
 一.有效文件: 
 ------版本V1.00------
 “回合制，多人单机，鼠标操作”
