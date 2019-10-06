@@ -7,6 +7,7 @@ import pygame
 import threading
 import Queue
 import json
+from random import randint
 import information
 
 PORT = 80
@@ -18,6 +19,8 @@ class Node():
         self.label = label
         self.target = None
         self.args = None
+        self.back_target = None
+        self.back_args = None
 
     def add(self, other):
         self.children.append(other)
@@ -32,6 +35,17 @@ class Node():
         else:
             return None
 
+    def be_backed(self):
+        if self.back_target:
+            if self.back_args:
+                return self.back_target(self.back_args)
+            else:
+                return self.back_target()
+        else:
+            return None
+
+    def get_children_label(self):
+        return [i.label for i in self.children]
 
 class Sock():
     def __init__(self):
@@ -95,13 +109,14 @@ class Sock():
             if up:
                 ip_up.append(ip)
         time_end = time.time()
-        print('IP Scan:%s'%ip_list)
-        print('IP Scan:%s'%port_list)
+        # print('IP Scan:%s'%ip_list)
+        # print('IP Scan:%s'%port_list)
         print('PortScan done! %d IP addresses (%d hosts up) scanned in %f seconds.' % (
             len(ip_list), len(ip_up), time_end - time_start))
         print('Up hosts:')
         for i in ip_up:
             print i
+        # return [self.localip()]
         return ip_up
 
 
@@ -124,28 +139,52 @@ class Widget():
         # self.sound_selecting = pygame.mixer.Sound()
 
         self.sock = Sock()
+        self.localip = self.get_localip()
 
-        self.dict_player = {}
+        self.msg_player = {'location':(randint(20,80)/100.0,randint(20,80)/100.0),
+                           'Plane':'F35',
+                           'Gun':200, 'Rocket':10, 'Cobra':3,}
+        self.dict_player = {self.localip:self.msg_player}
+
+        self.bool_create = False
+        self.bool_join_enter = False
 
     def get_localip(self):
         return self.sock.localip()
 
     # CREATE FUNCTION
     def create_func(self, node):
-        """msg_player = {'ip': localip,
-                      'location': (randint(MARS_MAP_SIZE[0] / 5, MARS_MAP_SIZE[0] * 4 / 5),
-                                   randint(MARS_MAP_SIZE[1] / 5, MARS_MAP_SIZE[1] * 4 / 5)),
-                      'Plane': plane_type,
-                      'Gun': 200,
-                      'Rocket': 10,
-                      'Cobra': 3,}
+        """dict_player = {'ip':
+                                {'location':(randint(20,80)/100.0,randint(20,80)/100.0),
+                                'Plane':'F35',
+                                'Gun':200, 'Rocket':10, 'Cobra':3}，
+                        }
         """
-        print('create..')
-        self.sock.q_send.put(('Oh, test.',('192.168.0.102',self.sock.port)))
+        if not self.bool_create:
+            node.add(Node('Host IP:' + self.localip))
+            self.sock.q_send.put((('player join',self.msg_player), (self.localip, self.sock.port)))  # 先给自己发个消息，自己就是主机
+            self.bool_create = True
+
+            start_node = Node('start')
+            node.add(start_node)
+            start_node.target = self.start_func
+            # to be con...
         while not self.sock.q.empty():
-            msg,ip = self.sock.q.get()
-            node.add(Node(ip))
-            self.dict_player[ip] = msg
+            (info, msg),ip = self.sock.q.get()  # 接受处理单个玩家的加入消息msg_player
+            if info=='player join' and ip not in node.get_children_label():
+                node.add(Node(ip))
+                self.dict_player[ip] = msg
+                for i in self.dict_player.keys():  # 给所有ip都发送所有玩家信息self.dict_player
+                    if i != self.localip:  # 自己是主机，就不用发自己了
+                        self.sock.q_send.put((('dict_player',self.dict_player), (self.localip, self.sock.port)))
+            # 处理收到玩家退出消息，删除玩家
+            # self.dict_player.pop(ip)
+
+    def create_back_func(self, node):
+        self.bool_create = False
+        for i in node.children:
+            del(i)
+        node.children = []
 
     # JOIN FUNCTION
     def scan_hostip(self):
@@ -157,13 +196,44 @@ class Widget():
         node.children = []
         for ip in self.scan_hostip():
             ip_node = Node(ip)
-            # ip_node.target =
             node.add(ip_node)
+            ip_node.target = self.join_enter
+            ip_node.args = (ip_node, ip)
+            ip_node.back_target = self.join_enter_back
         node.add(Node('updating host list..'))
+
+    # JOIN_ENTER FUNCTION
+    def join_enter(self, (node, host_ip)):
+        if not self.bool_join_enter:
+            self.sock.q_send.put((('player join', self.msg_player), (host_ip, self.sock.port)))  # 先给主机发个加入
+            self.bool_join_enter = True
+        if 'Host:'+host_ip not in node.get_children_label():
+            node.add(Node('Host:'+host_ip))
+        # 获取&更新 self.dict_player
+        while not self.sock.q.empty():
+            (info, dict_player), ip = self.sock.q.get()
+            if info == 'dict_player':
+                self.dict_player = dict_player  # 直接等于主机所发送的dict_player
+            # to be con...
+            elif info == 'game start':
+                pass
+        # 清空&刷新
+        for i in node.children:
+            del (i)
+        node.children = []
+        for i in self.dict_player.keys():
+            node.add(Node(i))
+
+    def join_enter_back(self):
+        self.bool_join_enter = False
 
     # EXIT FUNCTION
     def exit_func(self):
         self.done = True
+
+    # START FUNCTION
+    def start_func(self):
+        print 'start!'
 
     def nodetree_produce(self):
         """
@@ -183,8 +253,8 @@ class Widget():
         # START_NODE
         start_node = Node('Homing Missile')
         start_node.parent = start_node  # 原始节点的父亲节点就是自己
-        localip = self.get_localip()
-        localip_node = Node('Local IP:' + localip)
+        # localip = self.get_localip()
+        localip_node = Node('Local IP:' + self.localip)
         create_node = Node('Create Game')
         join_node = Node('Join Game')
         exit_node = Node('Exit')
@@ -194,10 +264,10 @@ class Widget():
         start_node.add(exit_node)
 
         # CREATE_NODE
-        hostip_node = Node('Host IP:' + localip)
-        create_node.add(hostip_node)
         create_node.target = self.create_func
         create_node.args = (create_node)
+        create_node.back_target = self.create_back_func
+        create_node.back_args = (create_node)
 
         # JOIN_NODE
         join_node.target = self.join_func
@@ -247,6 +317,7 @@ class Widget():
                         self.node_point = self.node_point.parent
                 #  返回上一层：向左回退或者为取消
                 elif self.has_backspace or self.list_node[self.beginning_select_index].label == 'Cancel':
+                    self.node_point.be_backed()
                     if self.node_point.parent:
                         self.node_point = self.node_point.parent
                     self.list_node = self.node_point.children
@@ -295,60 +366,6 @@ class Widget():
                     self.has_chosen = True
                     # self.sound_return.play()
 
-
-
-
-#
-#
-# class Control():
-#     """
-#     'Homing Missle':
-#         'Local IP'
-#         'Create Game':
-#             'host_ip'
-#             'other player1'
-#             'other player2'
-#             'Start',
-#             'Cancel'
-#         'Join Game'
-#         'Exit'
-#     """
-#     def get_localip(self):
-#         pass
-#
-#     def nodelist_make(self):
-#         pass
-#
-#     def main(self):
-#
-#
-#         # start_node
-#         start_node = Node('HomingMissile')
-#         start_node.parent = start_node  # 原始节点的父亲节点就是自己
-#         localip = get_localip()
-#         localip_node = Node('Local IP:' + localip)
-#         create_node = Node('Create Game')
-#         join_node = Node('Join Game')
-#         exit_node = Node('Exit')
-#         start_node.add(localip_node)
-#         start_node.add(create_node)
-#         start_node.add(join_node)
-#         start_node.add(exit_node)
-#
-#         # create_node
-#         hostip_node = Node('Host IP:' + localip)
-#         start
-#         start_node.children=[Node('Multiplayer'),Node('SingleTest'),Node('Exit')]
-#
-#         # join_node
-#
-#         # exit_node
-#         # window.exit =
-#
-#         # show screen
-#         window = Widget()
-#         window.main_loop()
-#
 
 if __name__ == "__main__":
     widget = Widget()
