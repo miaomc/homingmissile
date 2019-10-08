@@ -27,12 +27,12 @@ class Node():
         self.children.append(other)
         other.parent = self
 
-    def pop(self, other_label):
+    def pop(self, label):
         """根据label，更新自身children列表，删除other这个node"""
         other = None
         other_index = None
         for n,i in enumerate(self.children):
-            if i.label == other_label:
+            if i.label == label:
                 other = i
                 other_index = n
                 break
@@ -236,6 +236,9 @@ class Widget():
         for i in node.children:
             del i
         node.children = []
+        for i in self.dict_player.keys():  # 给所有ip都发送所有玩家信息self.dict_player
+            if i != self.localip:  # 自己是主机，就不用发自己了
+                self.sock.q_send.put((('host exit', ''), i))
 
     # JOIN FUNCTION
     def scan_hostip(self):
@@ -273,6 +276,9 @@ class Widget():
             (info, dict_player), ip = self.sock.q.get()
             if info == 'dict_player':
                 self.dict_player = dict_player  # 直接等于主机所发送的dict_player
+            elif info == 'host exit':
+                self.has_backspace = True  # 自动回退
+                self.has_selected = True
             # to be con...
             elif info == 'game start':
                 pass
@@ -346,7 +352,7 @@ class Widget():
         self.root_node = self.nodetree_produce()
         # 最开始的选择菜单        
         self.beginning_select_index = 0
-        self.has_chosen = False
+        self.has_selected = False
         self.has_backspace = False
 
         self.menu_title = self.root_node.label
@@ -367,7 +373,7 @@ class Widget():
             self.event_control()
             pygame.display.flip()
             self.clock.tick(self.fps)
-            if self.has_chosen:
+            if self.has_selected:
                 # 如果所选的这个有子集，进入这个子集
                 if not self.has_backspace:  # and
                     self.node_point = self.list_node[self.beginning_select_index]
@@ -389,7 +395,7 @@ class Widget():
                 else:
                     print self.list_node[self.beginning_select_index].label
                     # break  # Start from here!!!!!!!!!!!!!!!!!!
-                self.has_chosen = False
+                self.has_selected = False
 
     def draw(self, display_list):
         self.screen.fill(self.BACKGROUND_COLOR)
@@ -423,9 +429,9 @@ class Widget():
                     # self.sound_selecting.play()
                 if event.key == pygame.K_LEFT:
                     self.has_backspace = True
-                    self.has_chosen = True
+                    self.has_selected = True
                 if event.key in [pygame.K_RETURN, pygame.K_RIGHT]:
-                    self.has_chosen = True
+                    self.has_selected = True
                     # self.sound_return.play()
 
 
