@@ -83,12 +83,13 @@ class Sock():
             if not self.q_send.empty():
                 msg, ip = self.q_send.get()
                 self.sock.sendto(json.dumps(msg), (ip, self.port))
-                print('SEND [%s]:%s' % (ip+str(self.port), json.dumps(msg)))
+                print('SEND [%s]:%s' % (ip+':'+str(self.port), json.dumps(msg)))
 
     def msg_recv(self):
         """注： 消息队列不包含port，port在这里直接剔除了"""
         while not self.done:
             data, address = self.sock.recvfrom(1024)  # data=JSON, address=(ip, port)
+            print('RECV [%s]:%s' % (address[0]+':'+str(self.port), data))
             self.q.put((json.loads(data), address[0]))  # 获取数据，将数据转换为正常数据，并且只提取ip，不提取port
 
     def localip(self):
@@ -144,7 +145,8 @@ class Sock():
 
     def host_broadcast(self):
         ip_head = '.'.join(self.localip().split('.')[0:3])
-        ip_list = [ip_head + '.' + str(i) for i in range(256)]
+        ip_list = [ip_head + '.' + str(i) for i in range(100,111,1)]  # test, to be con...
+        # ip_list = [ip_head + '.' + str(i) for i in range(256)]
         self.broadcast(messages=('host created',''), ip_list=ip_list)
 
 
@@ -222,10 +224,18 @@ class Widget():
         return self.sock.scan_hostip()
 
     def join_func(self, node):
-        for i in node.children:
-            del (i)
-        node.children = []
-        for ip in self.scan_hostip():
+        hostip_list = self.scan_hostip()
+        # children_list = []  # 把不在主机列表的node节点都清除
+        # for node_ in node.children:
+        #     if node_.label not in hostip_list:
+        #         del (node_)
+        #     else:
+        #         children_list.append(node_)
+        # node.children = children_list
+        node.children = [node_ for node_ in node.children if node_.label in hostip_list]  # 把不在主机列表的node节点都清除
+        for ip in self.scan_hostip():  # 添加新的主机node节点
+            if ip in node.get_children_label():
+                continue  # 一直在就不重新添加
             ip_node = Node(ip)
             node.add(ip_node)
             ip_node.target = self.join_enter
@@ -238,8 +248,7 @@ class Widget():
         if not self.bool_join_enter:
             self.sock.q_send.put((('player join', self.msg_player), host_ip))  # 先给主机发个加入
             self.bool_join_enter = True
-        if 'Host:' + host_ip not in node.get_children_label():
-            node.add(Node('Host:' + host_ip))
+
         # 获取&更新 self.dict_player
         while not self.sock.q.empty():
             (info, dict_player), ip = self.sock.q.get()
@@ -252,6 +261,8 @@ class Widget():
         for i in node.children:
             del (i)
         node.children = []
+        if 'Host:' + host_ip not in node.get_children_label():
+            node.add(Node('Host:' + host_ip))
         for i in self.dict_player.keys():
             node.add(Node(i))
 
