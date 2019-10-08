@@ -207,11 +207,11 @@ class Widget():
         self.sock.host_broadcast()
 
         if not self.bool_create:
-            node.add(Node('Host IP:' + self.localip))
+            node.add(Node('host ip:' + self.localip))
             self.sock.q_send.put((('player join', self.msg_player), self.localip))  # 先给自己发个消息，自己就是主机
             self.bool_create = True
 
-            start_node = Node('start')
+            start_node = Node('Start')
             node.add(start_node)
             start_node.target = self.start_func
             # to be con...
@@ -287,9 +287,10 @@ class Widget():
             del (i)
         node.children = []
         if 'Host:' + host_ip not in node.get_children_label():
-            node.add(Node('Host:' + host_ip))
+            node.add(Node('host ip:' + host_ip))
         for i in self.dict_player.keys():
             node.add(Node(i))
+        node.add(Node('waiting host player press "start"..'))
 
     def join_enter_back(self, host_ip):
         self.bool_join_enter = False
@@ -323,7 +324,7 @@ class Widget():
         start_node = Node('Homing Missile')
         start_node.parent = start_node  # 原始节点的父亲节点就是自己
         # localip = self.get_localip()
-        localip_node = Node('Local IP:' + self.localip)
+        localip_node = Node('local ip:' + self.localip)
         create_node = Node('Create Game')
         join_node = Node('Join Game')
         exit_node = Node('Exit')
@@ -401,18 +402,18 @@ class Widget():
         self.screen.fill(self.BACKGROUND_COLOR)
         # 设置标题 Homing Missile
         width, height = self.screen_rect[2:4]
-        self.information.show_text(screen=self.screen, pos=(width / 3, height / 3 * 1), text=u"Homing Missile",
-                                   size=48,
+        self.information.show_text(screen=self.screen, pos=(width / 3, height / 4 * 1), text=u"Homing Missile",
+                                   size=40,
                                    bold=True)  # 显示实时状态文字
         # 设置选项
         for num, i in enumerate(display_list):
-            size = 36
+            size = 22
             if num == self.beginning_select_index:
                 color = (255, 0, 0)
             else:
                 color = (0, 0, 0)
             self.information.show_text(screen=self.screen,
-                                       pos=(width / 4 + size * 2, height / 3 * 1 + size * (num + 2.5)), text=i,
+                                       pos=(width / 3 + size * 2, height / 3 * 1 + size * (num + 2.5)), text=i,
                                        color=color, size=size)  # 显示上一次的鼠标位置
 
     def event_control(self):
