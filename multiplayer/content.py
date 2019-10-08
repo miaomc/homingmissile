@@ -27,6 +27,19 @@ class Node():
         self.children.append(other)
         other.parent = self
 
+    def pop(self, other_label):
+        """根据label，更新自身children列表，删除other这个node"""
+        other = None
+        other_index = None
+        for n,i in enumerate(self.children):
+            if i.label == other_label:
+                other = i
+                other_index = n
+                break
+        if other_index:
+            del self.children[n]
+            del other
+
     def be_chosen(self):
         if self.target:
             if self.args:
@@ -205,7 +218,7 @@ class Widget():
         while not self.sock.q.empty():
             (info, msg), ip = self.sock.q.get()  # 接受处理单个玩家的加入消息msg_player
             if info == 'player join' and ip not in node.get_children_label():
-                node.add(Node(ip))
+                node.add(Node(ip)) # 添加
                 self.dict_player[ip] = msg
                 for i in self.dict_player.keys():  # 给所有ip都发送所有玩家信息self.dict_player
                     if i != self.localip:  # 自己是主机，就不用发自己了
@@ -213,6 +226,7 @@ class Widget():
             elif info == 'player exit':  # 处理收到玩家退出消息，删除玩家
                 if self.dict_player.has_key(ip):
                     self.dict_player.pop(ip)
+                    node.pop(label=ip)  # 删除
                     for i in self.dict_player.keys():  # 给所有ip都发送所有玩家信息self.dict_player
                         if i != self.localip:  # 自己是主机，就不用发自己了
                             self.sock.q_send.put((('dict_player', self.dict_player), i))
@@ -220,7 +234,7 @@ class Widget():
     def create_back_func(self, node):
         self.bool_create = False
         for i in node.children:
-            del (i)
+            del i
         node.children = []
 
     # JOIN FUNCTION
