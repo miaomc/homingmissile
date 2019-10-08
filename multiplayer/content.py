@@ -83,13 +83,13 @@ class Sock():
             if not self.q_send.empty():
                 msg, ip = self.q_send.get()
                 self.sock.sendto(json.dumps(msg), (ip, self.port))
-                print('SEND [%s]:%s' % (ip+':'+str(self.port), json.dumps(msg)))
+                print('SEND [%s]:%s' % (ip + ':' + str(self.port), json.dumps(msg)))
 
     def msg_recv(self):
         """注： 消息队列不包含port，port在这里直接剔除了"""
         while not self.done:
             data, address = self.sock.recvfrom(1024)  # data=JSON, address=(ip, port)
-            print('RECV [%s]:%s' % (address[0]+':'+str(self.port), data))
+            print('RECV [%s]:%s' % (address[0] + ':' + str(self.port), data))
             self.q.put((json.loads(data), address[0]))  # 获取数据，将数据转换为正常数据，并且只提取ip，不提取port
 
     def localip(self):
@@ -145,9 +145,9 @@ class Sock():
 
     def host_broadcast(self):
         ip_head = '.'.join(self.localip().split('.')[0:3])
-        ip_list = [ip_head + '.' + str(i) for i in range(100,111,1)]  # test, to be con...
+        ip_list = [ip_head + '.' + str(i) for i in range(100, 111, 1)]  # test, to be con...
         # ip_list = [ip_head + '.' + str(i) for i in range(256)]
-        self.broadcast(messages=('host created',''), ip_list=ip_list)
+        self.broadcast(messages=('host created', ''), ip_list=ip_list)
 
 
 class Widget():
@@ -209,9 +209,13 @@ class Widget():
                 self.dict_player[ip] = msg
                 for i in self.dict_player.keys():  # 给所有ip都发送所有玩家信息self.dict_player
                     if i != self.localip:  # 自己是主机，就不用发自己了
-                        self.sock.q_send.put((('dict_player', self.dict_player), self.localip))
-            # 处理收到玩家退出消息，删除玩家
-            # self.dict_player.pop(ip)
+                        self.sock.q_send.put((('dict_player', self.dict_player), i))
+            elif info == 'player exit':  # 处理收到玩家退出消息，删除玩家
+                if self.dict_player.has_key(ip):
+                    self.dict_player.pop(ip)
+                    for i in self.dict_player.keys():  # 给所有ip都发送所有玩家信息self.dict_player
+                        if i != self.localip:  # 自己是主机，就不用发自己了
+                            self.sock.q_send.put((('dict_player', self.dict_player), i))
 
     def create_back_func(self, node):
         self.bool_create = False
@@ -233,7 +237,7 @@ class Widget():
         #         children_list.append(node_)
         # node.children = children_list
         node.children = [node_ for node_ in node.children if node_.label in hostip_list]  # 把不在主机列表的node节点都清除
-        for ip in self.scan_hostip():  # 添加新的主机node节点
+        for ip in hostip_list:  # 添加新的主机node节点
             if ip in node.get_children_label():
                 continue  # 一直在就不重新添加
             ip_node = Node(ip)
@@ -241,6 +245,7 @@ class Widget():
             ip_node.target = self.join_enter
             ip_node.args = (ip_node, ip)
             ip_node.back_target = self.join_enter_back
+            ip_node.back_args = (ip)
         node.add(Node('updating host list..'))
 
     # JOIN_ENTER FUNCTION
@@ -266,8 +271,10 @@ class Widget():
         for i in self.dict_player.keys():
             node.add(Node(i))
 
-    def join_enter_back(self):
+    def join_enter_back(self, host_ip):
         self.bool_join_enter = False
+        self.sock.q_send.put((('player exit', ''), host_ip))  # 发送消息给主机
+        self.dict_player = {self.localip: self.msg_player}  # dict_player就只有自己了
 
     # EXIT FUNCTION
     def exit_func(self):
