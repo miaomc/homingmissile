@@ -1351,26 +1351,27 @@ class Game(object):
         for ip in self.d.keys():
             self.sock_send('200 OK', (ip, self.port))
 
-        count = 0
-        waiting_times = 1000
+        start_count = pygame.time.get_ticks()
+        waiting_times = 10000  # 这里其实需要改写为TCP确认， 等待对方收到消息 to be continue...
         msg_get_num = 0
         while True:  # 等收到所有玩家的'200 ok'
-            if not self.q.empty():
+            while not self.q.empty():
                 data, address = self.q.get()
-                print 'get',data,':',address
                 if json.loads(data)=='200 OK':
                     print('[INFO]Sock Msg Get:%s:%s' % (address,data))
                     msg_get_num += 1
+                    if msg_get_num >= len(self.player_list):
+                        break
 
             if msg_get_num>=len(self.player_list):
                 break
-                logging.info('game begin')
-            pygame.time.wait(1)
-            count += 1
-            if count > waiting_times:
+                logging.info('game:begin')
+
+            if pygame.time.get_ticks()-start_count > waiting_times:
                 print('[ERROR]Sock Waiting Timeout: %s' % '"200 OK"')
+                self.done = True  # 通过self.done关闭线程，防止Errno 9：bad file descriptor(错误的文件名描述符)
                 return False
-        print('get players data')
+        print('got:players data')
 
         self.thread_msg.start()  # 开启玩家处理接受消息的线程
         # if self.host_ip == self.local_ip:  # 主机才发送同步LockFrame
