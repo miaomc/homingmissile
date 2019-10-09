@@ -24,7 +24,7 @@ class Information(object):
     def show_text(self, screen, pos, text, color=(0, 0, 0), size=16, bold=False):
         """文字处理函数        """
         # 获取系统字体，并设置文字大小
-        cur_font = pygame.font.SysFont(u"Courier", size)
+        cur_font = pygame.font.SysFont(u"microsoftyaheimicrosoftyaheiui", size)
         cur_font.set_bold(bold)
         # 设置文字内容
         text_fmt = cur_font.render(text, 1, color)
@@ -45,6 +45,6 @@ class Information(object):
             self.show_text(screen, (screen.get_rect().centerx - 160, screen.get_rect().centery - 40), self.text_middle,
                            (0, 0, 0), size=40, bold=True)
             for i, text in enumerate(self.text_middle_below):
-                self.show_text(screen, (screen.get_rect().centerx - 230, screen.get_rect().centery + 24 * i),
+                self.show_text(screen, (screen.get_rect().centerx - 230, screen.get_rect().centery + 35 * i+10),
                                text, (0, 0, 0), size=24)
                 self.text_middle_below = []

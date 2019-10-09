@@ -1,4 +1,4 @@
-# -*- coding: cp936 -*-
+  # -*- coding: cp936 -*-
 import os
 import sys
 import time
@@ -212,11 +212,11 @@ class Widget():
         self.sock.host_broadcast()
 
         if not self.bool_create:
-            node.add(Node('host ip:' + self.localip))
+            node.add(Node(u'主机(host):' + self.localip))
             self.sock.q_send.put((('player join', self.msg_player), self.localip))  # 先给自己发个消息，自己就是主机
             self.bool_create = True
 
-            start_node = Node('Start')
+            start_node = Node(u'开始游戏(Start)')
             node.add(start_node)
             start_node.target = self.start_func
             # to be con...
@@ -268,7 +268,7 @@ class Widget():
             ip_node.args = (ip_node, ip)
             ip_node.back_target = self.join_enter_back
             ip_node.back_args = (ip)
-        node.add(Node('updating host list..'))
+        node.add(Node(u'自动刷新已经建立的主机（auto-updating host）..'))
 
     # JOIN_ENTER FUNCTION
     def join_enter(self, (node, host_ip)):
@@ -293,10 +293,10 @@ class Widget():
             del (i)
         node.children = []
         if 'Host:' + host_ip not in node.get_children_label():
-            node.add(Node('host ip:' + host_ip))
+            node.add(Node(u'主机地址(host):' + host_ip))
         for i in self.dict_player.keys():
             node.add(Node(i))
-        node.add(Node('waiting host player press "start"..'))
+        node.add(Node(u'等待主机开始游戏(waiting host to "Start")..'))
 
     def join_enter_back(self, host_ip):
         self.bool_join_enter = False
@@ -341,10 +341,10 @@ class Widget():
         start_node = Node('Homing Missile')
         start_node.parent = start_node  # 原始节点的父亲节点就是自己
         # localip = self.get_localip()
-        localip_node = Node('local ip:' + self.localip)
-        create_node = Node('Create Game')
-        join_node = Node('Join Game')
-        exit_node = Node('Exit')
+        localip_node = Node(u'本机IP(localip):' + self.localip)
+        create_node = Node(u'创建游戏(Create)')
+        join_node = Node(u'加入游戏(Join)')
+        exit_node = Node(u'退出(Exit)')
         start_node.add(localip_node)
         start_node.add(create_node)
         start_node.add(join_node)
@@ -423,7 +423,7 @@ class Widget():
         self.screen.fill(self.BACKGROUND_COLOR)
         # 设置标题 Homing Missile
         width, height = self.screen_rect[2:4]
-        self.information.show_text(screen=self.screen, pos=(width / 3, height / 4 * 1), text=u"Homing Missile",
+        self.information.show_text(screen=self.screen, pos=(width *0.27, height *0.22 * 1), text=u"Homing Missile",
                                    size=40,
                                    bold=True)  # 显示实时状态文字
         # 设置选项
@@ -434,8 +434,8 @@ class Widget():
             else:
                 color = (0, 0, 0)
             self.information.show_text(screen=self.screen,
-                                       pos=(width / 3 + size * 2, height / 3 * 1 + size * (num + 2.5)), text=i,
-                                       color=color, size=size)  # 显示上一次的鼠标位置
+                                       pos=(width / 4 + size * 2, height *0.4 + size * num*1.2 ), text=i,
+                                       color=color, size=size)  # 显示选择菜单位置
 
     def event_control(self):
         for event in pygame.event.get():

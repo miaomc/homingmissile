@@ -8,7 +8,7 @@ import threading
 import Queue
 import json
 import logging
-from infomation import Infomation
+from information import Information
 
 """
 ok随机弹药包, 补血包,还需要同步才行，要不然每个玩家得到的Box不一样
@@ -22,8 +22,8 @@ ok飞机爆炸之后要可以继续游戏，显示win lose ， press esc to exit
 ok空格键回到飞机位置
 ok爆炸效果（目前只制作了F35和J20飞机的效果）
 """
-SINGLE_TEST = False
-MAP_RATIO = 1
+SINGLE_TEST = True
+MAP_RATIO = 4
 RESTART_MODE = False
 LOCALIP = '192.168.0.106'
 HOSTIP = '192.168.0.103'
@@ -766,7 +766,7 @@ class Game(object):
         self.origin_map = None
 
         # Info show
-        self.info = Infomation()
+        self.info = Information()
 
     def screen_init(self):
         os.environ['SDL_VIDEO_CENTERED'] = '1'
