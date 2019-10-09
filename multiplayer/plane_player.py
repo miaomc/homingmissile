@@ -22,10 +22,10 @@ ok飞机爆炸之后要可以继续游戏，显示win lose ， press esc to exit
 ok空格键回到飞机位置
 ok爆炸效果（目前只制作了F35和J20飞机的效果）
 """
-SINGLE_TEST = False
+SINGLE_TEST = True
 MAP_RATIO = 1
 RESTART_MODE = False
-LOCALIP = '192.168.0.107'
+LOCALIP = '192.168.0.106'
 HOSTIP = '192.168.0.103'
 PLANE_TYPE = 'J20'
 C_OR_J = ''
@@ -484,7 +484,7 @@ class Weapon(Base):
             self.image_original = pygame.image.load(image_path).convert()
             self.image_original.set_colorkey(WHITE)
             self.image = self.image_original.subsurface(
-                (0, 0, self.image_original.get_height() - 1, self.image_original.get_height() - 1))
+                (0, 0, self.image_original.get_width() - 1, self.image_original.get_height() - 1))
             super(Weapon, self).__init__(location=location, image=self.image)
             self.sound_fire = pygame.mixer.Sound("./sound/TPhFi201.wav")
             self.sound_fire.play()
