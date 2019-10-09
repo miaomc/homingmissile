@@ -9,6 +9,7 @@ import Queue
 import json
 from random import randint
 import information
+import plane_player
 
 PORT = 8988
 
@@ -87,6 +88,9 @@ class Sock():
         thread1.setDaemon(True)  # True:不关注这个子线程，主线程跑完就结束整个python process
         thread1.start()
 
+    def close(self):
+        self.sock.close()
+
     def msg_send(self):
         """
         self.q_send是普通数据对象，传输的时候会加json.dumps
@@ -96,7 +100,7 @@ class Sock():
             if not self.q_send.empty():
                 msg, ip = self.q_send.get()
                 self.sock.sendto(json.dumps(msg), (ip, self.port))
-                print('SEND [%s]:%s' % (ip + ':' + str(self.port), json.dumps(msg)))
+                # print('SEND [%s]:%s' % (ip + ':' + str(self.port), json.dumps(msg)))
 
     def msg_recv(self):
         """注： 消息队列不包含port，port在这里直接剔除了"""
@@ -158,8 +162,8 @@ class Sock():
 
     def host_broadcast(self):
         ip_head = '.'.join(self.localip().split('.')[0:3])
-        ip_list = [ip_head + '.' + str(i) for i in range(100, 111, 1)]  # test, to be con...
-        # ip_list = [ip_head + '.' + str(i) for i in range(256)]
+        # ip_list = [ip_head + '.' + str(i) for i in range(100, 111, 1)]  # test, to be con...
+        ip_list = [ip_head + '.' + str(i) for i in range(256)]
         self.broadcast(messages=('host created', ''), ip_list=ip_list)
 
 
@@ -191,6 +195,7 @@ class Widget():
 
         self.bool_create = False
         self.bool_join_enter = False
+        self.start_bool = False
 
     def get_localip(self):
         return self.sock.localip()
@@ -280,7 +285,8 @@ class Widget():
                 self.has_backspace = True  # 自动回退
                 self.has_selected = True
             # to be con...
-            elif info == 'game start':
+            elif info == 'start game':
+                self.start_game()
                 pass
         # 清空&刷新
         for i in node.children:
@@ -303,7 +309,18 @@ class Widget():
 
     # START FUNCTION
     def start_func(self):
-        print 'start!'
+        for i in self.dict_player.keys():  # 给所有ip都发送所有玩家信息self.dict_player
+            if i != self.localip:  # 自己是主机，就不用发自己了
+                self.sock.q_send.put((('start game', ''), i))
+        self.start_game()
+
+    def start_game(self):
+        with open('player_dict.dat','w') as f:
+            json.dump(self.dict_player,f)
+            print("start:write in players' data..ok")
+        self.exit_func()
+        self.start_bool = True
+        print 'start:content is done'
 
     def nodetree_produce(self):
         """
@@ -398,6 +415,10 @@ class Widget():
                     # break  # Start from here!!!!!!!!!!!!!!!!!!
                 self.has_selected = False
 
+        self.sock.close()
+        pygame.quit()
+        return self.start_bool
+
     def draw(self, display_list):
         self.screen.fill(self.BACKGROUND_COLOR)
         # 设置标题 Homing Missile
@@ -438,4 +459,5 @@ class Widget():
 
 if __name__ == "__main__":
     widget = Widget()
-    widget.main_loop()
+    if widget.main_loop():
+        plane_player.main()

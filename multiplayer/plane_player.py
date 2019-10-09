@@ -22,7 +22,7 @@ ok飞机爆炸之后要可以继续游戏，显示win lose ， press esc to exit
 ok空格键回到飞机位置
 ok爆炸效果（目前只制作了F35和J20飞机的效果）
 """
-SINGLE_TEST = True
+SINGLE_TEST = False
 MAP_RATIO = 1
 RESTART_MODE = False
 LOCALIP = '192.168.0.106'
@@ -504,6 +504,8 @@ class Weapon(Base):
 
         self.velocity = velocity + velocity.normalize_vector() * self.init_speed  # 初始速度为飞机速度+发射速度
 
+        self.rotate()
+
         self.catalog = catalog
         self.target = None
 
@@ -808,14 +810,15 @@ class Game(object):
 
     def msg_recv(self):
         while not self.done:
-            self.q.put(self.sock.recvfrom(1487))
+            data = self.sock.recvfrom(1487)
+            self.q.put(data)
+            logging.info('RECV %s' % str(data))
             # print("socket get msg.")
 
     def sock_send(self, msg, dest):
         """strs: unicode string or dict object"""
         self.q_send.put((json.dumps(msg), dest))
         # self.sock.sendto(json.dumps(msg), dest)
-
 
     def sock_waitfor(self, msg, dest, delay=100, waiting_times=30):
         count = 0
@@ -975,7 +978,10 @@ class Game(object):
                     status_msg = ('syn_player_status', {'location': (player.plane.location.x, player.plane.location.y),
                                                         'velocity': (player.plane.velocity.x, player.plane.velocity.y),
                                                         'health': player.plane.health})
-                    self.sock_send(status_msg, (self.other_ip, self.port))
+                    for player in self.player_list:
+                        if player.ip != self.local_ip:
+                            self.sock_send(status_msg, (player.ip, self.port))
+                    break
 
     def add_weapon_tail(self, weapon_group):
         for weapon in weapon_group:
@@ -1033,17 +1039,20 @@ class Game(object):
 
         return key_list
 
+    # def get_local_ip(self):
+    #     l = socket.getaddrinfo(socket.gethostname(), None)
+    #     for index, i in enumerate(l):
+    #         print index, i[-1][0]
+    #     if RESTART_MODE:
+    #         localip = self.re_local_ip
+    #     else:
+    #         localip = l[input("select your own ip index:")][-1][0]
+    #         self.re_local_ip = localip  # for repeat
+    #     self.local_ip = localip
+    #     return localip
+
     def get_local_ip(self):
-        l = socket.getaddrinfo(socket.gethostname(), None)
-        for index, i in enumerate(l):
-            print index, i[-1][0]
-        if RESTART_MODE:
-            localip = self.re_local_ip
-        else:
-            localip = l[input("select your own ip index:")][-1][0]
-            self.re_local_ip = localip  # for repeat
-        self.local_ip = localip
-        return localip
+        return socket.gethostbyname(socket.gethostname())
 
     def box_msg_send(self):
         if self.syn_frame % (10 * FPS) == 0:  # 每n秒同步一次自己状态给对方
@@ -1268,49 +1277,39 @@ class Game(object):
             elif data_tmp[0] == 'box_status':  # 接受并处理Box
                 self.box_group.add(Box(location=data_tmp[1]['location'], catalog=data_tmp[1]['catalog']))
 
+    def deal_player_dict(self, player_dict):
+        """From: dict_player = {'ip':{'location': (randint(20, 80) / 100.0, randint(20, 80) / 100.0),
+                                      'Plane': 'F35','Gun': 200, 'Rocket': 10, 'Cobra': 3}，
+                               }
+            To:  d = {'ip':msg_player，
+                     }
+            P.S. msg_player = {'ip': localip,
+                        'location': (randint(MARS_MAP_SIZE[0] / 5, MARS_MAP_SIZE[0] * 4 / 5),
+                                   randint(MARS_MAP_SIZE[1] / 5, MARS_MAP_SIZE[1] * 4 / 5)),
+                        'Plane': plane_type, 'Gun': 200, 'Rocket': 10, 'Cobra': 3,}
+        }"""
+        d = {}
+        for ip in player_dict.keys():
+            d[ip] = player_dict[ip]
+            d[ip]['ip'] = ip
+            d[ip]['location'] = [MARS_MAP_SIZE[n]*i for n,i in enumerate(player_dict[ip]['location'])]
+        return d
+
     def main(self):
-        # print self.re_local_ip
-        # print self.re_c_or_j
-        # print self.re_plane_type
-        # print self.re_host_ip
-        # self.port += 1
+
+        self.local_ip = localip = self.get_local_ip()
         if SINGLE_TEST:
-            localip = LOCALIP
             plane_type = PLANE_TYPE
             msg_player = self.init_local_player(localip, plane_type)
             self.game_init(localip)
             self.d[localip] = msg_player
-            self.local_ip = self.other_ip = localip
-        else:
-            localip = self.get_local_ip()
-            if RESTART_MODE:
-                player_type = self.re_player_type
-            else:
-                plane_type = raw_input("choose your plane catalog in %s:" % str(PLANE_CATALOG.keys()))
-                while plane_type not in PLANE_CATALOG.keys():
-                    plane_type = raw_input("spell fault, choose your plane catalog, %s:" % str(PLANE_CATALOG.keys()))
-                self.re_player_type = plane_type
-            msg_player = self.init_local_player(localip, plane_type)  # !!需要修改这个msg_player,json好发送
+            self.other_ip = localip
 
-            # self.sock & self.q is ready.
-            self.game_init(localip)
-            self.d[localip] = msg_player
-
-            if self.create_or_join():
-                self.host_ip = self.local_ip
-                if not self.create(localip, msg_player):
-                    self.done = True
-                    print('waiting join failed!')
-                    return False
-            else:
-                if RESTART_MODE:
-                    self.host_ip = host_ip = self.re_host_ip
-                else:
-                    self.host_ip = self.re_host_ip = host_ip = raw_input('Input a host ip to join a game:')
-                if not self.join(msg_player, host_ip):
-                    self.done = True
-                    print('join failed!')
-                    return False
+        self.game_init(self.local_ip)
+        with open('player_dict.dat','r') as f1:
+            player_dict_origin = json.load(f1)
+            self.d = self.deal_player_dict(player_dict_origin)
+            logging.info('load "player_dict.dat":success')
 
         # Pygame screen init
         self.screen_init()
@@ -1323,13 +1322,13 @@ class Game(object):
         self.minimap = MiniMap(self.screen, self.map.surface.get_rect(), self.screen_rect, self.plane_group)
         self.origin_map_surface = self.map.surface.copy()
 
-        # 根据local player位置移动一次self.screen_rect git
-        self.screen_rect.center = Map.mars_translate(msg_player['location'])
-
         # 获取本地玩家对象
         for player in self.player_list:
             if player.ip == self.local_ip:
                 self.local_player = player
+
+        # 根据local player位置移动一次self.screen_rect git
+        self.screen_rect.center = Map.mars_translate(self.d[self.local_ip]['location'])
 
         # PYGAME LOOP
         pygame.key.set_repeat(10)  # control how held keys are repeated
@@ -1349,8 +1348,29 @@ class Game(object):
         #     self.thread_lock.setDaemon(True)  # True:不关注这个子线程，主线程跑完就结束整个python process
 
         # 同步开始循环
-        self.sock_send('200 OK', (self.other_ip, self.port))
-        self.sock_waitfor('200 OK', (self.other_ip, self.port))
+        for ip in self.d.keys():
+            self.sock_send('200 OK', (ip, self.port))
+
+        count = 0
+        waiting_times = 1000
+        msg_get_num = 0
+        while True:  # 等收到所有玩家的'200 ok'
+            if not self.q.empty():
+                data, address = self.q.get()
+                print 'get',data,':',address
+                if json.loads(data)=='200 OK':
+                    print('[INFO]Sock Msg Get:%s:%s' % (address,data))
+                    msg_get_num += 1
+
+            if msg_get_num>=len(self.player_list):
+                break
+                logging.info('game begin')
+            pygame.time.wait(1)
+            count += 1
+            if count > waiting_times:
+                print('[ERROR]Sock Waiting Timeout: %s' % '"200 OK"')
+                return False
+        print('get players data')
 
         self.thread_msg.start()  # 开启玩家处理接受消息的线程
         # if self.host_ip == self.local_ip:  # 主机才发送同步LockFrame
@@ -1428,8 +1448,7 @@ def test_send_get_analyze():
     #         counts += 1
 
 
-
-if __name__ == '__main__':
+def main():
     game = Game()
     game.main()
     # while raw_input('press "r" to restart game:') == 'r':
@@ -1438,3 +1457,7 @@ if __name__ == '__main__':
     game.sock.close()
     test_calc_frame_cost()
     test_send_get_analyze()
+
+
+if __name__ == '__main__':
+    main()
