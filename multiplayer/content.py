@@ -8,6 +8,7 @@ import threading
 import Queue
 import json
 from random import randint
+import logging
 import information
 import plane_player
 
@@ -71,7 +72,7 @@ class Sock():
         address = (self.localip(), self.port)
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind(address)
-        print('Bind socket %s ok.' % str(address))
+        logging.info('Bind socket %s ok.' % str(address))
         self.done = False
 
         # MSG QUEUE
@@ -100,13 +101,23 @@ class Sock():
             if not self.q_send.empty():
                 msg, ip = self.q_send.get()
                 self.sock.sendto(json.dumps(msg), (ip, self.port))
-                # print('SEND [%s]:%s' % (ip + ':' + str(self.port), json.dumps(msg)))
+                logging.info('SEND [%s]:%s' % (ip + ':' + str(self.port), json.dumps(msg)))
 
     def msg_recv(self):
-        """注： 消息队列不包含port，port在这里直接剔除了"""
+        """
+        注： 消息队列不包含port，port在这里直接剔除了
+        这里有个error: [Errno 10054]，有可能是winsock自身的bug：
+        If sending a datagram using the sendto function results in an "ICMP port unreachable" response and the select
+        function is set for readfds, the program returns 1 and the subsequent call to the recvfrom function does not
+        work with a WSAECONNRESET (10054) error response. In Microsoft Windows NT 4.0, this situation causes the select
+         function to block or time out.
+        """
         while not self.done:
-            data, address = self.sock.recvfrom(1024)  # data=JSON, address=(ip, port)
-            print('RECV [%s]:%s' % (address[0] + ':' + str(self.port), data))
+            try:
+                data, address = self.sock.recvfrom(1024)  # data=JSON, address=(ip, port)
+            except Exception,msg:
+                logging.error('SOCK RECV ERROR-->%s'%msg)
+            logging.info('RECV [%s]:%s' % (address[0] + ':' + str(self.port), data))
             self.q.put((json.loads(data), address[0]))  # 获取数据，将数据转换为正常数据，并且只提取ip，不提取port
 
     def localip(self):
@@ -120,26 +131,26 @@ class Sock():
         ip_list = [ip_head + '.' + str(i) for i in range(256)]
         port_list = [self.port]
         for ip in ip_list:
-            # print('Scan %s' % ip)
+            # logging.info('Scan %s' % ip)
             up = False
             for port in port_list:
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 s.settimeout(delay)
                 result = s.connect_ex((ip, port))
                 if result == 0:
-                    print('Port %d: open' % (port))
+                    logging.info('Port %d: open' % (port))
                     up = True
                 s.close()
             if up:
                 ip_up.append(ip)
         time_end = time.time()
-        # print('IP Scan:%s'%ip_list)
-        # print('IP Scan:%s'%port_list)
-        print('PortScan done! %d IP addresses (%d hosts up) scanned in %f seconds.' % (
+        # logging.info('IP Scan:%s'%ip_list)
+        # logging.info('IP Scan:%s'%port_list)
+        logging.info('PortScan done! %d IP addresses (%d hosts up) scanned in %f seconds.' % (
             len(ip_list), len(ip_up), time_end - time_start))
-        print('Up hosts:')
+        logging.info('Up hosts:')
         for i in ip_up:
-            print i
+            logging.info(i)
         # return [self.localip()]
         return ip_up
 
@@ -161,6 +172,7 @@ class Sock():
             self.q_send.put((messages, i))
 
     def host_broadcast(self):
+        """群发这么多人也不是个办法，to be continue.."""
         ip_head = '.'.join(self.localip().split('.')[0:3])
         # ip_list = [ip_head + '.' + str(i) for i in range(100, 111, 1)]  # test, to be con...
         ip_list = [ip_head + '.' + str(i) for i in range(256)]
@@ -169,6 +181,11 @@ class Sock():
 
 class Widget():
     def __init__(self):
+        logging.basicConfig(level=logging.DEBUG,  # CRITICAL > ERROR > WARNING > INFO > DEBUG > NOTSET
+                            format='%(asctime)s [line:%(lineno)d] [%(levelname)s] %(message)s',
+                            filename='logger.log',
+                            filemode='w')
+
         SCREEN_SIZE = (800, 600)
         os.environ['SDL_VIDEO_CENTERED'] = '1'
         pygame.init()
@@ -193,9 +210,12 @@ class Widget():
                            'Gun': 200, 'Rocket': 10, 'Cobra': 3, }
         self.dict_player = {self.localip: self.msg_player}
 
-        self.bool_create = False
-        self.bool_join_enter = False
+        self.create_bool = False
+        self.join_func_bool = False
+        self.join_enter_bool = False
         self.start_bool = False
+
+        self.frame_chosen_gap = self.fps*2
 
     def get_localip(self):
         return self.sock.localip()
@@ -208,13 +228,15 @@ class Widget():
                                 'Gun':200, 'Rocket':10, 'Cobra':3}，
                         }
         """
+        if not (self.frame % self.frame_chosen_gap ==0 or self.create_bool==False):  # 每*1帧发一次
+            return
         # 局域网同网段群发
         self.sock.host_broadcast()
 
-        if not self.bool_create:
+        if not self.create_bool:
             node.add(Node(u'主机(host):' + self.localip))
             self.sock.q_send.put((('player join', self.msg_player), self.localip))  # 先给自己发个消息，自己就是主机
-            self.bool_create = True
+            self.create_bool = True
 
             start_node = Node(u'开始游戏(Start)')
             node.add(start_node)
@@ -236,8 +258,8 @@ class Widget():
                         if i != self.localip:  # 自己是主机，就不用发自己了
                             self.sock.q_send.put((('dict_player', self.dict_player), i))
 
-    def create_back_func(self, node):
-        self.bool_create = False
+    def create_func_back(self, node):
+        self.create_bool = False
         for i in node.children:
             del i
         node.children = []
@@ -250,6 +272,9 @@ class Widget():
         return self.sock.scan_hostip()
 
     def join_func(self, node):
+        if not(self.frame % (self.frame_chosen_gap*2) == 0 or self.join_func_bool==False):  # 每*2帧探测一次
+            return
+        self.join_func_bool = True
         hostip_list = self.scan_hostip()
         # children_list = []  # 把不在主机列表的node节点都清除
         # for node_ in node.children:
@@ -269,12 +294,15 @@ class Widget():
             ip_node.back_target = self.join_enter_back
             ip_node.back_args = (ip)
         node.add(Node(u'自动刷新已经建立的主机（auto-updating host）..'))
-
+    
+    def join_func_back(self):
+        self.join_func_bool = False
+        
     # JOIN_ENTER FUNCTION
     def join_enter(self, (node, host_ip)):
-        if not self.bool_join_enter:
+        if not self.join_enter_bool:
             self.sock.q_send.put((('player join', self.msg_player), host_ip))  # 先给主机发个加入
-            self.bool_join_enter = True
+            self.join_enter_bool = True
 
         # 获取&更新 self.dict_player
         while not self.sock.q.empty():
@@ -299,7 +327,7 @@ class Widget():
         node.add(Node(u'等待主机开始游戏(waiting host to "Start")..'))
 
     def join_enter_back(self, host_ip):
-        self.bool_join_enter = False
+        self.join_enter_bool = False
         self.sock.q_send.put((('player exit', ''), host_ip))  # 发送消息给主机
         self.dict_player = {self.localip: self.msg_player}  # dict_player就只有自己了
 
@@ -317,10 +345,10 @@ class Widget():
     def start_game(self):
         with open('player_dict.dat','w') as f:
             json.dump(self.dict_player,f)
-            print("start:write in players' data..ok")
+            logging.info("start:write in players' data..ok")
         self.exit_func()
         self.start_bool = True
-        print 'start:content is done'
+        logging.info('start:content is done')
 
     def nodetree_produce(self):
         """
@@ -353,12 +381,13 @@ class Widget():
         # CREATE_NODE
         create_node.target = self.create_func
         create_node.args = (create_node)
-        create_node.back_target = self.create_back_func
+        create_node.back_target = self.create_func_back
         create_node.back_args = (create_node)
 
         # JOIN_NODE
         join_node.target = self.join_func
         join_node.args = (join_node)
+        join_node.back_target = self.join_func_back
 
         # EXIT_NODE
         exit_node.target = self.exit_func
@@ -381,8 +410,9 @@ class Widget():
         self.done = False
         while not self.done:
             self.frame += 1
-            # 每过1s就进行一次当前节点的子项刷新
-            if self.frame % self.fps == 0:
+            # 每一帧运行当前节点的子项刷新，当前 帧运行一次
+            logging.info(str(self.frame))
+            if self.frame % self.frame_chosen_gap == 0:
                 self.node_point.be_chosen()
                 self.list_node = self.node_point.children
             # 正常显示
@@ -411,7 +441,7 @@ class Widget():
                     self.beginning_select_index = 0
                 # 打印其他没有响应的值
                 else:
-                    print self.list_node[self.beginning_select_index].label
+                    logging.info(self.list_node[self.beginning_select_index].label)
                     # break  # Start from here!!!!!!!!!!!!!!!!!!
                 self.has_selected = False
 

@@ -11,9 +11,15 @@ import logging
 from information import Information
 
 """
+血条同步问题会导致有些玩家死了，但是另外一边还活着
+进入游戏不关闭防火墙都看不到主机
+需要使用管理员模式进入，否则无法加入主机？
+建立主机时，有时候扫描会消失
+进入主机之后，开始，有时候会一边卡死，无法进入（管理员？）
+需要把颜色设置，不同的飞机
 ok随机弹药包, 补血包,还需要同步才行，要不然每个玩家得到的Box不一样
 飞机受伤烟雾，随机产生在飞机身上
-开始菜单、游戏操作说明、restart game
+ok开始菜单、游戏操作说明、restart game
 13.209.137.170
 被导弹跟踪了之后的滴滴滴声音
 子弹和导弹的爆炸效果
@@ -169,7 +175,7 @@ class Vector:
             self.x = args[0][0]
             self.y = args[0][1]
         else:
-            print('Invalid Vector:', args)
+            logging.info('Invalid Vector:', args)
 
     def __add__(self, other):
         return Vector(self.x + other.x, self.y + other.y)
@@ -657,7 +663,7 @@ class MiniMap(object):
         left = 10
         width = self.screen_rect.width / 5
         height = self.screen_rect.height / 4
-        print self.screen_rect, width, height
+        # logging.info('screen size:%s,  minimap_pos(w,h):%s'%(str(self.screen_rect), str(width, height))
         top = self.screen_rect.height - 10 - height
         self.rect = pygame.Rect(left, top, width, height)
 
@@ -719,7 +725,7 @@ class Game(object):
                             format='%(asctime)s [line:%(lineno)d] [%(levelname)s] %(message)s',
 
                             filename='logger.log',
-                            filemode='w')
+                            filemode='a')
 
         self.done = False
         self.map = None
@@ -734,7 +740,7 @@ class Game(object):
         if self.sock is None:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self.sock.bind(address)
-            print('Bind socket %s ok.' % str(address))
+            logging.info('Bind socket %s ok.' % str(address))
         else:
             pygame.time.wait(1200)
             while not self.q.empty():
@@ -826,15 +832,15 @@ class Game(object):
             pygame.time.wait(delay)
             count += 1
             if count > waiting_times:
-                print('[ERROR]Sock Waiting Timeout: %s' % msg)
+                logging.info('[ERROR]Sock Waiting Timeout: %s' % msg)
                 return False
         data, address = self.q.get()
-        print('GET:%s' % str(json.loads(data)))
+        logging.info('GET:%s' % str(json.loads(data)))
         if address[0] == dest[0]:
-            print('[INFO]Sock Msg Get:%s' % json.loads(data))
+            logging.info('[INFO]Sock Msg Get:%s' % json.loads(data))
             return json.loads(data)
         else:
-            print('[ERROR]Sock Wrong Msg:%s %s' % (str(address), json.loads(data)))
+            logging.info('[ERROR]Sock Wrong Msg:%s %s' % (str(address), json.loads(data)))
             return False
 
     def add_player(self, player):
@@ -1134,7 +1140,7 @@ class Game(object):
                     player.win = False  # End Game
                     self.num_player -= 1
                     logging.info("Player lost: %s" % player.ip)
-                    print("Player lost: %s" % player.ip)
+                    logging.info("Player lost: %s" % player.ip)
                     # return True
 
         # 显示游戏信息
@@ -1241,7 +1247,7 @@ class Game(object):
                 if resend_time >= 25:  # 等待ms
                     msg_num += 1  # 超时++++++++++1
                     if not self.done:
-                        print('[ERROR]MSG LOST: %d' % self.syn_frame)
+                        logging.info('[ERROR]MSG LOST: %d' % self.syn_frame)
                     break
                     # for ip in get_msg_dir.keys()
                     #     if not get_msg_dir[ip]:
@@ -1332,7 +1338,7 @@ class Game(object):
 
         # PYGAME LOOP
         pygame.key.set_repeat(10)  # control how held keys are repeated
-        print('Game Start.My IP&PORT: %s - %d' % (self.local_ip, self.port))
+        logging.info('Game Start.My IP&PORT: %s - %d' % (self.local_ip, self.port))
 
         # MAIN LOOP
         self.main_loop()
@@ -1358,7 +1364,7 @@ class Game(object):
             while not self.q.empty():
                 data, address = self.q.get()
                 if json.loads(data)=='200 OK':
-                    print('[INFO]Sock Msg Get:%s:%s' % (address,data))
+                    logging.info('[INFO]Sock Msg Get:%s:%s' % (address,data))
                     msg_get_num += 1
                     if msg_get_num >= len(self.player_list):
                         break
@@ -1368,10 +1374,10 @@ class Game(object):
                 logging.info('game:begin')
 
             if pygame.time.get_ticks()-start_count > waiting_times:
-                print('[ERROR]Sock Waiting Timeout: %s' % '"200 OK"')
+                logging.info('[ERROR]Sock Waiting Timeout: %s' % '"200 OK"')
                 self.done = True  # 通过self.done关闭线程，防止Errno 9：bad file descriptor(错误的文件名描述符)
                 return False
-        print('got:players data')
+        logging.info('got:players data')
 
         self.thread_msg.start()  # 开启玩家处理接受消息的线程
         # if self.host_ip == self.local_ip:  # 主机才发送同步LockFrame
@@ -1427,7 +1433,7 @@ def test_calc_frame_cost():
     for i in l1:
         sum += int(i)
     if len(l1)>0:
-        print  sum / len(l1), 'ms'
+        logging.info('average lantency:%s ms'%str(sum / len(l1)))
     return [int(i) for i in l1]
 
 
