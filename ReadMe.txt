@@ -1,4 +1,4 @@
-零.命令(Git使用方法（精心整理，绝对够用）https://blog.csdn.net/xukai0110/article/details/80637902)：
+﻿零.命令(Git使用方法（精心整理，绝对够用）https://blog.csdn.net/xukai0110/article/details/80637902)：
 git clone https://github.com/miaomc/homingmissile.git
 git add ReadMe.txt
 git config --global user.email "you@example.com"
@@ -13,6 +13,8 @@ vi .gitignre
 *.pyc
 
 git checkout ReadMe.txt
+
+pyinstaller -F main.py --noconsole
 
 一.有效文件: 
 ------版本V1.00------

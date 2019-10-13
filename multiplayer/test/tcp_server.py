@@ -18,7 +18,7 @@ def serverFunc():
     sock.bind(address)
 
     # 3、监听接入的访问socket
-    sock.listen()
+    sock.listen(1)
 
     while True:
         # 4、接收访问的socket

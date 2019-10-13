@@ -7,7 +7,7 @@ def tcp_clt():
 
     sock.connect(address)
 
-    msg = "djksajdaskd你撒的d"
+    msg = "djksajdaskdd"
 
     sock.send(msg.encode())
 

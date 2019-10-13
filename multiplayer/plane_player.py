@@ -11,25 +11,32 @@ import logging
 from information import Information
 
 """
-血条同步问题会导致有些玩家死了，但是另外一边还活着
-进入游戏不关闭防火墙都看不到主机
-需要使用管理员模式进入，否则无法加入主机？
-建立主机时，有时候扫描会消失
-进入主机之后，开始，有时候会一边卡死，无法进入（管理员？）
+设置弹药剩余数量
+飞机血量显示
+在边缘很难旋转转向出来
+ok关闭防火墙之后，还是会概率性进不去，程序bug
+进入游戏不关闭防火墙都看不到主机; 
+ok需要使用管理员模式进入?，否则无法加入主机; 快速加入，客户端会黑屏， 反向加入，进不去，关闭防火墙就可以进去，程序bug
+ok进入主机之后，开始，有时候会一边卡死，无法进入（管理员？）程序bug
+ok加入主机，要等其他玩家反馈进入主机信息, 主机建快了就进入的话，客机进去之后收不到列表消息，程序bug
+ok血条同步问题会导致有些玩家死了，但是另外一边还活着
+ok建立主机时，有时候扫描会消失
+
 需要把颜色设置，不同的飞机
-ok随机弹药包, 补血包,还需要同步才行，要不然每个玩家得到的Box不一样
 飞机受伤烟雾，随机产生在飞机身上
-ok开始菜单、游戏操作说明、restart game
 13.209.137.170
 被导弹跟踪了之后的滴滴滴声音
 子弹和导弹的爆炸效果
+ok删除restart
+ok开始菜单、游戏操作说明、restart game
+ok随机弹药包, 补血包,还需要同步才行，要不然每个玩家得到的Box不一样
 ok转弯+加速不能同时使用
 ok飞机爆炸之后要可以继续游戏，显示win lose ， press esc to exit
 ok空格键回到飞机位置
 ok爆炸效果（目前只制作了F35和J20飞机的效果）
 """
 SINGLE_TEST = True
-MAP_RATIO = 4
+MAP_RATIO = 5
 RESTART_MODE = False
 LOCALIP = '192.168.0.106'
 HOSTIP = '192.168.0.103'
@@ -560,7 +567,7 @@ class Player(object):
         self.plane = None
         self.weapon_group = weapon_group
         self.fire_status = {1: 0, 2: 0, 3: 0}
-        self.win = True
+        self.alive = True
 
     def add_plane(self, plane):
         self.plane = plane
@@ -832,15 +839,15 @@ class Game(object):
             pygame.time.wait(delay)
             count += 1
             if count > waiting_times:
-                logging.info('[ERROR]Sock Waiting Timeout: %s' % msg)
+                logging.error('Sock Waiting Timeout: %s' % msg)
                 return False
         data, address = self.q.get()
         logging.info('GET:%s' % str(json.loads(data)))
         if address[0] == dest[0]:
-            logging.info('[INFO]Sock Msg Get:%s' % json.loads(data))
+            logging.info('Sock Msg Get:%s' % json.loads(data))
             return json.loads(data)
         else:
-            logging.info('[ERROR]Sock Wrong Msg:%s %s' % (str(address), json.loads(data)))
+            logging.error('Sock Wrong Msg:%s %s' % (str(address), json.loads(data)))
             return False
 
     def add_player(self, player):
@@ -939,7 +946,7 @@ class Game(object):
         在World类里面实现，TCP/IP的事件信息交互，Player类只做事件的update()
         发送本地玩家的操作
         """
-        if not self.local_player.win:
+        if not self.local_player.alive:
             return
         # str_key_list = json.dumps((self.syn_frame, key_list))  # # 如果没操作队列: event_list = key_list = []
         for player in self.player_list:  # 发送给每一个网卡，包括自己
@@ -980,7 +987,7 @@ class Game(object):
         if self.syn_frame % (2 * FPS) == 0:  # 每2秒同步一次自己状态给对方
             # print self.player_list, self.local_ip, self.other_ip
             for player in self.player_list:
-                if player.ip == self.local_ip and player.win:
+                if player.ip == self.local_ip and player.alive:
                     status_msg = ('syn_player_status', {'location': (player.plane.location.x, player.plane.location.y),
                                                         'velocity': (player.plane.velocity.x, player.plane.velocity.y),
                                                         'health': player.plane.health})
@@ -1077,6 +1084,11 @@ class Game(object):
             for player in self.player_list:
                 self.sock_send(status_msg, (player.ip, self.port))
 
+    def plane_lost_msg_send(self, player_ip):
+        status_msg = ('plane_lost', {'ip':player_ip})
+        for player in self.player_list:
+            self.sock_send(status_msg, (player.ip, self.port))
+
     # def syn_lock_frame(self):
     #     lock_frame = 0
     #     while not self.done:
@@ -1134,12 +1146,13 @@ class Game(object):
 
         # 判断游戏是否结束
         for player in self.player_list:
-            if player.win:
-                if player.update():  # 更新玩家状态,player.update()-->plane.update()-->plane.delete(),delete没了的的飞机
+            if player.alive:
+                # 更新玩家状态,player.update()-->plane.update()-->plane.delete(),delete没了的的飞机
+                if player.update():  # player.update==True就是玩家飞机lost了
+                    self.plane_lost_msg_send(player.ip)  # 发送玩家lost的消息
                     player.plane = None  # player.update()为True说明飞机已经delete了
-                    player.win = False  # End Game
+                    player.alive = False  # End Game
                     self.num_player -= 1
-                    logging.info("Player lost: %s" % player.ip)
                     logging.info("Player lost: %s" % player.ip)
                     # return True
 
@@ -1155,7 +1168,7 @@ class Game(object):
             # self.info.add(u'Groups:%s' % str(self.plane_group))
 
         # 屏幕显示
-        if not self.local_player.win:  # 本地玩家
+        if not self.local_player.alive:  # 本地玩家
             self.result = True
             self.info.add_middle('YOU LOST.')
             self.info.add_middle_below('press "ESC" to exit the game.')
@@ -1164,7 +1177,7 @@ class Game(object):
             self.result = True
             self.info.add_middle('YOU WIN!')
             self.info.add_middle_below('press "ESC" to exit the game.')
-            self.info.add_middle_below('press "r" to restart.')
+            # self.info.add_middle_below('press "r" to restart.')
 
         # 收到消息进行操作（最后处理动作，留给消息接收）
         # self.get_deal_msg()
@@ -1201,7 +1214,7 @@ class Game(object):
             # Msg Type1:操作类型的消息
             if isinstance(data_tmp[0], int):
                 for player in self.player_list:  # 遍历玩家，看这个收到的数据是谁的
-                    if player.ip == address[0] and player.win:
+                    if player.ip == address[0] and player.alive:
                         # # 接收到大于当前帧的消息就等待, 比如：我自己才发送到第15帧，别人发到15,16,17帧来了我要等待
                         # while data_tmp[0] > self.syn_frame:
                         #     pygame.time.wait(1)
@@ -1215,7 +1228,7 @@ class Game(object):
             elif data_tmp[0] == 'syn_player_status':
                 # print 'in status.....', address
                 for player in self.player_list:  # 因为没用{IP:玩家}，所以遍历玩家，看这个收到的数据是谁的
-                    if player.ip == address[0] and player.win:
+                    if player.ip == address[0] and player.alive:
                         player.plane.location = Vector(data_tmp[1]['location'])
                         player.plane.velocity = Vector(data_tmp[1]['velocity'])
                         player.plane.health = data_tmp[1]['health']  # !!!!!!!!会出现掉血了，然后回退回去的情况
@@ -1227,7 +1240,14 @@ class Game(object):
             elif data_tmp[0] == 'box_status':
                 self.box_group.add(Box(location=data_tmp[1]['location'], catalog=data_tmp[1]['catalog']))
 
-            ## Msg Type4:接受并处理LockFrame
+            # Msg Type4:接受并处理玩家飞机lost类型消息
+            elif data_tmp[0] == 'plane_lost':  # status_msg = ('plane_lost', {'ip':player_ip})
+                for player in self.player_list:
+                    if player.alive and player.ip == data_tmp[1]['ip']:
+                        player.plane.health = 0
+                        break
+
+            ## Msg Type:接受并处理LockFrame
             # elif data_tmp[0] == 'syn_lock_frame':
             #     # if self.syn_frame>data_tmp[1] and address[0] != self.local_ip:  # 如果LockFrame小于本系统的同步帧
             #     if self.syn_frame > data_tmp[1]:
@@ -1261,7 +1281,7 @@ class Game(object):
             #     print type(data_tmp), '===', data_tmp, '---', data_tmp[0]
             if isinstance(data_tmp[0], int):
                 for player in self.player_list:  # 遍历玩家，看这个收到的数据是谁的
-                    if player.ip == address[0] and player.win:
+                    if player.ip == address[0] and player.alive:
                         # get_msg_dir[player.ip] = Ture
                         if data_tmp[0] >= self.syn_frame:
                             msg_num += 1  # 获取到有效消息++++++++++1
@@ -1273,7 +1293,7 @@ class Game(object):
             elif data_tmp[0] == 'syn_player_status':  # 状态同步-->对象
                 # print 'in status.....', address
                 for player in self.player_list:  # 因为没用{IP:玩家}，所以遍历玩家，看这个收到的数据是谁的
-                    if player.ip == address[0] and player.win:
+                    if player.ip == address[0] and player.alive:
                         player.plane.location = Vector(data_tmp[1]['location'])
                         player.plane.velocity = Vector(data_tmp[1]['velocity'])
                         player.plane.health = data_tmp[1]['health']  # !!!!!!!!会出现掉血了，然后回退回去的情况
@@ -1302,7 +1322,6 @@ class Game(object):
         return d
 
     def main(self):
-
         self.local_ip = localip = self.get_local_ip()
         if SINGLE_TEST:
             plane_type = PLANE_TYPE
@@ -1344,7 +1363,7 @@ class Game(object):
         self.main_loop()
 
     def main_loop(self):
-        # MSG deal
+        # GET MSG DEAL INIT
         self.thread_msg = threading.Thread(target=self.get_deal_msg)
         self.thread_msg.setDaemon(True)  # True:不关注这个子线程，主线程跑完就结束整个python process
 
@@ -1357,28 +1376,35 @@ class Game(object):
         for ip in self.d.keys():
             self.sock_send('200 OK', (ip, self.port))
 
-        start_count = pygame.time.get_ticks()
+        now_count = start_count = pygame.time.get_ticks()
         waiting_times = 10000  # 这里其实需要改写为TCP确认， 等待对方收到消息 to be continue...
-        msg_get_num = 0
+        msg_get_ip_list = {}
         while True:  # 等收到所有玩家的'200 ok'
             while not self.q.empty():
                 data, address = self.q.get()
                 if json.loads(data)=='200 OK':
-                    logging.info('[INFO]Sock Msg Get:%s:%s' % (address,data))
-                    msg_get_num += 1
-                    if msg_get_num >= len(self.player_list):
+                    logging.info('Start Msg Get:%s:%s' % (address,data))
+                    msg_get_ip_list[address[0]] = True
+                    if len(msg_get_ip_list.keys()) >= len(self.player_list):
                         break
 
-            if msg_get_num>=len(self.player_list):
-                break
+            if len(msg_get_ip_list.keys())>=len(self.player_list):
                 logging.info('game:begin')
+                break
+
+            if pygame.time.get_ticks() - now_count > 1000: # 每一秒朝没有收到消息的主机发送一个200 OK
+                now_count = pygame.time.get_ticks()
+                for ip in self.d.keys():
+                    if ip not in msg_get_ip_list.keys():
+                        self.sock_send('200 OK', (ip, self.port))
 
             if pygame.time.get_ticks()-start_count > waiting_times:
-                logging.info('[ERROR]Sock Waiting Timeout: %s' % '"200 OK"')
+                logging.error('Sock Waiting Timeout: %s' % '"200 OK"')
                 self.done = True  # 通过self.done关闭线程，防止Errno 9：bad file descriptor(错误的文件名描述符)
                 return False
-        logging.info('got:players data')
 
+        # MSG deal
+        logging.info('deal_msg:begin')
         self.thread_msg.start()  # 开启玩家处理接受消息的线程
         # if self.host_ip == self.local_ip:  # 主机才发送同步LockFrame
         #     self.thread_lock.start()  # 开启玩家处理接受消息的线程
@@ -1391,7 +1417,7 @@ class Game(object):
                 self.done = True
                 # for player in self.player_list:
                 #     if player.ip == self.local_ip:
-                # if self.local_player.win:
+                # if self.local_player.alive:
                 #     print '[%s]YOU WIN.' % self.local_ip
                 # else:
                 #     print '[%s]GAME OVER' % self.local_ip

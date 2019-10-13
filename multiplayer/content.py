@@ -1,4 +1,8 @@
   # -*- coding: cp936 -*-
+"""
+当前主机探测直接采用udp群发消息，没有采用多线程tcp探测主机端口和arp缩小主机范围
+目前已经打开 8987 TCP 主机探测端口； 8988 UDP 游戏初始化端口
+"""
 import os
 import sys
 import time
@@ -13,7 +17,7 @@ import information
 import plane_player
 
 PORT = 8988
-
+TCP_PORT = 8987
 
 class Node():
     def __init__(self, label):
@@ -67,6 +71,7 @@ class Node():
 class Sock():
     def __init__(self):
         self.port = PORT
+        self.port_tcp = TCP_PORT
 
         # UDP connect
         address = (self.localip(), self.port)
@@ -89,8 +94,24 @@ class Sock():
         thread1.setDaemon(True)  # True:不关注这个子线程，主线程跑完就结束整个python process
         thread1.start()
 
+        # TCP listening
+        thread_tcp = threading.Thread(target=self.tcp_server)
+        thread_tcp.setDaemon(True)  # True:不关注这个子线程，主线程跑完就结束整个python process
+        thread_tcp.start()
+
+
     def close(self):
         self.sock.close()
+
+    def tcp_server(self):
+        """任何程序都开启这个TCP监听"""
+        sock_tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock_tcp.bind((self.localip(), self.port_tcp))
+        sock_tcp.listen(20)
+        while not self.done:
+            client_onnect, client_address = sock_tcp.accept()
+            # data, address = sock_tcp.recv(1024)
+            client_onnect.close()
 
     def msg_send(self):
         """
@@ -115,29 +136,36 @@ class Sock():
         while not self.done:
             try:
                 data, address = self.sock.recvfrom(1024)  # data=JSON, address=(ip, port)
+                logging.info('RECV [%s]:%s' % (address[0] + ':' + str(self.port), data))
+                self.q.put((json.loads(data), address[0]))
             except Exception,msg:
-                logging.error('SOCK RECV ERROR-->%s'%msg)
-            logging.info('RECV [%s]:%s' % (address[0] + ':' + str(self.port), data))
-            self.q.put((json.loads(data), address[0]))  # 获取数据，将数据转换为正常数据，并且只提取ip，不提取port
+                logging.warning('SOCK RECV ERROR-->%s'%msg)
+                logging.info('RECV [%s]:%s' % (address[0] + ':' + str(self.port), data))
+                self.q.put((json.loads(data), address[0]))  # 获取数据，将数据转换为正常数据，并且只提取ip，不提取port
+            # data, address = self.sock.recvfrom(1024)  # data=JSON, address=(ip, port)
+            # logging.info('RECV [%s]:%s' % (address[0] + ':' + str(self.port), data))
+            # self.q.put((json.loads(data) , address[0]))
 
     def localip(self):
         return socket.gethostbyname(socket.gethostname())
 
-    def scan_hostip_tcp(self):
-        delay = 0.001
+    def scan_ip_tcp(self):
         time_start = time.time()
         ip_up = []
         ip_head = '.'.join(self.localip().split('.')[0:3])
         ip_list = [ip_head + '.' + str(i) for i in range(256)]
-        port_list = [self.port]
+        port_list = [self.port_tcp]
         for ip in ip_list:
             # logging.info('Scan %s' % ip)
             up = False
             for port in port_list:
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                s.settimeout(delay)
+                s.settimeout(0.1)  # 100ms,需要采用多线程来编写，要不然主机探测时间将达到接近25s， to be coninue..
+                # print 'scan..'
                 result = s.connect_ex((ip, port))
+                # print (ip,port),
                 if result == 0:
+                    print ip
                     logging.info('Port %d: open' % (port))
                     up = True
                 s.close()
@@ -153,6 +181,9 @@ class Sock():
             logging.info(i)
         # return [self.localip()]
         return ip_up
+
+    def scan_ip_arp(self):
+        pass
 
     def scan_hostip(self):
         hostip_list = []
@@ -176,6 +207,8 @@ class Sock():
         ip_head = '.'.join(self.localip().split('.')[0:3])
         # ip_list = [ip_head + '.' + str(i) for i in range(100, 111, 1)]  # test, to be con...
         ip_list = [ip_head + '.' + str(i) for i in range(256)]
+        # ip_list = self.scan_ip_tcp()
+        logging.info('broadcast host ip list:%s' % str(ip_list))
         self.broadcast(messages=('host created', ''), ip_list=ip_list)
 
 
@@ -184,7 +217,7 @@ class Widget():
         logging.basicConfig(level=logging.DEBUG,  # CRITICAL > ERROR > WARNING > INFO > DEBUG > NOTSET
                             format='%(asctime)s [line:%(lineno)d] [%(levelname)s] %(message)s',
                             filename='logger.log',
-                            filemode='w')
+                            filemode='w')  # 每次真正import logging之后，filemode为w就会清空内容
 
         SCREEN_SIZE = (800, 600)
         os.environ['SDL_VIDEO_CENTERED'] = '1'
@@ -312,10 +345,8 @@ class Widget():
             elif info == 'host exit':
                 self.has_backspace = True  # 自动回退
                 self.has_selected = True
-            # to be con...
             elif info == 'start game':
                 self.start_game()
-                pass
         # 清空&刷新
         for i in node.children:
             del (i)
@@ -490,4 +521,5 @@ class Widget():
 if __name__ == "__main__":
     widget = Widget()
     if widget.main_loop():
+        logging.info('-------------------plane_player.main() start-------------------')
         plane_player.main()
