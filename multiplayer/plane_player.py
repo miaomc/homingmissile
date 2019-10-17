@@ -317,12 +317,15 @@ class Base(pygame.sprite.Sprite):
                 self.sound_kill.play()
 
         # 启动自爆动画
-        self.self_destruction += 0.2
+        self.self_destruction += 0.25
         # print self.self_destruction
+        # print hit,self.self_destruction,self.self_destruction // 1, self.destruct_image_index
         if hit and self.self_destruction < self.destruct_image_index:
             # print [self.self_destruction//2*40, 0, 39, 39],self.self_destruction,self.image.get_rect()
             self.origin_image = self.image = self.image_original.subsurface(
-                [self.self_destruction // 2 * self.image_original.get_height(), 0, self.image_original.get_height()-1, self.image_original.get_height()-1])
+                [self.self_destruction //
+                 1 * self.image_original.get_height(), 0, self.image_original.get_height()-1, self.image_original.get_height()-1])
+
             self.image.set_colorkey(WHITE)
             self.rotate()
             return False
@@ -1172,7 +1175,7 @@ class Game(object):
             self.result = True
             self.info.add_middle('YOU LOST.')
             self.info.add_middle_below('press "ESC" to exit the game.')
-            self.info.add_middle_below('press "r" to restart.')
+            # self.info.add_middle_below('press "r" to restart.')
         elif self.num_player == 1:  # 只剩你一个人了
             self.result = True
             self.info.add_middle('YOU WIN!')
