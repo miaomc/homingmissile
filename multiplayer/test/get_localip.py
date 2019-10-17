@@ -12,6 +12,7 @@ print ip
 
 # All IPs
 print socket.gethostbyname_ex(socket.gethostname())[-1]
+print socket.gethostbyname(socket.gethostname())
 
 import os
 # Windows
