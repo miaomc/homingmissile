@@ -142,6 +142,7 @@ WEAPON_CATALOG = {
         'damage': 2,
         'image': ['./image/gunfire1.png', './image/gunfire2.png', './image/gunfire3.png',
                    './image/gunfire4.png', './image/gunfire5.png', './image/gunfire6.png'],
+        'image_slot': './image/gunfire.png',
         'fuel': 8,
         'sound_collide_plane': ['./sound/bulletLtoR08.wav', './sound/bulletLtoR09.wav', './sound/bulletLtoR10.wav',
                                 './sound/bulletLtoR11.wav', './sound/bulletLtoR13.wav', './sound/bulletLtoR14.wav']
@@ -154,6 +155,7 @@ WEAPON_CATALOG = {
         'damage': 35,
         'turn_acc': 0,
         'image': './image/homingmissile.png',
+        'image_slot': './image/homingmissile.png',
         'fuel': 20,
     },
     'Cobra': {
@@ -164,6 +166,7 @@ WEAPON_CATALOG = {
         'turn_acc': 35,
         'damage': 25,
         'image': './image/homingmissile2.png',
+        'image_slot': './image/homingmissile2.png',
         'fuel': 16,
         'dectect_range': 10000 * 30
     },
@@ -708,6 +711,86 @@ class MiniMap(object):
             pygame.draw.rect(self.screen, (255, 0, 255), pygame.Rect(left, top, 2, 2), 4)
 
 
+class SlotWidget():
+    """show local plane weapon slots' number"""
+    def __init__(self, screen):
+        """
+        self.line_list = [{'key_obj':key_obj, 'value_obj':value_obj, 'num':num, 'sprite_group':sprite_group}, {},..]
+        self.slot_group = <slot1_obj, slot2_obj,.. .instance at pygame.sprite.Group>
+        """
+        self.screen_surface = screen
+        self.weapon_name_list = ['Gun', 'Rocket', 'Cobra']
+        self.slot_name_list = ['Gunfire_num', 'Rocket_num', 'Cobra_num']
+        self.line_index = {k:v for v,k in enumerate(self.weapon_name_list)}  # {'Gun':1, ..}
+        self.line_list = []
+        self.slot_group = pygame.sprite.Group()
+        self.make_body()
+
+    def make_body(self):
+        # zip 等价于 [('Gunfire_num', 'Gun'), ('Rocket_num', 'Rocket'), ('Cobra_num', 'Cobra')]
+        slot_dict = {k:v for k,v in zip(self.slot_name_list, self.weapon_name_list)}
+
+        for catalog in self.slot_name_list:
+            image_path = BOX_CATALOG[catalog]['image']
+            image = pygame.image.load(image_path).convert()
+            image.set_colorkey(WHITE)
+            # image = pygame.image.load(image_path).convert_alpha()
+            slot_obj = Base(location=(5,5), image=image)
+
+            image_path = WEAPON_CATALOG[slot_dict[catalog]]['image_slot']
+            # print WEAPON_CATALOG[slot_dict[catalog]]['image'], image_path, slot_dict[catalog]
+            image = pygame.image.load(image_path).convert()
+            image.set_colorkey(WHITE)
+            weapon_obj = Base(location=(5,15), image=image)
+
+            self.add_line(weapon_name=slot_dict[catalog], key_obj=slot_obj, value_obj=weapon_obj, num=0)
+
+    def add_line(self, weapon_name, key_obj, value_obj, num):
+        # deal key_obj: add into self.slot_group
+        key_obj.rect.topleft = (7, 7+20*len(self.slot_group.sprites()))
+        self.slot_group.add(key_obj)
+
+        # deal value_obj
+        sprite_group = pygame.sprite.Group()
+        line_dict = {'key_obj':key_obj, 'value_obj':value_obj, 'num':0, 'sprite_group':sprite_group}
+        self.line_list.append(line_dict)
+
+        self.update_line(weapon_name=weapon_name, weapon_num=num)
+
+    def update_line(self, weapon_name, weapon_num, gap=1):
+        """line_dict = {'key_obj':key_obj, 'value_obj':value_obj, 'num':0, 'sprite_group':sprite_group}"""
+        index = self.line_index[weapon_name]
+        line_dict = self.line_list[index]
+        if weapon_num > line_dict['num']:
+            slot_obj = line_dict['key_obj']  # 指定slot_obj
+
+            image_path = WEAPON_CATALOG[weapon_name]['image_slot']  # 创建weapon_obj
+            image = pygame.image.load(image_path).convert()
+            image.set_colorkey(WHITE)
+            weapon_obj = Base(location=(5, 5), image=image)
+            # weapon_obj = copy.copy(line_dict['value_obj'])  # 采用copy.copy, 不知道会不会有其他风险, 果然有问题，删除
+            weapon_obj.rect.center = slot_obj.rect.center
+            weapon_obj.rect.left = slot_obj.rect.left + slot_obj.rect.width + gap + line_dict['num']*weapon_obj.rect.width
+            line_dict['num'] += 1
+            line_dict['sprite_group'].add(weapon_obj)
+        elif weapon_num < line_dict['num']:
+            weapon_obj_list = line_dict['sprite_group'].sprites()
+            if len(weapon_obj_list) > 0:
+                line_dict['sprite_group'].remove(weapon_obj_list[-1])
+                line_dict['num'] -= 1
+
+    def draw(self):
+        """draw slot and draw weapon"""
+        self.slot_group.draw(self.screen_surface)
+        for line in self.line_list:
+            line['sprite_group'].draw(self.screen_surface)
+
+    def clear(self, callback):
+        self.slot_group.clear(self.screen_surface, callback)
+        for line in self.line_list:
+            line['sprite_group'].clear(self.screen_surface, callback)
+
+
 class Game(object):
 
     def __init__(self):
@@ -937,6 +1020,7 @@ class Game(object):
         self.screen.blit(source=self.map.surface, dest=(0, 0), area=self.current_rect)
         # logging.info('T3.1:%d' % pygame.time.get_ticks())
         self.minimap.draw()
+        self.slot.draw()  # draw SlotWidget
         # logging.info('T3.2:%d' % pygame.time.get_ticks())
         # self.info.show(self.screen)  # 吃性能所在之处！！！！！！！！！！！！！！！
         # logging.info('T3.3:%d' % pygame.time.get_ticks())
@@ -1013,6 +1097,7 @@ class Game(object):
         self.plane_group.clear(self.map.surface, self.clear_callback)
         self.tail_group.clear(self.map.surface, self.clear_callback)
         self.box_group.clear(self.map.surface, self.clear_callback)
+        self.slot.clear(self.clear_callback)
 
     def clear_callback(self, surf, rect):
         # surf.blit(source=self.map.surface, dest=(0, 0), area=self.current_rect)
@@ -1125,6 +1210,14 @@ class Game(object):
         self.minimap.update()
         self.weapon_group.update(self.plane_group)
         self.tail_group.update()  # update尾焰
+        for weapon in ['Gun', 'Rocket', 'Cobra']:  # update SlotWidget
+            if weapon == 'Gun':
+                index_ = 1
+            elif weapon == 'Rocket':
+                index_ = 2
+            else:  # weapon == 'Cobra':
+                index_ = 3
+            self.slot.update_line(weapon_name=weapon, weapon_num=self.local_player.plane.weapon[index_]['number'])
         # self.map.surface = self.origin_map_surface.copy()  # [WARNING]很吃性能！！！！！极有可能pygame.display()渲染不吃时间，这个copy（）很吃时间
 
         # 添加尾焰轨迹
@@ -1138,10 +1231,12 @@ class Game(object):
         self.tail_group.draw(self.map.surface)  # draw尾焰
         self.plane_group.draw(self.map.surface)  # draw飞机
         self.weapon_group.draw(self.map.surface)  # draw武器
-        for i in self.weapon_group:
+        for i in self.weapon_group:  # 画被跟踪框框
             if i.target:
                 # print i.target
                 pygame.draw.rect(self.map.surface, (255, 0, 0), i.target.rect, 1)
+        # print self.slot.slot_group.sprites()[0].rect
+        # print self.slot.line_list[1]['sprite_group'].sprites()[0].rect
 
         # 碰撞处理
         self.deal_collide()
@@ -1349,6 +1444,9 @@ class Game(object):
         self.map.add_cloud()
         self.minimap = MiniMap(self.screen, self.map.surface.get_rect(), self.screen_rect, self.plane_group)
         self.origin_map_surface = self.map.surface.copy()
+
+        # Weapon SlotWidget
+        self.slot = SlotWidget(screen=self.screen)
 
         # 获取本地玩家对象
         for player in self.player_list:
