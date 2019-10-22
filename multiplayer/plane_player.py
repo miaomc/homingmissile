@@ -11,8 +11,12 @@ import logging
 from information import Information
 
 """
-设置弹药剩余数量
-飞机血量显示
+列表无映射，字典有映射，key无排序，可以新建结构处理
+pok设置弹药剩余数量,因为sprite.Group.sprites列表不是按顺序来的，所以消耗弹药的时候不是连续的，新增的弹药的位置会与原有残余弹药位置重叠，但是数量不会错
+可以单独绘制image_slot
+SlotWidget反正是一个一个对象创建，可以自己建立列表结合sprite.Group()来管理对象
+content.py start游戏会概率报Errno 9
+飞机血量显示，计划采用手画矩阵涂色填充，位置跟随飞机rect底部，自带draw忘记是否会自动消除了
 在边缘很难旋转转向出来
 ok关闭防火墙之后，还是会概率性进不去，程序bug
 进入游戏不关闭防火墙都看不到主机; 
@@ -811,7 +815,11 @@ class Game(object):
         self.delay_frame = 0
         self.start_time = 0
 
-        self.result = False  # 用来显示Win or Lose
+        self.show_result = False  # 用来显示Win or Lose
+        self.hide_result = False
+        self.last_tab_frame = 0
+
+        self.screen_focus_obj = None
 
     def game_init(self, localip):
         logging.basicConfig(level=logging.DEBUG,  # CRITICAL > ERROR > WARNING > INFO > DEBUG > NOTSET
@@ -1024,7 +1032,7 @@ class Game(object):
         # logging.info('T3.2:%d' % pygame.time.get_ticks())
         # self.info.show(self.screen)  # 吃性能所在之处！！！！！！！！！！！！！！！
         # logging.info('T3.3:%d' % pygame.time.get_ticks())
-        if self.result:
+        if self.show_result and not self.hide_result:
             self.info.show_end(self.screen)  # 吃性能所在之处！！！！！！！！！！！！！！！
         # logging.info('T3.4:%d' % pygame.time.get_ticks())
 
@@ -1108,12 +1116,13 @@ class Game(object):
     def event_control(self):
         """
         :return: 返回空列表，或者一个元素为keys的列表
+        看这个样子，应该是每一self.syn_frame就读取一次键盘操作bool值列表
         """
         pygame.event.get()  # 一定要把操作get()出来
         key_list = ''
         # n_break = 0
         if pygame.key.get_focused():
-            keys = pygame.key.get_pressed()  # key is queue too
+            keys = pygame.key.get_pressed()  # key is queue too， 一个列表，所有按键bool值列表
             # print '    KEY:', keys
             if keys[pygame.K_ESCAPE]:
                 self.done = True
@@ -1128,7 +1137,13 @@ class Game(object):
                 self.screen_rect.y += self.move_pixels
             if keys[pygame.K_SPACE]:
                 if self.local_player.plane:
-                    self.screen_rect.center = Map.mars_translate(self.local_player.plane.location)
+                    self.screen_focus_obj = self.local_player.plane
+                    # self.screen_focus = Map.mars_translate(self.d[self.local_ip]['location'])
+                    # self.screen_rect.center = Map.mars_translate(self.local_player.plane.location)
+            if keys[pygame.K_TAB] :
+                if self.syn_frame - self.last_tab_frame > self.fps/4:
+                    self.last_tab_frame = self.syn_frame
+                    self.hide_result = not self.hide_result  # 需要设置KEYUP和KEYDONW，to be continue...!!!!
 
             for keyascii in [pygame.K_a, pygame.K_d, pygame.K_w, pygame.K_s, pygame.K_1, pygame.K_2, pygame.K_3]:
                 if keys[keyascii]:
@@ -1210,14 +1225,15 @@ class Game(object):
         self.minimap.update()
         self.weapon_group.update(self.plane_group)
         self.tail_group.update()  # update尾焰
-        for weapon in ['Gun', 'Rocket', 'Cobra']:  # update SlotWidget
-            if weapon == 'Gun':
-                index_ = 1
-            elif weapon == 'Rocket':
-                index_ = 2
-            else:  # weapon == 'Cobra':
-                index_ = 3
-            self.slot.update_line(weapon_name=weapon, weapon_num=self.local_player.plane.weapon[index_]['number'])
+        if self.local_player.plane:
+            for weapon in ['Gun', 'Rocket', 'Cobra']:  # update SlotWidget
+                if weapon == 'Gun':
+                    index_ = 1
+                elif weapon == 'Rocket':
+                    index_ = 2
+                else:  # weapon == 'Cobra':
+                    index_ = 3
+                self.slot.update_line(weapon_name=weapon, weapon_num=self.local_player.plane.weapon[index_]['number'])
         # self.map.surface = self.origin_map_surface.copy()  # [WARNING]很吃性能！！！！！极有可能pygame.display()渲染不吃时间，这个copy（）很吃时间
 
         # 添加尾焰轨迹
@@ -1267,15 +1283,16 @@ class Game(object):
 
         # 屏幕显示
         if not self.local_player.alive:  # 本地玩家
-            self.result = True
+            self.screen_focus_obj = None  # screen_rect聚焦为空，回复上下左右控制
+            self.show_result = True
             self.info.add_middle('YOU LOST.')
             self.info.add_middle_below('press "ESC" to exit the game.')
-            # self.info.add_middle_below('press "r" to restart.')
+            self.info.add_middle_below('press "Tab" to hide/show this message.')
         elif self.num_player == 1:  # 只剩你一个人了
-            self.result = True
+            self.show_result = True
             self.info.add_middle('YOU WIN!')
             self.info.add_middle_below('press "ESC" to exit the game.')
-            # self.info.add_middle_below('press "r" to restart.')
+            self.info.add_middle_below('press "Tab" to hide/show this message.')
 
         # 收到消息进行操作（最后处理动作，留给消息接收）
         # self.get_deal_msg()
@@ -1295,11 +1312,7 @@ class Game(object):
         self.syn_frame += 1  # 发送同步帧(上来就发送)
 
     def get_deal_msg(self):
-        while True:
-            # 游戏结束判定
-            if self.done:
-                break
-
+        while not self.done:  # 游戏结束判定
             # 空就不进行读取处理
             if self.q.empty():
                 continue
@@ -1419,6 +1432,11 @@ class Game(object):
             d[ip]['location'] = [MARS_MAP_SIZE[n]*i for n,i in enumerate(player_dict[ip]['location'])]
         return d
 
+    def deal_screen_focus(self, screen_rect):
+        if self.screen_focus_obj:
+            screen_rect.center = self.screen_focus_obj.rect.center
+            # screen_rect.center = Map.mars_translate(self.screen_focus_obj.location)
+
     def main(self):
         self.local_ip = localip = self.get_local_ip()
         if SINGLE_TEST:
@@ -1454,7 +1472,9 @@ class Game(object):
                 self.local_player = player
 
         # 根据local player位置移动一次self.screen_rect git
-        self.screen_rect.center = Map.mars_translate(self.d[self.local_ip]['location'])
+        # self.screen_rect.center = Map.mars_translate(self.d[self.local_ip]['location'])
+        self.screen_focus_obj = self.local_player.plane
+        self.deal_screen_focus(self.screen_rect)
 
         # PYGAME LOOP
         pygame.key.set_repeat(10)  # control how held keys are repeated
@@ -1514,16 +1534,13 @@ class Game(object):
         while not self.done:
             # logging.info('T1:%d'%pygame.time.get_ticks())
             event_list = self.event_control()
+            self.deal_screen_focus(self.screen_rect)
             if self.process(event_list):
                 self.done = True
-                # for player in self.player_list:
-                #     if player.ip == self.local_ip:
-                # if self.local_player.alive:
-                #     print '[%s]YOU WIN.' % self.local_ip
-                # else:
-                #     print '[%s]GAME OVER' % self.local_ip
                 break
             # logging.info('T2:%d'%pygame.time.get_ticks()) # T1与T2之间平均花费12ms
+
+            # print self.local_player.plane.rect,self.screen_rect
             Map.adjust_rect(self.screen_rect, self.map.surface.get_rect())
             # logging.info('T3:%d'%pygame.time.get_ticks())
             # Map.adjust_rect()

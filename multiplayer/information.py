@@ -24,10 +24,11 @@ class Information(object):
     def show_text(self, screen, pos, text, color=(0, 0, 0), size=16, bold=False):
         """文字处理函数"""
         # 获取系统字体，并设置文字大小 pygame.font.get_fonts()
-        try:
-            cur_font = pygame.font.SysFont(u"microsoftyaheimicrosoftyaheiui", size)
-        except:
-            cur_font = pygame.font.SysFont(pygame.font.get_fonts()[0], size)
+        cur_font = pygame.font.Font(u"msyh.ttc", size)
+        #try:
+        #    cur_font = pygame.font.SysFont(u"microsoftyaheimicrosoftyaheiui", size)
+        #except:
+        #    cur_font = pygame.font.SysFont(pygame.font.get_fonts()[0], size)
         cur_font.set_bold(bold)
         # 设置文字内容
         text_fmt = cur_font.render(text, 1, color)
