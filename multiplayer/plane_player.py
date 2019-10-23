@@ -439,6 +439,13 @@ class Plane(Base):
         self.destruct_image_index = self.image_original.get_width() / self.image_original.get_height()
         # self.catalog = catalog
 
+        self.last_health_rect = None
+        # print self.rect.width
+        self.health_surface = pygame.Surface((self.rect.width, 5))
+        self.health_surface.fill(WHITE)
+        self.health_surface.convert()
+        self.image.set_colorkey(WHITE)
+
     def turn_left(self):
         self.acc += self.velocity.vertical_left() * self.turn_acc
 
@@ -487,7 +494,21 @@ class Plane(Base):
         super(Plane, self).update()
         # self.health -= 50
         if self.health <= 0:
+            # if self.last_health_rect:  # 最后删除血条
+            #     surface.blit(source=self.health_surface, dest=self.last_health_rect)
+            #     self.last_health_rect=pygame.Rect(self.rect.left, self.rect.top+self.rect.height+10, self.rect.width*(self.health*1.0/200), 5)
             return self.delete(hit=True)
+
+    def draw_health(self, surface):
+        """sprite.Group()是单独blit的"""
+        if self.last_health_rect:
+            surface.blit(source=self.health_surface, dest=self.last_health_rect)
+        health_rect = pygame.Rect(self.rect.left, self.rect.top+self.rect.height+10, self.rect.width*(self.health*1.0/200), 5)
+        self.last_health_rect = health_rect
+        self.health_surface.blit(source=surface, dest=(0, 0), area=health_rect)  # 从map_surface获取底图到health_surface
+        # self.screen.blit(source=self.map.surface, dest=(0, 0), area=self.current_rect)
+        if self.health > 0:
+            pygame.draw.rect(surface, (10,255,100), health_rect, 0)
 
 
 class Weapon(Base):
@@ -601,6 +622,7 @@ class Player(object):
                                 location=(location_x, location_y),
                                 velocity=self.plane.velocity)
                 self.weapon_group.add(weapon)
+                return weapon
 
     def operation(self, key_list, syn_frame):
         # print key_list
@@ -618,10 +640,10 @@ class Player(object):
                 self.weapon_fire(1)
             elif key == '2' and syn_frame - self.fire_status[2] > FPS:
                 self.fire_status[2] = syn_frame
-                self.weapon_fire(2)
+                return self.weapon_fire(2)
             elif key == '3' and syn_frame - self.fire_status[3] > FPS:
                 self.fire_status[3] = syn_frame
-                self.weapon_fire(3)
+                return self.weapon_fire(3)
 
 
 class Map(object):
@@ -767,7 +789,6 @@ class SlotWidget():
         line_dict = self.line_list[index]
         if weapon_num > line_dict['num']:
             slot_obj = line_dict['key_obj']  # 指定slot_obj
-
             image_path = WEAPON_CATALOG[weapon_name]['image_slot']  # 创建weapon_obj
             image = pygame.image.load(image_path).convert()
             image.set_colorkey(WHITE)
@@ -819,7 +840,7 @@ class Game(object):
         self.hide_result = False
         self.last_tab_frame = 0
 
-        self.screen_focus_obj = None
+        self.screen_focus_obj = None  # 默认为空，首次指向本地plane, 空格指向本地plane, 为空但是本地plane还存在就指向plane
 
     def game_init(self, localip):
         logging.basicConfig(level=logging.DEBUG,  # CRITICAL > ERROR > WARNING > INFO > DEBUG > NOTSET
@@ -868,6 +889,7 @@ class Game(object):
         self.weapon_group = pygame.sprite.Group()
         self.tail_group = pygame.sprite.Group()
         self.box_group = pygame.sprite.Group()
+        # self.health_group = pygame.sprite.Group()
 
         # backup map
         self.origin_map = None
@@ -1106,6 +1128,7 @@ class Game(object):
         self.tail_group.clear(self.map.surface, self.clear_callback)
         self.box_group.clear(self.map.surface, self.clear_callback)
         self.slot.clear(self.clear_callback)
+        # self.health_group.clear(self.map.surface, self.clear_callback)
 
     def clear_callback(self, surf, rect):
         # surf.blit(source=self.map.surface, dest=(0, 0), area=self.current_rect)
@@ -1261,6 +1284,7 @@ class Game(object):
         # 判断游戏是否结束
         for player in self.player_list:
             if player.alive:
+                player.plane.draw_health(self.map.surface)  # 显示飞机血条
                 # 更新玩家状态,player.update()-->plane.update()-->plane.delete(),delete没了的的飞机
                 if player.update():  # player.update==True就是玩家飞机lost了
                     self.plane_lost_msg_send(player.ip)  # 发送玩家lost的消息
@@ -1281,18 +1305,22 @@ class Game(object):
                 #     str(py.plane.velocity), str(py.plane.location), str(py.plane.rect)))
             # self.info.add(u'Groups:%s' % str(self.plane_group))
 
-        # 屏幕显示
+        # 屏幕显示，本地飞机聚焦处理
         if not self.local_player.alive:  # 本地玩家
             self.screen_focus_obj = None  # screen_rect聚焦为空，回复上下左右控制
             self.show_result = True
             self.info.add_middle('YOU LOST.')
             self.info.add_middle_below('press "ESC" to exit the game.')
             self.info.add_middle_below('press "Tab" to hide/show this message.')
-        elif self.num_player == 1:  # 只剩你一个人了
-            self.show_result = True
-            self.info.add_middle('YOU WIN!')
-            self.info.add_middle_below('press "ESC" to exit the game.')
-            self.info.add_middle_below('press "Tab" to hide/show this message.')
+        else:  # 本地飞机还或者的情况
+            # print self.screen_focus_obj
+            if not self.screen_focus_obj.groups():  # 本地飞机还活着，但是focus_obj不在任何group里面了，就指回本地飞机
+                self.screen_focus_obj = self.local_player.plane
+            if self.num_player == 1:  # 只剩你一个人了
+                self.show_result = True
+                self.info.add_middle('YOU WIN!')
+                self.info.add_middle_below('press "ESC" to exit the game.')
+                self.info.add_middle_below('press "Tab" to hide/show this message.')
 
         # 收到消息进行操作（最后处理动作，留给消息接收）
         # self.get_deal_msg()
@@ -1330,8 +1358,10 @@ class Game(object):
                         # while data_tmp[0] > self.syn_frame:
                         #     pygame.time.wait(1)
                         if data_tmp[1]:  # 消息-->操作
-                            player.operation(data_tmp[1],
+                            weapon_obj = player.operation(data_tmp[1],
                                              self.syn_frame)  # data is list of pygame.key.get_pressed() of json.dumps
+                            if weapon_obj:  # 如果导弹对象不为空，就将屏幕聚焦对象指向它
+                                self.screen_focus_obj = weapon_obj
                         logging.info("Get %d----> %s, %s" % (data_tmp[0], str(address), str(data_tmp)))
                         break  # 一个数据只有可能对应一个玩家的操作，有一个玩家取完消息就可以了
             # Msg Type2:状态同步-->对象，同步类型消息
@@ -1534,7 +1564,7 @@ class Game(object):
         while not self.done:
             # logging.info('T1:%d'%pygame.time.get_ticks())
             event_list = self.event_control()
-            self.deal_screen_focus(self.screen_rect)
+            self.deal_screen_focus(self.screen_rect)  # 在飞机update()之前就不会抖动
             if self.process(event_list):
                 self.done = True
                 break
