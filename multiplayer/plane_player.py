@@ -636,12 +636,12 @@ class Player(object):
             elif key == 's':
                 self.plane.speeddown()
 
-            elif key == '1':
+            elif key == 'i':
                 self.weapon_fire(1)
-            elif key == '2' and syn_frame - self.fire_status[2] > FPS:
+            elif key == 'o' and syn_frame - self.fire_status[2] > FPS:
                 self.fire_status[2] = syn_frame
                 return self.weapon_fire(2)
-            elif key == '3' and syn_frame - self.fire_status[3] > FPS:
+            elif key == 'p' and syn_frame - self.fire_status[3] > FPS:
                 self.fire_status[3] = syn_frame
                 return self.weapon_fire(3)
 
@@ -1168,7 +1168,7 @@ class Game(object):
                     self.last_tab_frame = self.syn_frame
                     self.hide_result = not self.hide_result  # 需要设置KEYUP和KEYDONW，to be continue...!!!!
 
-            for keyascii in [pygame.K_a, pygame.K_d, pygame.K_w, pygame.K_s, pygame.K_1, pygame.K_2, pygame.K_3]:
+            for keyascii in [pygame.K_a, pygame.K_d, pygame.K_w, pygame.K_s, pygame.K_i, pygame.K_o, pygame.K_p]:
                 if keys[keyascii]:
                     key_list += chr(keyascii)
 
@@ -1360,7 +1360,7 @@ class Game(object):
                         if data_tmp[1]:  # 消息-->操作
                             weapon_obj = player.operation(data_tmp[1],
                                              self.syn_frame)  # data is list of pygame.key.get_pressed() of json.dumps
-                            if weapon_obj:  # 如果导弹对象不为空，就将屏幕聚焦对象指向它
+                            if player.ip==self.local_ip and weapon_obj:  # 如果导弹对象不为空，就将屏幕聚焦对象指向它
                                 self.screen_focus_obj = weapon_obj
                         logging.info("Get %d----> %s, %s" % (data_tmp[0], str(address), str(data_tmp)))
                         break  # 一个数据只有可能对应一个玩家的操作，有一个玩家取完消息就可以了
@@ -1528,7 +1528,7 @@ class Game(object):
             self.sock_send('200 OK', (ip, self.port))
 
         now_count = start_count = pygame.time.get_ticks()
-        waiting_times = 10000  # 这里其实需要改写为TCP确认， 等待对方收到消息 to be continue...
+        waiting_times = 20000  # 这里其实需要改写为TCP确认， 等待对方收到消息 to be continue...
         msg_get_ip_list = {}
         while True:  # 等收到所有玩家的'200 ok'
             while not self.q.empty():
