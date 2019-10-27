@@ -40,7 +40,7 @@ ok空格键回到飞机位置
 ok爆炸效果（目前只制作了F35和J20飞机的效果）
 """
 SINGLE_TEST = True
-MAP_RATIO = 5
+MAP_RATIO = 1
 RESTART_MODE = False
 LOCALIP = '192.168.0.106'
 HOSTIP = '192.168.0.103'
@@ -302,14 +302,26 @@ class Base(pygame.sprite.Sprite):
         self.velocity += self.acc
         self.location.x += self.velocity.x * SPEED_RATIO / FPS
         self.location.y += self.velocity.y * SPEED_RATIO / FPS
-        if self.location.x < 0:
-            self.location.x = 0
-        elif self.location.x > MARS_MAP_SIZE[0]:
-            self.location.x = MARS_MAP_SIZE[0]
-        if self.location.y < 0:
-            self.location.y = 0
-        elif self.location.y > MARS_MAP_SIZE[1]:
-            self.location.y = MARS_MAP_SIZE[1]
+        # if self.location.x < 0:
+        #     self.location.x = 0
+        # elif self.location.x > MARS_MAP_SIZE[0]:
+        #     self.location.x = MARS_MAP_SIZE[0]
+        # if self.location.y < 0:
+        #     self.location.y = 0
+        # elif self.location.y > MARS_MAP_SIZE[1]:
+        #     self.location.y = MARS_MAP_SIZE[1]
+        if self.location.x < 10*MAP_RATIO:
+            self.velocity.x = - self.velocity.x
+            self.location.x = 10*MAP_RATIO
+        elif self.location.x > MARS_MAP_SIZE[0]-10*MAP_RATIO:
+            self.velocity.x = - self.velocity.x
+            self.location.x = MARS_MAP_SIZE[0]-10*MAP_RATIO
+        if self.location.y < 10*MAP_RATIO:
+            self.velocity.y = - self.velocity.y
+            self.location.y = 10 * MAP_RATIO
+        elif self.location.y > MARS_MAP_SIZE[1]-10*MAP_RATIO:
+            self.velocity.y = - self.velocity.y
+            self.location.y = MARS_MAP_SIZE[1]-10*MAP_RATIO
         self.rect.center = Map.mars_translate((self.location.x, self.location.y))
         # logging.info('acc: %s' % str(self.acc))
         self.acc = Vector(0, 0)
@@ -741,7 +753,7 @@ class SlotWidget():
     """show local plane weapon slots' number"""
     def __init__(self, screen):
         """
-        self.line_list = [{'key_obj':key_obj, 'value_obj':value_obj, 'num':num, 'sprite_group':sprite_group}, {},..]
+        self.line_list = [{'key_obj':key_obj, 'value_obj':value_obj, 'num':num, 'sprite_group':sprite_group, 'sprite_list':[]}, {},..]
         self.slot_group = <slot1_obj, slot2_obj,.. .instance at pygame.sprite.Group>
         """
         self.screen_surface = screen
@@ -778,13 +790,13 @@ class SlotWidget():
 
         # deal value_obj
         sprite_group = pygame.sprite.Group()
-        line_dict = {'key_obj':key_obj, 'value_obj':value_obj, 'num':0, 'sprite_group':sprite_group}
+        line_dict = {'key_obj':key_obj, 'value_obj':value_obj, 'num':0, 'sprite_group':sprite_group, 'sprite_list':[]}
         self.line_list.append(line_dict)
 
         self.update_line(weapon_name=weapon_name, weapon_num=num)
 
     def update_line(self, weapon_name, weapon_num, gap=1):
-        """line_dict = {'key_obj':key_obj, 'value_obj':value_obj, 'num':0, 'sprite_group':sprite_group}"""
+        """line_dict = {'key_obj':key_obj, 'value_obj':value_obj, 'num':0, 'sprite_group':sprite_group, 'sprite_list':[]}"""
         index = self.line_index[weapon_name]
         line_dict = self.line_list[index]
         if weapon_num > line_dict['num']:
@@ -798,10 +810,11 @@ class SlotWidget():
             weapon_obj.rect.left = slot_obj.rect.left + slot_obj.rect.width + gap + line_dict['num']*weapon_obj.rect.width
             line_dict['num'] += 1
             line_dict['sprite_group'].add(weapon_obj)
+            line_dict['sprite_list'].append(weapon_obj)
         elif weapon_num < line_dict['num']:
             weapon_obj_list = line_dict['sprite_group'].sprites()
             if len(weapon_obj_list) > 0:
-                line_dict['sprite_group'].remove(weapon_obj_list[-1])
+                line_dict['sprite_group'].remove(line_dict['sprite_list'].pop())
                 line_dict['num'] -= 1
 
     def draw(self):
@@ -1047,7 +1060,8 @@ class Game(object):
     def render(self, screen_rect):
         self.current_rect = screen_rect
         # logging.info('T3.0:%d' % pygame.time.get_ticks())
-        self.screen.blit(source=self.map.surface, dest=(0, 0), area=self.current_rect)
+        self.screen.blit(source=self.map.surface, dest=(0, 0), area=self.current_rect)  # Cost 5ms
+        # self.screen = self.map.surface.subsurface(self.current_rect)  # 黑屏
         # logging.info('T3.1:%d' % pygame.time.get_ticks())
         self.minimap.draw()
         self.slot.draw()  # draw SlotWidget
