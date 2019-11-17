@@ -30,10 +30,10 @@ multiplayer/main.py 以及拆解了的版本，类似于single_player目录下�
 “即时制，多机联网，键盘操作，大小地图”
 multiplayer/plane_player.py
 操作说明：
-（1）“W”、“S”、“A”、“D”控制飞机加速减速和转向
-（2）大键盘上的“1”、“2”、“3”控制发射武器槽位 机炮、火箭弹、跟踪导弹
-（3）键盘方向键“↑↓←→”，控制大小地图移动
-（4）空格键，将当前地图切换到以己方飞机为中心的位置
+1）键盘上的w,a,s,d: 控制飞机加速减速和转向, control the plane turn left, right, speed up or down
+2）键盘上的 i,o,p: 控制发射武器槽位-机炮/火箭弹/跟踪导弹, upon main keyboard, control fire weapon slot
+3）键盘方向键↑,↓,←,→: 观察者模式下，控制小地图移动, control mini-map move
+4）空格键(Space): 在跟踪导弹镜头或者观察者模式下，将当前地图切换到以己方飞机为中心的位置, find&swift window on your plane's location
 
 ------其他------
 tmp/ 其他能运行,都在tmp目录下： missileV3_can_run.py,...,其中,mainV3.0_can_play.py已经可以玩了，真实的对战。
