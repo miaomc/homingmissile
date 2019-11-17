@@ -102,15 +102,16 @@ class Sock():
 
     def close(self):
         self.sock.close()
+        self.sock_tcp.close()
 
     def tcp_server(self):
         """任何程序都开启这个TCP监听"""
-        sock_tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock_tcp.bind((self.localip(), self.port_tcp))
-        sock_tcp.listen(20)
+        self.sock_tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock_tcp.bind((self.localip(), self.port_tcp))
+        self.sock_tcp.listen(20)
         while not self.done:
-            client_onnect, client_address = sock_tcp.accept()
-            # data, address = sock_tcp.recv(1024)
+            client_onnect, client_address = self.sock_tcp.accept()
+            # data, address = self.sock_tcp.recv(1024)
             client_onnect.close()
 
     def msg_send(self):
@@ -224,6 +225,7 @@ class Widget():
         pygame.init()
         pygame.mixer.init()  # 声音初始化
         pygame.display.set_mode(SCREEN_SIZE)
+        pygame.mouse.set_visible(False)
 
         self.fps = 20  # FPS
         self.frame = 0

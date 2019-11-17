@@ -11,26 +11,34 @@ import logging
 from information import Information
 
 """
+
+把说明做进去 左手操作 右手武器
+武器自毁爆炸特效：Base有delete(hit=False),hitted,Weapon有collide里面的update之后的delete还有，hitted之后的delete
+老机器建主机 新机器进去黑屏 超时
+优化血量显示，修改成sprite
+自定义化，自己定义导弹和子弹血量：子弹威力，子弹射程(fuel),飞机血量，飞机弹药，飞机最大速度，飞机转向速度
+玩家战机不同颜色的区分，或者选择
+菜单上显示当前版本 __version__
 列表无映射，字典有映射，key无排序，可以新建结构处理
-pok设置弹药剩余数量,因为sprite.Group.sprites列表不是按顺序来的，所以消耗弹药的时候不是连续的，新增的弹药的位置会与原有残余弹药位置重叠，但是数量不会错
-可以单独绘制image_slot
 SlotWidget反正是一个一个对象创建，可以自己建立列表结合sprite.Group()来管理对象
 content.py start游戏会概率报Errno 9
 飞机血量显示，计划采用手画矩阵涂色填充，位置跟随飞机rect底部，自带draw忘记是否会自动消除了
-在边缘很难旋转转向出来
-ok关闭防火墙之后，还是会概率性进不去，程序bug
-进入游戏不关闭防火墙都看不到主机; 
-ok需要使用管理员模式进入?，否则无法加入主机; 快速加入，客户端会黑屏， 反向加入，进不去，关闭防火墙就可以进去，程序bug
-ok进入主机之后，开始，有时候会一边卡死，无法进入（管理员？）程序bug
-ok加入主机，要等其他玩家反馈进入主机信息, 主机建快了就进入的话，客机进去之后收不到列表消息，程序bug
-ok血条同步问题会导致有些玩家死了，但是另外一边还活着
-ok建立主机时，有时候扫描会消失
-
 需要把颜色设置，不同的飞机
 飞机受伤烟雾，随机产生在飞机身上
 13.209.137.170
 被导弹跟踪了之后的滴滴滴声音
 子弹和导弹的爆炸效果
+
+ok设置弹药剩余数量,因为sprite.Group.sprites列表不是按顺序来的，所以消耗弹药的时候不是连续的，新增的弹药的位置会与原有残余弹药位置重叠，但是数量不会错
+ok可以单独绘制image_slot
+ok在边缘很难旋转转向出来
+ok关闭防火墙之后，还是会概率性进不去，程序bug
+ok进入游戏不关闭防火墙都看不到主机->启动程序时，允许防火墙弹出的提示; 
+ok需要使用管理员模式进入?，否则无法加入主机; 快速加入，客户端会黑屏， 反向加入，进不去，关闭防火墙就可以进去，程序bug
+ok进入主机之后，开始，有时候会一边卡死，无法进入（管理员？）程序bug
+ok加入主机，要等其他玩家反馈进入主机信息, 主机建快了就进入的话，客机进去之后收不到列表消息，程序bug
+ok血条同步问题会导致有些玩家死了，但是另外一边还活着
+ok建立主机时，有时候扫描会消失
 ok删除restart
 ok开始菜单、游戏操作说明、restart game
 ok随机弹药包, 补血包,还需要同步才行，要不然每个玩家得到的Box不一样
@@ -144,10 +152,10 @@ WEAPON_CATALOG = {
         'acc_speed': 0,
         'turn_acc': 0,
         'damage': 2,
-        'image': ['./image/gunfire1.png', './image/gunfire2.png', './image/gunfire3.png',
-                   './image/gunfire4.png', './image/gunfire5.png', './image/gunfire6.png'],
+        'image': ['./image/gunfire1.png'],
         'image_slot': './image/gunfire.png',
-        'fuel': 8,
+        'image_explosion':'./image/gunfire_explosion.png',  # https://github.com/joshuaskelly/trouble-in-cloudland
+        'fuel': 80,  #!
         'sound_collide_plane': ['./sound/bulletLtoR08.wav', './sound/bulletLtoR09.wav', './sound/bulletLtoR10.wav',
                                 './sound/bulletLtoR11.wav', './sound/bulletLtoR13.wav', './sound/bulletLtoR14.wav']
     },
@@ -293,6 +301,8 @@ class Base(pygame.sprite.Sprite):
         self.sound_kill = None
         self.destruct_image_index = 0  # 爆炸图片不在这个里面，未设计To be continue
         self.self_destruction = 0
+        self.hit = None
+        self.catalog = None
 
     def rotate(self):
         angle = math.atan2(self.velocity.x, self.velocity.y) * 360 / 2 / math.pi - 180  # 这个角度是以当前方向结合默认朝上的原图进行翻转的
@@ -330,16 +340,19 @@ class Base(pygame.sprite.Sprite):
 
     def delete(self, hit=False):
         if self.alive:  # 第一次进行的操作
+            self.hit = hit
             # self.kill()  # remove the Sprite from all Groups
             self.alive = False
             if self.sound_kill:
                 self.sound_kill.play()
 
         # 启动自爆动画
-        self.self_destruction += 0.25
-        # print self.self_destruction
-        # print hit,self.self_destruction,self.self_destruction // 1, self.destruct_image_index
-        if hit and self.self_destruction < self.destruct_image_index:
+        # self.self_destruction += 0.25
+        self.self_destruction += 0.5
+        # if self.catalog == 'Gun':
+        #     print self.self_destruction
+        #     print self.hit,self.self_destruction,self.self_destruction // 1, self.destruct_image_index
+        if self.hit and self.self_destruction < self.destruct_image_index:
             # print [self.self_destruction//2*40, 0, 39, 39],self.self_destruction,self.image.get_rect()
             self.origin_image = self.image = self.image_original.subsurface(
                 [self.self_destruction //
@@ -361,6 +374,7 @@ class Base(pygame.sprite.Sprite):
             base.health -= self.damage
             if self.catalog == 'Gun' and isinstance(base, Plane):
                 self.sound_collide_plane.play()
+                self.delete(hit=True)
             if self.catalog in ['Rocket', 'Cobra']:
                 self.sound_collide_plane.play()
 
@@ -535,6 +549,7 @@ class Weapon(Base):
             self.sound_fire.play(maxtime=200)
             self.sound_collide_plane = pygame.mixer.Sound(WEAPON_CATALOG['Gun']['sound_collide_plane'][randint(0, len(
                 WEAPON_CATALOG['Gun']['sound_collide_plane']) - 1)])
+            self.destruct_image_index = self.image_original.get_width() / self.image_original.get_height()
         else:
             image_path = WEAPON_CATALOG[catalog]['image']
             self.image_original = pygame.image.load(image_path).convert()
@@ -596,10 +611,11 @@ class Weapon(Base):
         if self.min_speed < self.velocity.length() < self.max_speed:
             self.acc += self.velocity.normalize_vector() * self.acc_speed  # 加上垂直速度
 
-        super(Weapon, self).update()  # 正常更新
-        self.fuel -= 1
         if self.fuel <= 0 or self.health <= 0:
             self.delete()
+        else:
+            super(Weapon, self).update()  # 正常更新
+            self.fuel -= 1
 
 
 class Player(object):
@@ -915,6 +931,7 @@ class Game(object):
         pygame.init()
         pygame.mixer.init()  # 声音初始化
         pygame.display.init()  # 初始化
+        pygame.mouse.set_visible(False)
         display_info = pygame.display.Info()
         screen_size_fittable = (display_info.current_w * 19 / 20, display_info.current_h * 17 / 20)
         if screen_size_fittable[0] * screen_size_fittable[1] > 0:
@@ -1099,17 +1116,17 @@ class Game(object):
             # 如果不是枪弹就进行相互碰撞测试
             if weapon.catalog != 'Gun':
                 # print weapon
-                weapon_collide_lst = pygame.sprite.spritecollide(weapon, self.weapon_group, False)  # False代表不直接kill该对象
+                weapon_collide_lst = pygame.sprite.spritecollide(weapon, self.weapon_group, False, pygame.sprite.collide_rect_ratio(0.7))  # False代表不直接kill该对象
                 weapon.hitted(weapon_collide_lst)  # 发生碰撞相互减血
                 # for hitted_weapon in weapon_collide_lst:
                 #     hitted_weapon.hitted([weapon])  # 本身受到攻击的对象
             # 检测武器与飞机之间的碰撞        
-            plane_collide_lst = pygame.sprite.spritecollide(weapon, self.plane_group, False)
+            plane_collide_lst = pygame.sprite.spritecollide(weapon, self.plane_group, False, pygame.sprite.collide_rect_ratio(0.7))
             weapon.hitted(plane_collide_lst)  # 发生碰撞相互减血
 
     def deal_collide_with_box(self):
         for plane in self.plane_group:  # 进行飞机与Box之间碰撞探测
-            box_collide_lst = pygame.sprite.spritecollide(plane, self.box_group, False)
+            box_collide_lst = pygame.sprite.spritecollide(plane, self.box_group, False, pygame.sprite.collide_rect_ratio(0.7))
             for box in box_collide_lst:
                 box.effect(plane)
                 box.delete()
