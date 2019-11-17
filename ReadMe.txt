@@ -40,6 +40,7 @@ tmp/ 其他能运行,都在tmp目录下： missileV3_can_run.py,...,其中,mainV
 multiplayer/ 已经拆分,入口能够运行，正在增加联机模式
 main_tmp.py  之前的轨迹思路，之前还没编写完成
 multiplayer/main.py 做了菜单选择的代码
+pygame网站参考：https://www.cnblogs.com/yjmyzz/p/pygame-tutorial-7-life-diaplay.html 菩提树下的杨过 
 
 三.总结：
 1)多写注释，真心会看不懂

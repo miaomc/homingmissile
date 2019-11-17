@@ -11,7 +11,7 @@ import logging
 from information import Information
 
 """
-
+把生成的背景变成一副图片，然后每次blit这个图片中的一部分就好了，这样就不需要clear了
 把说明做进去 左手操作 右手武器
 武器自毁爆炸特效：Base有delete(hit=False),hitted,Weapon有collide里面的update之后的delete还有，hitted之后的delete
 老机器建主机 新机器进去黑屏 超时
