@@ -11,7 +11,7 @@ import logging
 from information import Information
 
 """
-把生成的背景变成一副图片，然后每次blit这个图片中的一部分就好了，这样就不需要clear了
+ok把生成的背景变成一副图片，然后每次blit这个图片中的一部分就好了，这样就不需要clear了
 把说明做进去 左手操作 右手武器
 武器自毁爆炸特效：Base有delete(hit=False),hitted,Weapon有collide里面的update之后的delete还有，hitted之后的delete
 老机器建主机 新机器进去黑屏 超时
@@ -48,7 +48,7 @@ ok空格键回到飞机位置
 ok爆炸效果（目前只制作了F35和J20飞机的效果）
 """
 SINGLE_TEST = True
-MAP_RATIO = 1
+MAP_RATIO = 4
 RESTART_MODE = False
 LOCALIP = '192.168.0.106'
 HOSTIP = '192.168.0.103'
@@ -63,6 +63,7 @@ DARK_GREEN = (49, 79, 79)
 GRAY = (168, 168, 168)
 BACKGROUND_COLOR = DARK_GREEN
 WHITE = (255, 255, 255)
+LIGHT_GREEN = (10,200,100)
 
 SCREEN_SIZE = (1300, 800)
 MARS_SCREEN_SIZE = (8000, 4500)
@@ -155,7 +156,7 @@ WEAPON_CATALOG = {
         'image': ['./image/gunfire1.png'],
         'image_slot': './image/gunfire.png',
         'image_explosion':'./image/gunfire_explosion.png',  # https://github.com/joshuaskelly/trouble-in-cloudland
-        'fuel': 80,  #!
+        'fuel': 8,
         'sound_collide_plane': ['./sound/bulletLtoR08.wav', './sound/bulletLtoR09.wav', './sound/bulletLtoR10.wav',
                                 './sound/bulletLtoR11.wav', './sound/bulletLtoR13.wav', './sound/bulletLtoR14.wav']
     },
@@ -270,7 +271,7 @@ class Base(pygame.sprite.Sprite):
         pygame.sprite.Sprite.__init__(self)
         # cloud.png has transparent color ,use "convert_alpha()"
 
-        # ![WARNING] 这个应该要修改为 image = Surface对象
+        # image = Surface对象
         self.image = image  # pygame.image.load(image).convert_alpha()  # image of Sprite
 
         # self.image.set_colorkey(WHITE)
@@ -434,6 +435,24 @@ class Tail(Base):
     #     if self.live_time <= 0:
     #         super(Tail,self).draw()
 
+class HealthBar(Base):
+    def __init__(self, location):
+        self._max_length = 200
+        self.health_surface = pygame.Surface((self._max_length, 5))  # 最多是默认血条的5*40被长度
+        self.health_surface.fill(LIGHT_GREEN)
+        self.health_surface.convert()
+        _image = self.health_surface.subsurface((0,0,40,5))  # 默认是200的血量，对应40格血条长度
+        super(HealthBar,self).__init__(location=location, image=_image)
+        self.update(rect_topleft=Map.mars_translate(location), num=200)
+
+    def update(self, rect_topleft ,num):
+        if num <= 0:
+            _num = 0
+        elif num > self._max_length:
+            _num = 200
+        self.image = self.health_surface.subsurface((0,0,num/5,5))  # 默认是5的血量，对应1格血条长度
+        self.rect.topleft = rect_topleft
+        self.rect.move_ip(0, 50)  # 血条向下移50个像素点
 
 class Plane(Base):
 
@@ -465,12 +484,14 @@ class Plane(Base):
         self.destruct_image_index = self.image_original.get_width() / self.image_original.get_height()
         # self.catalog = catalog
 
-        self.last_health_rect = None
-        # print self.rect.width
-        self.health_surface = pygame.Surface((self.rect.width, 5))
-        self.health_surface.fill(WHITE)
-        self.health_surface.convert()
-        self.image.set_colorkey(WHITE)
+        self.health_bar = HealthBar(location=self.location)
+
+        # self.last_health_rect = None
+        # # print self.rect.width
+        # self.health_surface = pygame.Surface((self.rect.width*5, 5))  # 最多是默认血条的5被长度
+        # self.health_surface.fill(WHITE)
+        # self.health_surface.convert()
+        # self.image.set_colorkey(WHITE)
 
     def turn_left(self):
         self.acc += self.velocity.vertical_left() * self.turn_acc
@@ -518,6 +539,7 @@ class Plane(Base):
             return self.delete(hit=True)
 
         super(Plane, self).update()
+        self.health_bar.update(rect_topleft=self.rect.topleft, num=self.health)  # 更新血条
         # self.health -= 50
         if self.health <= 0:
             # if self.last_health_rect:  # 最后删除血条
@@ -526,15 +548,16 @@ class Plane(Base):
             return self.delete(hit=True)
 
     def draw_health(self, surface):
-        """sprite.Group()是单独blit的"""
-        if self.last_health_rect:
-            surface.blit(source=self.health_surface, dest=self.last_health_rect)
-        health_rect = pygame.Rect(self.rect.left, self.rect.top+self.rect.height+10, self.rect.width*(self.health*1.0/200), 5)
-        self.last_health_rect = health_rect
-        self.health_surface.blit(source=surface, dest=(0, 0), area=health_rect)  # 从map_surface获取底图到health_surface
-        # self.screen.blit(source=self.map.surface, dest=(0, 0), area=self.current_rect)
-        if self.health > 0:
-            pygame.draw.rect(surface, (10,255,100), health_rect, 0)
+        pass
+        # # """sprite.Group()是单独blit的"""
+        # # if self.last_health_rect:
+        # #     surface.blit(source=self.health_surface, dest=self.last_health_rect)
+        # health_rect = pygame.Rect(self.rect.left, self.rect.top+self.rect.height+10, self.rect.width*(self.health*1.0/200), 5)
+        # # self.last_health_rect = health_rect
+        # # self.health_surface.blit(source=surface, dest=(0, 0), area=health_rect)  # 从map_surface获取底图到health_surface
+        # # # self.screen.blit(source=self.map.surface, dest=(0, 0), area=self.current_rect)
+        # if self.health > 0:
+        #     pygame.draw.rect(surface, (10,200,100), health_rect, 0)
 
 
 class Weapon(Base):
@@ -918,7 +941,7 @@ class Game(object):
         self.weapon_group = pygame.sprite.Group()
         self.tail_group = pygame.sprite.Group()
         self.box_group = pygame.sprite.Group()
-        # self.health_group = pygame.sprite.Group()
+        self.health_group = pygame.sprite.Group()
 
         # backup map
         self.origin_map = None
@@ -999,6 +1022,7 @@ class Game(object):
     def add_player(self, player):
         self.player_list.append(player)
         self.plane_group.add(player.plane)
+        self.health_group.add(player.plane.health_bar)
         self.num_player += 1
 
     def init_local_player(self, localip, plane_type):
@@ -1159,7 +1183,7 @@ class Game(object):
         self.tail_group.clear(self.map.surface, self.clear_callback)
         self.box_group.clear(self.map.surface, self.clear_callback)
         self.slot.clear(self.clear_callback)
-        # self.health_group.clear(self.map.surface, self.clear_callback)
+        self.health_group.clear(self.map.surface, self.clear_callback)
 
     def clear_callback(self, surf, rect):
         # surf.blit(source=self.map.surface, dest=(0, 0), area=self.current_rect)
@@ -1225,7 +1249,7 @@ class Game(object):
         return socket.gethostbyname(socket.gethostname())
 
     def box_msg_send(self):
-        if self.syn_frame % (10 * FPS) == 0:  # 每n秒同步一次自己状态给对方
+        if self.syn_frame % (10 * FPS) == 0:  # 每n=10秒同步一次自己状态给对方
             location = [randint(0, MARS_MAP_SIZE[0]), randint(0, MARS_MAP_SIZE[1])]
             # Medic and so on. -->  10%, 30%, 30%, #0%
             rand_x = randint(0,100)
@@ -1289,6 +1313,7 @@ class Game(object):
                     index_ = 3
                 self.slot.update_line(weapon_name=weapon, weapon_num=self.local_player.plane.weapon[index_]['number'])
         # self.map.surface = self.origin_map_surface.copy()  # [WARNING]很吃性能！！！！！极有可能pygame.display()渲染不吃时间，这个copy（）很吃时间
+        # self.map.surface.blit(self.origin_map_surface, (0,0))  # ！！
 
         # 添加尾焰轨迹
         if self.syn_frame % 5 == 0:
@@ -1315,7 +1340,8 @@ class Game(object):
         # 判断游戏是否结束
         for player in self.player_list:
             if player.alive:
-                player.plane.draw_health(self.map.surface)  # 显示飞机血条
+                self.health_group.draw(self.map.surface)  # draw飞机血条
+                # player.plane.draw_health(self.map.surface)  # 显示飞机血条
                 # 更新玩家状态,player.update()-->plane.update()-->plane.delete(),delete没了的的飞机
                 if player.update():  # player.update==True就是玩家飞机lost了
                     self.plane_lost_msg_send(player.ip)  # 发送玩家lost的消息
@@ -1613,7 +1639,9 @@ class Game(object):
             logging.info('CostTime:%s' % str(pygame.time.get_ticks() - last_time))
             last_time = pygame.time.get_ticks()
             # self.clock.tick(self.fps)
-            self.erase()
+
+            self.erase()  # 采用blit方式，就不用clear()的方法了
+
             # logging.info('T6:%d'%pygame.time.get_ticks())
 
         # self.thread1.close
