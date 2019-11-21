@@ -1,0 +1,11 @@
+test/*
+*.pyc
+*.dat
+*.log
+*.xlsx
+beginning.py
+entry.py
+infomation.py
+main.py
+menu.py
+multiplayer_dict_tree(old).py

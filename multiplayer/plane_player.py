@@ -11,24 +11,27 @@ import logging
 from information import Information
 
 """
-ok把生成的背景变成一副图片，然后每次blit这个图片中的一部分就好了，这样就不需要clear了
+键盘操作选项坐上去
+可以根据区域型的update，在map中找到所有精灵（变化的精灵以及静态的精灵云彩）的位置，根据这个screen的相对位置相减，可以得出_rects,去除非screen之外的rects进行update
 把说明做进去 左手操作 右手武器
 武器自毁爆炸特效：Base有delete(hit=False),hitted,Weapon有collide里面的update之后的delete还有，hitted之后的delete
 老机器建主机 新机器进去黑屏 超时
-优化血量显示，修改成sprite
 自定义化，自己定义导弹和子弹血量：子弹威力，子弹射程(fuel),飞机血量，飞机弹药，飞机最大速度，飞机转向速度
 玩家战机不同颜色的区分，或者选择
 菜单上显示当前版本 __version__
 列表无映射，字典有映射，key无排序，可以新建结构处理
 SlotWidget反正是一个一个对象创建，可以自己建立列表结合sprite.Group()来管理对象
 content.py start游戏会概率报Errno 9
-飞机血量显示，计划采用手画矩阵涂色填充，位置跟随飞机rect底部，自带draw忘记是否会自动消除了
 需要把颜色设置，不同的飞机
 飞机受伤烟雾，随机产生在飞机身上
 13.209.137.170
 被导弹跟踪了之后的滴滴滴声音
-子弹和导弹的爆炸效果
 
+ok优化血量显示，修改成sprite 2019-11-22
+ok导弹特效制作 2019-11-22
+ok飞机血量显示，计划采用手画矩阵涂色填充，位置跟随飞机rect底部，自带draw忘记是否会自动消除了 2019-11-21
+ok子弹和导弹的爆炸效果 2019-11-21
+ok把生成的背景变成一副图片，然后每次blit这个图片中的一部分就好了，这样就不需要clear了 2019-11-20 这个同样很占性能，达到75ms一帧
 ok设置弹药剩余数量,因为sprite.Group.sprites列表不是按顺序来的，所以消耗弹药的时候不是连续的，新增的弹药的位置会与原有残余弹药位置重叠，但是数量不会错
 ok可以单独绘制image_slot
 ok在边缘很难旋转转向出来
@@ -167,8 +170,8 @@ WEAPON_CATALOG = {
         'acc_speed': 65,
         'damage': 35,
         'turn_acc': 0,
-        'image': './image/homingmissile.png',
-        'image_slot': './image/homingmissile.png',
+        'image': './image/rocket.png',
+        'image_slot': './image/homingmissile2.png',
         'fuel': 20,
     },
     'Cobra': {
@@ -178,8 +181,8 @@ WEAPON_CATALOG = {
         'acc_speed': 25,
         'turn_acc': 35,
         'damage': 25,
-        'image': './image/homingmissile2.png',
-        'image_slot': './image/homingmissile2.png',
+        'image': './image/homingmissile.png',
+        'image_slot': './image/homingmissile1.png',
         'fuel': 16,
         'dectect_range': 10000 * 30
     },
@@ -376,8 +379,9 @@ class Base(pygame.sprite.Sprite):
             if self.catalog == 'Gun' and isinstance(base, Plane):
                 self.sound_collide_plane.play()
                 self.delete(hit=True)
-            if self.catalog in ['Rocket', 'Cobra']:
+            elif self.catalog in ['Rocket', 'Cobra'] and isinstance(base, Plane):
                 self.sound_collide_plane.play()
+                self.delete(hit=True)
 
 
 class Box(Base):
@@ -535,6 +539,7 @@ class Plane(Base):
 
     def update(self):
         if not self.alive:  # 如果挂了,就启动自爆动画
+            self.health_bar.delete()  # 删除血条
             super(Plane, self).update()
             return self.delete(hit=True)
 
@@ -577,13 +582,14 @@ class Weapon(Base):
             image_path = WEAPON_CATALOG[catalog]['image']
             self.image_original = pygame.image.load(image_path).convert()
             self.image_original.set_colorkey(WHITE)
-            self.image = self.image_original.subsurface(
-                (0, 0, self.image_original.get_width() - 1, self.image_original.get_height() - 1))
+            self.image = self.image_original.subsurface((0, 0, self.image_original.get_height() - 1, self.image_original.get_height() - 1))
+            # self.image = self.image_original.subsurface((0, 0, self.image_original.get_width() - 1, self.image_original.get_height() - 1))
             super(Weapon, self).__init__(location=location, image=self.image)
             self.sound_fire = pygame.mixer.Sound("./sound/TPhFi201.wav")
             self.sound_fire.play()
             self.sound_kill = pygame.mixer.Sound("./sound/ric5.wav")
             self.sound_collide_plane = pygame.mixer.Sound("./sound/shotgun_fire_1.wav")
+            self.destruct_image_index = self.image_original.get_width() / self.image_original.get_height()
         if catalog == 'Cobra':
             self.detect_range = WEAPON_CATALOG[catalog]['dectect_range']
 
@@ -635,7 +641,10 @@ class Weapon(Base):
             self.acc += self.velocity.normalize_vector() * self.acc_speed  # 加上垂直速度
 
         if self.fuel <= 0 or self.health <= 0:
-            self.delete()
+            if self.catalog in ['Rocket','Cobra']:
+                self.delete(hit=True)
+            else:
+                self.delete()
         else:
             super(Weapon, self).update()  # 正常更新
             self.fuel -= 1
@@ -811,7 +820,7 @@ class SlotWidget():
             image_path = BOX_CATALOG[catalog]['image']
             image = pygame.image.load(image_path).convert()
             image.set_colorkey(WHITE)
-            # image = pygame.image.load(image_path).convert_alpha()
+            # image = image.subsurface((0, 0, image.get_height() - 1, image.get_height() - 1))
             slot_obj = Base(location=(5,5), image=image)
 
             image_path = WEAPON_CATALOG[slot_dict[catalog]]['image_slot']
@@ -956,11 +965,12 @@ class Game(object):
         pygame.display.init()  # 初始化
         pygame.mouse.set_visible(False)
         display_info = pygame.display.Info()
-        screen_size_fittable = (display_info.current_w * 19 / 20, display_info.current_h * 17 / 20)
-        if screen_size_fittable[0] * screen_size_fittable[1] > 0:
-            pygame.display.set_mode(screen_size_fittable)
-        else:
-            pygame.display.set_mode(SCREEN_SIZE)  # pygame.display.set_mode(pygame.FULLSCREEN)
+        pygame.display.set_mode(flags=pygame.FULLSCREEN, depth=0)
+        # screen_size_fittable = (display_info.current_w * 19 / 20, display_info.current_h * 17 / 20)
+        # if screen_size_fittable[0] * screen_size_fittable[1] > 0:
+        #     pygame.display.set_mode(screen_size_fittable)
+        # else:
+        #     pygame.display.set_mode(SCREEN_SIZE)
         # Return the size of the window or screen
         # pygame.display.get_window_size()
         self.screen = pygame.display.get_surface()  # 游戏窗口对象
@@ -1138,6 +1148,8 @@ class Game(object):
         """
         for weapon in self.weapon_group:  # 遍历每一个武器
             # 如果不是枪弹就进行相互碰撞测试
+            if not weapon.alive:
+                continue
             if weapon.catalog != 'Gun':
                 # print weapon
                 weapon_collide_lst = pygame.sprite.spritecollide(weapon, self.weapon_group, False, pygame.sprite.collide_rect_ratio(0.7))  # False代表不直接kill该对象
@@ -1325,6 +1337,7 @@ class Game(object):
         self.box_group.draw(self.map.surface)  # draw随机Box
         self.tail_group.draw(self.map.surface)  # draw尾焰
         self.plane_group.draw(self.map.surface)  # draw飞机
+        self.health_group.draw(self.map.surface)  # draw飞机血条
         self.weapon_group.draw(self.map.surface)  # draw武器
         for i in self.weapon_group:  # 画被跟踪框框
             if i.target:
@@ -1340,7 +1353,6 @@ class Game(object):
         # 判断游戏是否结束
         for player in self.player_list:
             if player.alive:
-                self.health_group.draw(self.map.surface)  # draw飞机血条
                 # player.plane.draw_health(self.map.surface)  # 显示飞机血条
                 # 更新玩家状态,player.update()-->plane.update()-->plane.delete(),delete没了的的飞机
                 if player.update():  # player.update==True就是玩家飞机lost了
