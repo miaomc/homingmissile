@@ -11,6 +11,17 @@ import logging
 from information import Information
 
 """
+增加血量和子弹百分比
+多人进去黑屏
+网络延迟，飞跃
+no广播发送，是否可以修改位直接发送255广播地址来实现 ip_list = [ip_head + '.255'] 无效
+
+进入游戏的时候玩家列表不同步，非主机的玩家不显示主机玩家，用tcp改写
+
+中途有一帧时间特别的长，大致在Frame No：45的样子
+全屏情况下，对方坐标不停的闪烁(可能根据不同主机的分辨率导致rect不一样，可以采用pygame.transform去做变换)
+尝试一下全屏硬件加速
+
 键盘操作选项坐上去
 可以根据区域型的update，在map中找到所有精灵（变化的精灵以及静态的精灵云彩）的位置，根据这个screen的相对位置相减，可以得出_rects,去除非screen之外的rects进行update
 把说明做进去 左手操作 右手武器
@@ -159,7 +170,7 @@ WEAPON_CATALOG = {
         'image': ['./image/gunfire1.png'],
         'image_slot': './image/gunfire.png',
         'image_explosion':'./image/gunfire_explosion.png',  # https://github.com/joshuaskelly/trouble-in-cloudland
-        'fuel': 8,
+        'fuel': 8,  # 8
         'sound_collide_plane': ['./sound/bulletLtoR08.wav', './sound/bulletLtoR09.wav', './sound/bulletLtoR10.wav',
                                 './sound/bulletLtoR11.wav', './sound/bulletLtoR13.wav', './sound/bulletLtoR14.wav']
     },
@@ -895,7 +906,7 @@ class Game(object):
         self.num_player = 0
         self.lock_frame = 0
         self.delay_frame = 0
-        self.start_time = 0
+        # self.start_time = 0
 
         self.show_result = False  # 用来显示Win or Lose
         self.hide_result = False
@@ -963,9 +974,12 @@ class Game(object):
         pygame.init()
         pygame.mixer.init()  # 声音初始化
         pygame.display.init()  # 初始化
+        pygame.event.get()
         pygame.mouse.set_visible(False)
         display_info = pygame.display.Info()
-        pygame.display.set_mode(flags=pygame.FULLSCREEN, depth=0)
+        ret = pygame.display.set_mode(size=(1280,720), flags=pygame.FULLSCREEN|pygame.HWSURFACE|pygame.DOUBLEBUF)
+        logging.info('DISPLAY:%s'%str(ret))
+        # pygame.display.set_mode(flags=pygame.FULLSCREEN, depth=0)
         # screen_size_fittable = (display_info.current_w * 19 / 20, display_info.current_h * 17 / 20)
         # if screen_size_fittable[0] * screen_size_fittable[1] > 0:
         #     pygame.display.set_mode(screen_size_fittable)
@@ -1168,9 +1182,10 @@ class Game(object):
                 box.delete()
 
     def syn_status(self):
-        if self.syn_frame % (2 * FPS) == 0:  # 每2秒同步一次自己状态给对方
+        if self.syn_frame % (1 * FPS) == 0:  # 每1秒同步一次自己状态给对方
             # print self.player_list, self.local_ip, self.other_ip
             for player in self.player_list:
+                logging.info('PLAYERS INFO:%s, loca[%s],velo[%s]'%(player.ip,str(player.plane.location), str(player.plane.velocity)))
                 if player.ip == self.local_ip and player.alive:
                     status_msg = ('syn_player_status', {'location': (player.plane.location.x, player.plane.location.y),
                                                         'velocity': (player.plane.velocity.x, player.plane.velocity.y),
@@ -1297,8 +1312,6 @@ class Game(object):
         不管延迟和丢包的问题，接受操作消息等待为resend_time=30ms；
         每过2帧进行一次状态同步：只将本地玩家飞机状态发送给其他玩家；
         """
-        logging.info("Frame:%s" % self.syn_frame)
-
         # 产生随机奖励Box，并发送
         self.box_msg_send()
 
@@ -1399,14 +1412,6 @@ class Game(object):
         #     pygame.time.wait(1000/FPS)
         #     self.delay_frame -= 1
 
-        # 如果走到每帧时间之前了就等一下
-        stardard_diff_time = -(pygame.time.get_ticks() - self.start_time) + self.syn_frame * 1000 / FPS
-        # print stardard_diff_time
-        if stardard_diff_time > 0:
-            pygame.time.wait(stardard_diff_time)
-            logging.info('WaitingTime:%s' % str(stardard_diff_time))
-
-        self.syn_frame += 1  # 发送同步帧(上来就发送)
 
     def get_deal_msg(self):
         while not self.done:  # 游戏结束判定
@@ -1439,7 +1444,7 @@ class Game(object):
                 # print 'in status.....', address
                 for player in self.player_list:  # 因为没用{IP:玩家}，所以遍历玩家，看这个收到的数据是谁的
                     if player.ip == address[0] and player.alive:
-                        player.plane.location = Vector(data_tmp[1]['location'])
+                        player.plane.location = Vector(data_tmp[1]['location']) + Vector(data_tmp[1]['velocity'])  # 1帧的时间
                         player.plane.velocity = Vector(data_tmp[1]['velocity'])
                         player.plane.health = data_tmp[1]['health']  # !!!!!!!!会出现掉血了，然后回退回去的情况
                         logging.info("Get player status, local_frame:%d----> %s, %s" % (
@@ -1603,6 +1608,7 @@ class Game(object):
             while not self.q.empty():
                 data, address = self.q.get()
                 if json.loads(data)=='200 OK':
+                    self.sock_send('200 OK', address)  # 收到补发一个200 OK，因为对方都是先打开监听，然后开始发送
                     logging.info('Start Msg Get:%s:%s' % (address,data))
                     msg_get_ip_list[address[0]] = True
                     if len(msg_get_ip_list.keys()) >= len(self.player_list):
@@ -1626,35 +1632,49 @@ class Game(object):
         # MSG deal
         logging.info('deal_msg:begin')
         self.thread_msg.start()  # 开启玩家处理接受消息的线程
+
+        # 主循环 Main Loop
         # if self.host_ip == self.local_ip:  # 主机才发送同步LockFrame
         #     self.thread_lock.start()  # 开启玩家处理接受消息的线程
-        last_time = pygame.time.get_ticks()
-        self.start_time = pygame.time.get_ticks()  # 记录开始时间
+        # last_time = pygame.time.get_ticks()
         while not self.done:
-            # logging.info('T1:%d'%pygame.time.get_ticks())
+            last_time = pygame.time.get_ticks()
+            logging.info("Frame No:%s" % self.syn_frame)
+            logging.info('T1:%d'%pygame.time.get_ticks())
             event_list = self.event_control()
+            logging.info('T1.1:%d' % pygame.time.get_ticks())
             self.deal_screen_focus(self.screen_rect)  # 在飞机update()之前就不会抖动
-            if self.process(event_list):
+            logging.info('T1.2:%d' % pygame.time.get_ticks())
+            if self.process(event_list):  # 在FULLSCREEN下，这个函数最占性能20~40ms
                 self.done = True
                 break
-            # logging.info('T2:%d'%pygame.time.get_ticks()) # T1与T2之间平均花费12ms
+            logging.info('T2:%d'%pygame.time.get_ticks()) # T1与T2之间平均花费12ms
 
-            # print self.local_player.plane.rect,self.screen_rect
             Map.adjust_rect(self.screen_rect, self.map.surface.get_rect())
-            # logging.info('T3:%d'%pygame.time.get_ticks())
-            # Map.adjust_rect()
-            self.render(self.screen_rect)  # 该函数平均花费26ms！！！！！！！！！！！！！！！！！！
-            # logging.info('T4:%d'%pygame.time.get_ticks())
+            logging.info('T3:%d'%pygame.time.get_ticks())
+
+            self.render(self.screen_rect)  # 该函数平均花费26ms, 在FULLSCREEN下是2ms
+            logging.info('T4:%d'%pygame.time.get_ticks())
 
             pygame.display.flip()
-            # logging.info('T5:%d'%pygame.time.get_ticks())
-            logging.info('CostTime:%s' % str(pygame.time.get_ticks() - last_time))
-            last_time = pygame.time.get_ticks()
+            logging.info('T5:%d'%pygame.time.get_ticks())
             # self.clock.tick(self.fps)
 
             self.erase()  # 采用blit方式，就不用clear()的方法了
 
-            # logging.info('T6:%d'%pygame.time.get_ticks())
+            # 这个是按整理计算延迟的，如果前面卡了，后面就会加速：没必要因为会定时同步状态
+            # stardard_diff_time = -(pygame.time.get_ticks() - self.start_time) + self.syn_frame * 1000 / FPS
+            # 计算每帧时间，和时间等待
+            _time = pygame.time.get_ticks()
+            logging.info('CostTime:%s' % str(_time - last_time))
+            # 每帧需要的时间 - 每帧实际运行时间，如果还有时间多，就等待一下
+            stardard_diff_time = 1000 / FPS - (_time - last_time)
+            if stardard_diff_time > 0:  # 等待多余的时间
+                pygame.time.wait(stardard_diff_time)  # 这个等待时间写在这里不合适
+                logging.info('WaitingTime:%s' % str(stardard_diff_time))
+
+            self.syn_frame += 1  # 发送同步帧(上来就发送)
+            logging.info('T6:%d'%pygame.time.get_ticks())
 
         # self.thread1.close
         # self.sock.close()
@@ -1668,18 +1688,48 @@ def test_calc_frame_cost():
         s = f1.readlines()
 
     l = []
+    l_w = []
+    cost_bool = wait_bool = False
     for i in s:
-        if 'CostTime:' in i:
+        if 'Frame No:' in i:
+            if wait_bool:
+                l_w.append('WaitingTime:0')
+            cost_bool = True
+            wait_bool = True
+            continue
+        if  cost_bool and 'CostTime:' in i:
             l.append(i)
+            cost_bool = False
+        if wait_bool and 'WaitingTime:' in i:
+            l_w.append(i)
+            wait_bool = False
 
-    l1 = [i.split(':')[-1] for i in l]
+    l1 = [i.split(':')[-1] for i in l]  # list of CostTime
+    l2 = [i.split(':')[-1] for i in l_w] # list of WaitingTime
 
+    # show diagram. vertiacal
+    for i in range(min(len(l1), len(l2))):
+        logging.info("[%d]%s%s" % (int(l1[i]) + int(l2[i]), '+' * int(l1[i]), '-' * int(l2[i])))
+        print("[%d]%s%s" % (int(l1[i]) + int(l2[i]), '+' * int(l1[i]), '-' * int(l2[i])))
+
+    # average cost
+    logging.info('average frame lantency = CostTime + WaitingTime')
     sum = 0
     for i in l1:
         sum += int(i)
     if len(l1)>0:
-        logging.info('average lantency:%s ms'%str(sum / len(l1)))
-    return [int(i) for i in l1]
+        logging.info('average CostTime:%s ms'%str(sum / len(l1)))
+        print('average Cost-Time:%s ms'%str(sum / len(l1)))
+
+    # average waiting
+    sum = 0
+    for i in l2:
+        sum += int(i)
+    if len(l2) > 0:
+        logging.info('average WaitingTime:%s ms' % str(sum / len(l2)))
+        print('average Waiting-Time:%s ms' % str(sum / len(l2)))
+
+    return [int(i) for i in l1]  # z只返回CostTime
 
 
 def test_send_get_analyze():
@@ -1712,4 +1762,5 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    test_calc_frame_cost()
+    test_send_get_analyze()
