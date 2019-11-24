@@ -132,7 +132,7 @@ PLANE_CATALOG = {
     },
     'F35': {
         'health': 200,
-        'max_speed': 2400,
+        'max_speed': 2400,  # 2400
         'min_speed': 540,
         'acc_speed': 50,
         'turn_acc': 25,
@@ -977,7 +977,8 @@ class Game(object):
         pygame.event.get()
         pygame.mouse.set_visible(False)
         display_info = pygame.display.Info()
-        ret = pygame.display.set_mode(size=(1366,768), flags=pygame.FULLSCREEN|pygame.HWSURFACE|pygame.DOUBLEBUF)
+        ret = pygame.display.set_mode(flags=pygame.FULLSCREEN | pygame.HWSURFACE | pygame.DOUBLEBUF)
+        # ret = pygame.display.set_mode(size=(1366,768), flags=pygame.FULLSCREEN|pygame.HWSURFACE|pygame.DOUBLEBUF)
         logging.info('DISPLAY:%s'%str(ret))
         # pygame.display.set_mode(flags=pygame.FULLSCREEN, depth=0)
         # screen_size_fittable = (display_info.current_w * 19 / 20, display_info.current_h * 17 / 20)
@@ -1183,7 +1184,7 @@ class Game(object):
                 box.delete()
 
     def syn_status(self):
-        if self.syn_frame % (1 * FPS) == 0:  # 每1秒同步一次自己状态给对方
+        if self.syn_frame % (int(2 * FPS)) == 0:  # 每2秒同步一次自己状态给对方
             # print self.player_list, self.local_ip, self.other_ip
             for player in self.player_list:
                 # logging.info('PLAYERS INFO:%s, loca[%s],velo[%s]'%(player.ip,str(player.plane.location), str(player.plane.velocity)))
@@ -1192,7 +1193,7 @@ class Game(object):
                                                         'velocity': (player.plane.velocity.x, player.plane.velocity.y),
                                                         'health': player.plane.health})
                     for player in self.player_list:
-                        # self.sock_send(status_msg, (player.ip, self.port))
+                        # self.sock_send(status_msg, (player.ip, self.port))  # test 谁都发
                         if player.ip != self.local_ip:
                             self.sock_send(status_msg, (player.ip, self.port))
                     break
@@ -1445,8 +1446,8 @@ class Game(object):
                                 self.screen_focus_obj = weapon_obj
                         logging.info("Get %d----> %s, %s" % (data_tmp[0], str(address), str(data_tmp)))
                         break  # 一个数据只有可能对应一个玩家的操作，有一个玩家取完消息就可以了
-            # Msg Type2:状态同步-->对象，同步类型消息
 
+            # Msg Type2:状态同步-->对象，同步类型消息
             elif data_tmp[0] == 'syn_player_status':
                 # print 'in status.....', address
                 for player in self.player_list:  # 因为没用{IP:玩家}，所以遍历玩家，看这个收到的数据是谁的
@@ -1648,27 +1649,29 @@ class Game(object):
         while not self.done:
             last_time = pygame.time.get_ticks()
             logging.info("Frame No:%s" % self.syn_frame)
-            logging.info('T1:%d'%pygame.time.get_ticks())
+            # logging.info('T1:%d'%pygame.time.get_ticks())
             event_list = self.event_control()
-            logging.info('T1.1:%d' % pygame.time.get_ticks())
+
+            # logging.info('T1.1:%d' % pygame.time.get_ticks())
             self.deal_screen_focus(self.screen_rect)  # 在飞机update()之前就不会抖动
-            logging.info('T1.2:%d' % pygame.time.get_ticks())
+
+            # logging.info('T1.2:%d' % pygame.time.get_ticks())
             if self.process(event_list):  # 在FULLSCREEN下，这个函数最占性能20~40ms
                 self.done = True
                 break
-            logging.info('T2:%d'%pygame.time.get_ticks()) # T1与T2之间平均花费12ms
 
+            # logging.info('T2:%d'%pygame.time.get_ticks()) # T1与T2之间平均花费12ms
             Map.adjust_rect(self.screen_rect, self.map.surface.get_rect())
-            logging.info('T3:%d'%pygame.time.get_ticks())
 
-            self.render(self.screen_rect)  # 该函数平均花费26ms, 在FULLSCREEN下是2ms
-            logging.info('T4:%d'%pygame.time.get_ticks())
+            # logging.info('T3:%d'%pygame.time.get_ticks())
+            self.render(self.screen_rect)  # 该函数平均花费10ms(26ms), 在FULLSCREEN下是2ms
 
-            pygame.display.flip()
-            logging.info('T5:%d'%pygame.time.get_ticks())
+            # logging.info('T4:%d'%pygame.time.get_ticks())
+            pygame.display.flip()  # 2ms
+
+            # logging.info('T5:%d'%pygame.time.get_ticks())
             # self.clock.tick(self.fps)
-
-            self.erase()  # 采用blit方式，就不用clear()的方法了
+            self.erase()  # 8ms,如果采用blit方式，就不用clear()的方法了
 
             # 这个是按整理计算延迟的，如果前面卡了，后面就会加速：没必要因为会定时同步状态
             # stardard_diff_time = -(pygame.time.get_ticks() - self.start_time) + self.syn_frame * 1000 / FPS
@@ -1682,7 +1685,7 @@ class Game(object):
                 logging.info('WaitingTime:%s' % str(stardard_diff_time))
 
             self.syn_frame += 1  # 发送同步帧(上来就发送)
-            logging.info('T6:%d'%pygame.time.get_ticks())
+            # logging.info('T6:%d'%pygame.time.get_ticks())
 
         # self.thread1.close
         # self.sock.close()
