@@ -277,7 +277,7 @@ class Vector:
 
 class Base(pygame.sprite.Sprite):
     """
-    MARS COORDINATE: location, acc, velocity
+    MARS COORDINATE: location+=velocity(* SPEED_RATIO / FPS), acc+=velocity, velocity
     EARTH COORDINATE: rect,
     """
 
@@ -977,7 +977,7 @@ class Game(object):
         pygame.event.get()
         pygame.mouse.set_visible(False)
         display_info = pygame.display.Info()
-        ret = pygame.display.set_mode(size=(1280,720), flags=pygame.FULLSCREEN|pygame.HWSURFACE|pygame.DOUBLEBUF)
+        ret = pygame.display.set_mode(size=(1366,768), flags=pygame.FULLSCREEN|pygame.HWSURFACE|pygame.DOUBLEBUF)
         logging.info('DISPLAY:%s'%str(ret))
         # pygame.display.set_mode(flags=pygame.FULLSCREEN, depth=0)
         # screen_size_fittable = (display_info.current_w * 19 / 20, display_info.current_h * 17 / 20)
@@ -989,6 +989,7 @@ class Game(object):
         # pygame.display.get_window_size()
         self.screen = pygame.display.get_surface()  # 游戏窗口对象
         self.screen_rect = self.screen.get_rect()  # 游戏窗口对象的rect
+        logging.info('DISPLAY:%s' % self.screen_rect)
 
         # 更新游戏地图（MARS）与显示地图的比例
         global MARS_RATIO
@@ -1166,17 +1167,17 @@ class Game(object):
                 continue
             if weapon.catalog != 'Gun':
                 # print weapon
-                weapon_collide_lst = pygame.sprite.spritecollide(weapon, self.weapon_group, False, pygame.sprite.collide_rect_ratio(0.7))  # False代表不直接kill该对象
+                weapon_collide_lst = pygame.sprite.spritecollide(weapon, self.weapon_group, False, pygame.sprite.collide_rect_ratio(0.8))  # False代表不直接kill该对象
                 weapon.hitted(weapon_collide_lst)  # 发生碰撞相互减血
                 # for hitted_weapon in weapon_collide_lst:
                 #     hitted_weapon.hitted([weapon])  # 本身受到攻击的对象
             # 检测武器与飞机之间的碰撞        
-            plane_collide_lst = pygame.sprite.spritecollide(weapon, self.plane_group, False, pygame.sprite.collide_rect_ratio(0.7))
+            plane_collide_lst = pygame.sprite.spritecollide(weapon, self.plane_group, False, pygame.sprite.collide_rect_ratio(0.8))
             weapon.hitted(plane_collide_lst)  # 发生碰撞相互减血
 
     def deal_collide_with_box(self):
         for plane in self.plane_group:  # 进行飞机与Box之间碰撞探测
-            box_collide_lst = pygame.sprite.spritecollide(plane, self.box_group, False, pygame.sprite.collide_rect_ratio(0.7))
+            box_collide_lst = pygame.sprite.spritecollide(plane, self.box_group, False, pygame.sprite.collide_rect_ratio(0.8))
             for box in box_collide_lst:
                 box.effect(plane)
                 box.delete()
@@ -1185,12 +1186,13 @@ class Game(object):
         if self.syn_frame % (1 * FPS) == 0:  # 每1秒同步一次自己状态给对方
             # print self.player_list, self.local_ip, self.other_ip
             for player in self.player_list:
-                logging.info('PLAYERS INFO:%s, loca[%s],velo[%s]'%(player.ip,str(player.plane.location), str(player.plane.velocity)))
+                # logging.info('PLAYERS INFO:%s, loca[%s],velo[%s]'%(player.ip,str(player.plane.location), str(player.plane.velocity)))
                 if player.ip == self.local_ip and player.alive:
                     status_msg = ('syn_player_status', {'location': (player.plane.location.x, player.plane.location.y),
                                                         'velocity': (player.plane.velocity.x, player.plane.velocity.y),
                                                         'health': player.plane.health})
                     for player in self.player_list:
+                        # self.sock_send(status_msg, (player.ip, self.port))
                         if player.ip != self.local_ip:
                             self.sock_send(status_msg, (player.ip, self.port))
                     break
@@ -1377,15 +1379,20 @@ class Game(object):
                     # return True
 
         # 显示游戏信息
-        for py in self.player_list:
-            self.info.add(u'Player IP:%s' % py.ip)
-            if py.plane:
-                self.info.add(u'Health:%d' % py.plane.health)
-                self.info.add(u'Weapon:%s' % str(py.plane.weapon))
-                self.info.add(u'Tail:%s' % self.tail_group)
-                # self.info.add(u'speed:%s,  location:%s,  rect:%s' % (
-                #     str(py.plane.velocity), str(py.plane.location), str(py.plane.rect)))
-            # self.info.add(u'Groups:%s' % str(self.plane_group))
+        # self.info.add(u'')
+        # self.info.add(u'')
+        # self.info.add(u'')
+        # self.info.add(u'')
+        # self.info.add(u'')
+        # for py in self.player_list:
+        #     self.info.add(u'Player IP:%s' % py.ip)
+        #     if py.plane:
+        #         self.info.add(u'Health:%d' % py.plane.health)
+        #         self.info.add(u'Weapon:%s' % str(py.plane.weapon))
+        #         self.info.add(u'Tail:%s' % self.tail_group)
+        #         self.info.add(u'speed:%s,  location:%s,  rect:%s' % (
+        #             str(py.plane.velocity), str(py.plane.location), str(py.plane.rect)))
+        #     self.info.add(u'Groups:%s' % str(self.plane_group))
 
         # 屏幕显示，本地飞机聚焦处理
         if not self.local_player.alive:  # 本地玩家
@@ -1444,7 +1451,8 @@ class Game(object):
                 # print 'in status.....', address
                 for player in self.player_list:  # 因为没用{IP:玩家}，所以遍历玩家，看这个收到的数据是谁的
                     if player.ip == address[0] and player.alive:
-                        player.plane.location = Vector(data_tmp[1]['location']) + Vector(data_tmp[1]['velocity'])  # 1帧的时间
+                        player.plane.location = Vector(data_tmp[1]['location'])
+                        #+ Vector(data_tmp[1]['velocity'])* SPEED_RATIO / FPS  # 1帧的时间, 反而有跳跃感
                         player.plane.velocity = Vector(data_tmp[1]['velocity'])
                         player.plane.health = data_tmp[1]['health']  # !!!!!!!!会出现掉血了，然后回退回去的情况
                         logging.info("Get player status, local_frame:%d----> %s, %s" % (
@@ -1710,7 +1718,7 @@ def test_calc_frame_cost():
     # show diagram. vertiacal
     for i in range(min(len(l1), len(l2))):
         logging.info("[%d]%s%s" % (int(l1[i]) + int(l2[i]), '+' * int(l1[i]), '-' * int(l2[i])))
-        print("[%d]%s%s" % (int(l1[i]) + int(l2[i]), '+' * int(l1[i]), '-' * int(l2[i])))
+        # print("[%d]%s%s" % (int(l1[i]) + int(l2[i]), '+' * int(l1[i]), '-' * int(l2[i])))
 
     # average cost
     logging.info('average frame lantency = CostTime + WaitingTime')
@@ -1719,7 +1727,7 @@ def test_calc_frame_cost():
         sum += int(i)
     if len(l1)>0:
         logging.info('average CostTime:%s ms'%str(sum / len(l1)))
-        print('average Cost-Time:%s ms'%str(sum / len(l1)))
+        # print('average Cost-Time:%s ms'%str(sum / len(l1)))
 
     # average waiting
     sum = 0
@@ -1727,7 +1735,7 @@ def test_calc_frame_cost():
         sum += int(i)
     if len(l2) > 0:
         logging.info('average WaitingTime:%s ms' % str(sum / len(l2)))
-        print('average Waiting-Time:%s ms' % str(sum / len(l2)))
+        # print('average Waiting-Time:%s ms' % str(sum / len(l2)))
 
     return [int(i) for i in l1]  # z只返回CostTime
 
