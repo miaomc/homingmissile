@@ -1,8 +1,10 @@
-¡¤ÖØ¹¹ homingmissileÏÂµÄmultiplayerÏîÄ¿
-¡¤ÊÊÓ¦python3
-¡¤ÈÔÈ»²ÉÓÃ¶à¶Ô¶à·½Ê½Í¨ĞÅ£¬Ã»ÓĞ²ÉÓÃ·şÎñÆ÷¼Ü¹¹
-¡¤pip install -i https://pypi.douban.com/simple/ python_docx
-¡¤²ÉÓÃpygame.math.Vector2´úÌæ×Ô¼º¹¹½¨µÄVector()
-¡¤ÖØĞÂÉè¼Æbase sprite
-¡¤²ÉÓÃ¾ØÕó½øĞĞÓĞ¹æÂÉµÄÅúÁ¿ÔË¶¯¼ÆËã
-¡¤È¡Ïû19MµÄ×ÖÌåÎÄ¼ş
+Â·é‡æ„ homingmissileä¸‹çš„multiplayeré¡¹ç›®
+Â·é€‚åº”python3
+Â·ä»ç„¶é‡‡ç”¨å¤šå¯¹å¤šæ–¹å¼é€šä¿¡ï¼Œæ²¡æœ‰é‡‡ç”¨æœåŠ¡å™¨æ¶æ„
+Â·é‡‡ç”¨pygame.math.Vector2ä»£æ›¿è‡ªå·±æ„å»ºçš„Vector()
+Â·é‡æ–°è®¾è®¡base sprite
+Â·é‡‡ç”¨çŸ©é˜µè¿›è¡Œæœ‰è§„å¾‹çš„æ‰¹é‡è¿åŠ¨è®¡ç®—
+Â·å–æ¶ˆ19Mçš„å­—ä½“æ–‡ä»¶
+
+P.S.
+Â·pip install -i https://pypi.douban.com/simple/ python_docx
