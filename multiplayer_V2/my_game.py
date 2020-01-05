@@ -11,9 +11,6 @@ import logging
 from information import Information
 
 
-
-
-
 class Vector:
     def __init__(self, *args):
         if len(args) == 2:
@@ -146,18 +143,18 @@ class Base(pygame.sprite.Sprite):
         #     self.location.y = 0
         # elif self.location.y > MARS_MAP_SIZE[1]:
         #     self.location.y = MARS_MAP_SIZE[1]
-        if self.location.x < 10*MAP_RATIO:
+        if self.location.x < 10 * MAP_RATIO:
             self.velocity.x = - self.velocity.x
-            self.location.x = 10*MAP_RATIO
-        elif self.location.x > MARS_MAP_SIZE[0]-10*MAP_RATIO:
+            self.location.x = 10 * MAP_RATIO
+        elif self.location.x > MARS_MAP_SIZE[0] - 10 * MAP_RATIO:
             self.velocity.x = - self.velocity.x
-            self.location.x = MARS_MAP_SIZE[0]-10*MAP_RATIO
-        if self.location.y < 10*MAP_RATIO:
+            self.location.x = MARS_MAP_SIZE[0] - 10 * MAP_RATIO
+        if self.location.y < 10 * MAP_RATIO:
             self.velocity.y = - self.velocity.y
             self.location.y = 10 * MAP_RATIO
-        elif self.location.y > MARS_MAP_SIZE[1]-10*MAP_RATIO:
+        elif self.location.y > MARS_MAP_SIZE[1] - 10 * MAP_RATIO:
             self.velocity.y = - self.velocity.y
-            self.location.y = MARS_MAP_SIZE[1]-10*MAP_RATIO
+            self.location.y = MARS_MAP_SIZE[1] - 10 * MAP_RATIO
         self.rect.center = Map.mars_translate((self.location.x, self.location.y))
         # logging.info('acc: %s' % str(self.acc))
         self.acc = Vector(0, 0)
@@ -182,7 +179,8 @@ class Base(pygame.sprite.Sprite):
             # print [self.self_destruction//2*40, 0, 39, 39],self.self_destruction,self.image.get_rect()
             self.origin_image = self.image = self.image_original.subsurface(
                 [self.self_destruction //
-                 1 * self.image_original.get_height(), 0, self.image_original.get_height()-1, self.image_original.get_height()-1])
+                 1 * self.image_original.get_height(), 0, self.image_original.get_height() - 1,
+                 self.image_original.get_height() - 1])
 
             self.image.set_colorkey(WHITE)
             self.rotate()
@@ -261,24 +259,26 @@ class Tail(Base):
     #     if self.live_time <= 0:
     #         super(Tail,self).draw()
 
+
 class HealthBar(Base):
     def __init__(self, location):
         self._max_length = 200
         self.health_surface = pygame.Surface((self._max_length, 5))  # 最多是默认血条的5*40被长度
         self.health_surface.fill(LIGHT_GREEN)
         self.health_surface.convert()
-        _image = self.health_surface.subsurface((0,0,40,5))  # 默认是200的血量，对应40格血条长度
-        super(HealthBar,self).__init__(location=location, image=_image)
+        _image = self.health_surface.subsurface((0, 0, 40, 5))  # 默认是200的血量，对应40格血条长度
+        super(HealthBar, self).__init__(location=location, image=_image)
         self.update(rect_topleft=Map.mars_translate(location), num=200)
 
-    def update(self, rect_topleft ,num):
+    def update(self, rect_topleft, num):
         if num <= 0:
             _num = 0
         elif num > self._max_length:
             _num = 200
-        self.image = self.health_surface.subsurface((0,0,num/5,5))  # 默认是5的血量，对应1格血条长度
+        self.image = self.health_surface.subsurface((0, 0, num / 5, 5))  # 默认是5的血量，对应1格血条长度
         self.rect.topleft = rect_topleft
         self.rect.move_ip(0, 50)  # 血条向下移50个像素点
+
 
 class Plane(Base):
 
@@ -393,7 +393,8 @@ class Weapon(Base):
             image_path = WEAPON_CATALOG['Gun']['image'][randint(0, len(WEAPON_CATALOG['Gun']['image']) - 1)]
             self.image_original = pygame.image.load(image_path).convert()
             self.image_original.set_colorkey(WHITE)
-            self.image = self.image_original.subsurface((0, 0, self.image_original.get_height()-1, self.image_original.get_height()-1))
+            self.image = self.image_original.subsurface(
+                (0, 0, self.image_original.get_height() - 1, self.image_original.get_height() - 1))
             super(Weapon, self).__init__(location=location, image=self.image)
             self.sound_fire = pygame.mixer.Sound("./sound/minigun_fire.wav")
             self.sound_fire.play(maxtime=200)
@@ -404,7 +405,8 @@ class Weapon(Base):
             image_path = WEAPON_CATALOG[catalog]['image']
             self.image_original = pygame.image.load(image_path).convert()
             self.image_original.set_colorkey(WHITE)
-            self.image = self.image_original.subsurface((0, 0, self.image_original.get_height() - 1, self.image_original.get_height() - 1))
+            self.image = self.image_original.subsurface(
+                (0, 0, self.image_original.get_height() - 1, self.image_original.get_height() - 1))
             # self.image = self.image_original.subsurface((0, 0, self.image_original.get_width() - 1, self.image_original.get_height() - 1))
             super(Weapon, self).__init__(location=location, image=self.image)
             self.sound_fire = pygame.mixer.Sound("./sound/TPhFi201.wav")
@@ -463,7 +465,7 @@ class Weapon(Base):
             self.acc += self.velocity.normalize_vector() * self.acc_speed  # 加上垂直速度
 
         if self.fuel <= 0 or self.health <= 0:
-            if self.catalog in ['Rocket','Cobra']:
+            if self.catalog in ['Rocket', 'Cobra']:
                 self.delete(hit=True)
             else:
                 self.delete()
@@ -474,6 +476,7 @@ class Weapon(Base):
 
 class SlotWidget():
     """show local plane weapon slots' number"""
+
     def __init__(self, screen):
         """
         self.line_list = [{'key_obj':key_obj, 'value_obj':value_obj, 'num':num, 'sprite_group':sprite_group, 'sprite_list':[]}, {},..]
@@ -482,38 +485,39 @@ class SlotWidget():
         self.screen_surface = screen
         self.weapon_name_list = ['Gun', 'Rocket', 'Cobra']
         self.slot_name_list = ['Gunfire_num', 'Rocket_num', 'Cobra_num']
-        self.line_index = {k:v for v,k in enumerate(self.weapon_name_list)}  # {'Gun':1, ..}
+        self.line_index = {k: v for v, k in enumerate(self.weapon_name_list)}  # {'Gun':1, ..}
         self.line_list = []
         self.slot_group = pygame.sprite.Group()
         self.make_body()
 
     def make_body(self):
         # zip 等价于 [('Gunfire_num', 'Gun'), ('Rocket_num', 'Rocket'), ('Cobra_num', 'Cobra')]
-        slot_dict = {k:v for k,v in zip(self.slot_name_list, self.weapon_name_list)}
+        slot_dict = {k: v for k, v in zip(self.slot_name_list, self.weapon_name_list)}
 
         for catalog in self.slot_name_list:
             image_path = BOX_CATALOG[catalog]['image']
             image = pygame.image.load(image_path).convert()
             image.set_colorkey(WHITE)
             # image = image.subsurface((0, 0, image.get_height() - 1, image.get_height() - 1))
-            slot_obj = Base(location=(5,5), image=image)
+            slot_obj = Base(location=(5, 5), image=image)
 
             image_path = WEAPON_CATALOG[slot_dict[catalog]]['image_slot']
             # print WEAPON_CATALOG[slot_dict[catalog]]['image'], image_path, slot_dict[catalog]
             image = pygame.image.load(image_path).convert()
             image.set_colorkey(WHITE)
-            weapon_obj = Base(location=(5,15), image=image)
+            weapon_obj = Base(location=(5, 15), image=image)
 
             self.add_line(weapon_name=slot_dict[catalog], key_obj=slot_obj, value_obj=weapon_obj, num=0)
 
     def add_line(self, weapon_name, key_obj, value_obj, num):
         # deal key_obj: add into self.slot_group
-        key_obj.rect.topleft = (7, 7+20*len(self.slot_group.sprites()))
+        key_obj.rect.topleft = (7, 7 + 20 * len(self.slot_group.sprites()))
         self.slot_group.add(key_obj)
 
         # deal value_obj
         sprite_group = pygame.sprite.Group()
-        line_dict = {'key_obj':key_obj, 'value_obj':value_obj, 'num':0, 'sprite_group':sprite_group, 'sprite_list':[]}
+        line_dict = {'key_obj': key_obj, 'value_obj': value_obj, 'num': 0, 'sprite_group': sprite_group,
+                     'sprite_list': []}
         self.line_list.append(line_dict)
 
         self.update_line(weapon_name=weapon_name, weapon_num=num)
@@ -530,7 +534,8 @@ class SlotWidget():
             weapon_obj = Base(location=(5, 5), image=image)
             # weapon_obj = copy.copy(line_dict['value_obj'])  # 采用copy.copy, 不知道会不会有其他风险, 果然有问题，删除
             weapon_obj.rect.center = slot_obj.rect.center
-            weapon_obj.rect.left = slot_obj.rect.left + slot_obj.rect.width + gap + line_dict['num']*weapon_obj.rect.width
+            weapon_obj.rect.left = slot_obj.rect.left + slot_obj.rect.width + gap + line_dict[
+                'num'] * weapon_obj.rect.width
             line_dict['num'] += 1
             line_dict['sprite_group'].add(weapon_obj)
             line_dict['sprite_list'].append(weapon_obj)
@@ -643,7 +648,7 @@ class Game(object):
         display_info = pygame.display.Info()
         ret = pygame.display.set_mode(flags=pygame.FULLSCREEN | pygame.HWSURFACE | pygame.DOUBLEBUF)
         # ret = pygame.display.set_mode(size=(1366,768), flags=pygame.FULLSCREEN|pygame.HWSURFACE|pygame.DOUBLEBUF)
-        logging.info('DISPLAY:%s'%str(ret))
+        logging.info('DISPLAY:%s' % str(ret))
         # pygame.display.set_mode(flags=pygame.FULLSCREEN, depth=0)
         # screen_size_fittable = (display_info.current_w * 19 / 20, display_info.current_h * 17 / 20)
         # if screen_size_fittable[0] * screen_size_fittable[1] > 0:
@@ -676,7 +681,7 @@ class Game(object):
     def msg_send(self):
         while not self.done:
             if not self.q_send.empty():
-                msg_dumped,dest = self.q_send.get()
+                msg_dumped, dest = self.q_send.get()
                 self.sock.sendto(msg_dumped, dest)
                 logging.info('SEND [%s]:%s' % (str(dest), msg_dumped))
 
@@ -832,17 +837,21 @@ class Game(object):
                 continue
             if weapon.catalog != 'Gun':
                 # print weapon
-                weapon_collide_lst = pygame.sprite.spritecollide(weapon, self.weapon_group, False, pygame.sprite.collide_rect_ratio(0.8))  # False代表不直接kill该对象
+                weapon_collide_lst = pygame.sprite.spritecollide(weapon, self.weapon_group, False,
+                                                                 pygame.sprite.collide_rect_ratio(
+                                                                     0.8))  # False代表不直接kill该对象
                 weapon.hitted(weapon_collide_lst)  # 发生碰撞相互减血
                 # for hitted_weapon in weapon_collide_lst:
                 #     hitted_weapon.hitted([weapon])  # 本身受到攻击的对象
             # 检测武器与飞机之间的碰撞        
-            plane_collide_lst = pygame.sprite.spritecollide(weapon, self.plane_group, False, pygame.sprite.collide_rect_ratio(0.8))
+            plane_collide_lst = pygame.sprite.spritecollide(weapon, self.plane_group, False,
+                                                            pygame.sprite.collide_rect_ratio(0.8))
             weapon.hitted(plane_collide_lst)  # 发生碰撞相互减血
 
     def deal_collide_with_box(self):
         for plane in self.plane_group:  # 进行飞机与Box之间碰撞探测
-            box_collide_lst = pygame.sprite.spritecollide(plane, self.box_group, False, pygame.sprite.collide_rect_ratio(0.8))
+            box_collide_lst = pygame.sprite.spritecollide(plane, self.box_group, False,
+                                                          pygame.sprite.collide_rect_ratio(0.8))
             for box in box_collide_lst:
                 box.effect(plane)
                 box.delete()
@@ -912,8 +921,8 @@ class Game(object):
                     self.screen_focus_obj = self.local_player.plane
                     # self.screen_focus = Map.mars_translate(self.d[self.local_ip]['location'])
                     # self.screen_rect.center = Map.mars_translate(self.local_player.plane.location)
-            if keys[pygame.K_TAB] :
-                if self.syn_frame - self.last_tab_frame > self.fps/4:
+            if keys[pygame.K_TAB]:
+                if self.syn_frame - self.last_tab_frame > self.fps / 4:
                     self.last_tab_frame = self.syn_frame
                     self.hide_result = not self.hide_result  # 需要设置KEYUP和KEYDONW，to be continue...!!!!
 
@@ -946,7 +955,7 @@ class Game(object):
         if self.syn_frame % (10 * FPS) == 0:  # 每n=10秒同步一次自己状态给对方
             location = [randint(0, MARS_MAP_SIZE[0]), randint(0, MARS_MAP_SIZE[1])]
             # Medic and so on. -->  10%, 30%, 30%, #0%
-            rand_x = randint(0,100)
+            rand_x = randint(0, 100)
             if rand_x <= 10:
                 rand_catalog = 'Medic'
             elif rand_x <= 40:
@@ -960,7 +969,7 @@ class Game(object):
                 self.sock_send(status_msg, (player.ip, self.port))
 
     def plane_lost_msg_send(self, player_ip):
-        status_msg = ('plane_lost', {'ip':player_ip})
+        status_msg = ('plane_lost', {'ip': player_ip})
         for player in self.player_list:
             self.sock_send(status_msg, (player.ip, self.port))
 
@@ -1084,7 +1093,6 @@ class Game(object):
         #     pygame.time.wait(1000/FPS)
         #     self.delay_frame -= 1
 
-
     def get_deal_msg(self):
         while not self.done:  # 游戏结束判定
             # 空就不进行读取处理
@@ -1105,8 +1113,8 @@ class Game(object):
                         #     pygame.time.wait(1)
                         if data_tmp[1]:  # 消息-->操作
                             weapon_obj = player.operation(data_tmp[1],
-                                             self.syn_frame)  # data is list of pygame.key.get_pressed() of json.dumps
-                            if player.ip==self.local_ip and weapon_obj:  # 如果导弹对象不为空，就将屏幕聚焦对象指向它
+                                                          self.syn_frame)  # data is list of pygame.key.get_pressed() of json.dumps
+                            if player.ip == self.local_ip and weapon_obj:  # 如果导弹对象不为空，就将屏幕聚焦对象指向它
                                 self.screen_focus_obj = weapon_obj
                         logging.info("Get %d----> %s, %s" % (data_tmp[0], str(address), str(data_tmp)))
                         break  # 一个数据只有可能对应一个玩家的操作，有一个玩家取完消息就可以了
@@ -1117,7 +1125,7 @@ class Game(object):
                 for player in self.player_list:  # 因为没用{IP:玩家}，所以遍历玩家，看这个收到的数据是谁的
                     if player.ip == address[0] and player.alive:
                         player.plane.location = Vector(data_tmp[1]['location'])
-                        #+ Vector(data_tmp[1]['velocity'])* SPEED_RATIO / FPS  # 1帧的时间, 反而有跳跃感
+                        # + Vector(data_tmp[1]['velocity'])* SPEED_RATIO / FPS  # 1帧的时间, 反而有跳跃感
                         player.plane.velocity = Vector(data_tmp[1]['velocity'])
                         player.plane.health = data_tmp[1]['health']  # !!!!!!!!会出现掉血了，然后回退回去的情况
                         logging.info("Get player status, local_frame:%d----> %s, %s" % (
@@ -1206,7 +1214,7 @@ class Game(object):
         for ip in player_dict.keys():
             d[ip] = player_dict[ip]
             d[ip]['ip'] = ip
-            d[ip]['location'] = [MARS_MAP_SIZE[n]*i for n,i in enumerate(player_dict[ip]['location'])]
+            d[ip]['location'] = [MARS_MAP_SIZE[n] * i for n, i in enumerate(player_dict[ip]['location'])]
         return d
 
     def deal_screen_focus(self, screen_rect):
@@ -1224,7 +1232,7 @@ class Game(object):
             self.other_ip = localip
 
         self.game_init(self.local_ip)
-        with open('player_dict.dat','r') as f1:
+        with open('player_dict.dat', 'r') as f1:
             player_dict_origin = json.load(f1)
             self.d = self.deal_player_dict(player_dict_origin)
             logging.info('load "player_dict.dat":success')
@@ -1280,24 +1288,24 @@ class Game(object):
         while True:  # 等收到所有玩家的'200 ok'
             while not self.q.empty():
                 data, address = self.q.get()
-                if json.loads(data)=='200 OK':
+                if json.loads(data) == '200 OK':
                     self.sock_send('200 OK', address)  # 收到补发一个200 OK，因为对方都是先打开监听，然后开始发送
-                    logging.info('Start Msg Get:%s:%s' % (address,data))
+                    logging.info('Start Msg Get:%s:%s' % (address, data))
                     msg_get_ip_list[address[0]] = True
                     if len(msg_get_ip_list.keys()) >= len(self.player_list):
                         break
 
-            if len(msg_get_ip_list.keys())>=len(self.player_list):
+            if len(msg_get_ip_list.keys()) >= len(self.player_list):
                 logging.info('game:begin')
                 break
 
-            if pygame.time.get_ticks() - now_count > 1000: # 每一秒朝没有收到消息的主机发送一个200 OK
+            if pygame.time.get_ticks() - now_count > 1000:  # 每一秒朝没有收到消息的主机发送一个200 OK
                 now_count = pygame.time.get_ticks()
                 for ip in self.d.keys():
                     if ip not in msg_get_ip_list.keys():
                         self.sock_send('200 OK', (ip, self.port))
 
-            if pygame.time.get_ticks()-start_count > waiting_times:
+            if pygame.time.get_ticks() - start_count > waiting_times:
                 logging.error('Sock Waiting Timeout: %s' % '"200 OK"')
                 self.done = True  # 通过self.done关闭线程，防止Errno 9：bad file descriptor(错误的文件名描述符)
                 return False
@@ -1372,7 +1380,7 @@ def test_calc_frame_cost():
             cost_bool = True
             wait_bool = True
             continue
-        if  cost_bool and 'CostTime:' in i:
+        if cost_bool and 'CostTime:' in i:
             l.append(i)
             cost_bool = False
         if wait_bool and 'WaitingTime:' in i:
@@ -1380,7 +1388,7 @@ def test_calc_frame_cost():
             wait_bool = False
 
     l1 = [i.split(':')[-1] for i in l]  # list of CostTime
-    l2 = [i.split(':')[-1] for i in l_w] # list of WaitingTime
+    l2 = [i.split(':')[-1] for i in l_w]  # list of WaitingTime
 
     # show diagram. vertiacal
     for i in range(min(len(l1), len(l2))):
@@ -1392,8 +1400,8 @@ def test_calc_frame_cost():
     sum = 0
     for i in l1:
         sum += int(i)
-    if len(l1)>0:
-        logging.info('average CostTime:%s ms'%str(sum / len(l1)))
+    if len(l1) > 0:
+        logging.info('average CostTime:%s ms' % str(sum / len(l1)))
         # print('average Cost-Time:%s ms'%str(sum / len(l1)))
 
     # average waiting

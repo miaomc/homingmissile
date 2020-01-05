@@ -10,7 +10,7 @@ PORT = 8988
 TCP_PORT = 8987
 
 
-class Sock():
+class Sock:
     """
     当前主机探测直接采用udp群发消息，没有采用多线程tcp探测主机端口和arp缩小主机范围
     目前已经打开 8987 TCP 主机探测端口； 8988 UDP 游戏初始化端口
@@ -50,7 +50,6 @@ class Sock():
         self.done = True
         self.sock.close()
 
-
     def tcp_server(self):
         """任何程序都开启这个TCP监听"""
         self.sock_tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -70,7 +69,7 @@ class Sock():
         while not self.done:
             if not self.q_send.empty():
                 msg, ip = self.q_send.get()
-                tmp = json.dumps(msg,)
+                tmp = json.dumps(msg, )
                 self.sock.sendto(tmp.encode('utf-8'), (ip, self.port))
                 logging.info('SEND [%s]:%s' % (ip + ':' + str(self.port), json.dumps(msg)))
 

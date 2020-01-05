@@ -8,3 +8,5 @@
 
 P.S.
 ·pip install -i https://pypi.douban.com/simple/ python_docx
+·b = np.array([4,1])
+·np.row_stack((b,[2,3]))
