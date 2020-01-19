@@ -28,9 +28,7 @@ class Map(object):
         sprite_group = pygame.sprite.Group()
         for i in range(cloud_num):  # make 100 clouds randomly
             location = [randint(0, MARS_MAP_SIZE[0]), randint(0, MARS_MAP_SIZE[1])]
-            cloud_image_path = CLOUD_IMAGE_LIST[randint(0, len(CLOUD_IMAGE_LIST)) - 1]  # print location , cloud_image
-            cloud_image = pygame.image.load(cloud_image_path).convert_alpha()
-            cloud = Base(location=location, image=cloud_image)
+            cloud = Base(location=location)
             sprite_group.add(cloud)
         sprite_group.draw(self.surface)
 

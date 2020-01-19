@@ -52,11 +52,11 @@ ok爆炸效果（目前只制作了F35和J20飞机的效果）
 """
 
 import logging
-import my_content
+import menu
 # import my_game
 
 if __name__ == "__main__":
-    widget = my_content.Widget()
+    widget = menu.Widget()
     if widget.main_loop():
         logging.info('-------------------plane_player.main() start-------------------')
         # my_game.main()
