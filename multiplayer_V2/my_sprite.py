@@ -13,12 +13,13 @@ class Base(pygame.sprite.Sprite):
     location: pygame.Vector2
     matrix
     """
+
     def __init__(self, location, image_surface):
         super(Base, self).__init__()
         self.location = location
         self.image = image_surface
-
-        self.rect.center = round(location/config.GAME_RECT_RATIO)
+        self.rect = self.image.get_rect()
+        self.rect.center = (round(location.x/config.GAME_RECT_RATIO),round(location.y/config.GAME_RECT_RATIO))
 
         self.index = matrix.add(self.location)
 
@@ -87,7 +88,7 @@ class Box(Base):
 
 
 class Weapon(Base):
-    Weapon.WEAPON_CATALOG = {
+    WEAPON_CATALOG = {
         'Bullet': {
             'health': 10,
             'init_speed': 5000,
@@ -144,7 +145,8 @@ class Weapon(Base):
         if catalog == 'Bullet':
             self.sound_fire = pygame.mixer.Sound("./sound/minigun_fire.wav")
             self.sound_fire.play(maxtime=200)
-            self.sound_collide_plane = pygame.mixer.Sound(random.choice(Weapon.WEAPON_CATALOG['Bullet']['sound_collide_plane']))
+            self.sound_collide_plane = pygame.mixer.Sound(
+                random.choice(Weapon.WEAPON_CATALOG['Bullet']['sound_collide_plane']))
         else:  # ['Rocket','Cobra']
             self.sound_fire = pygame.mixer.Sound("./sound/TPhFi201.wav")
             self.sound_fire.play()
@@ -166,6 +168,9 @@ class Weapon(Base):
         self.velocity = velocity + velocity.rescale_to_length(self.init_speed)  # 初始速度为飞机速度+发射速度
 
         self.rotate()
+
+    def rotate(self):
+        pass
 
     def update(self, plane_group):
         if self.catalog == 'Cobra':
@@ -206,5 +211,58 @@ class Weapon(Base):
             self.fuel -= 1
 
 
+class Widget:
+    def __init__(self):
+        import os
+        os.environ['SDL_VIDEO_CENTERED'] = '1'
+        pygame.init()
+        pygame.mixer.init()  # 声音初始化
+        pygame.display.set_mode(config.SCREEN_SIZE)
+        # pygame.mouse.set_visible(False)
+
+        self.screen = pygame.display.get_surface()
+        self.origin_screen = self.screen.copy()
+        self.screen.fill(config.BACKGROUND_COLOR)
+        self.clock = pygame.time.Clock()
+
+        self.done = False
+
+        self.box_group = pygame.sprite.Group()
+
+    def draw(self, surface):
+        self.box_group.draw(surface)
+
+    def erase(self):
+        self.box_group.clear(self.screen, self.clear_callback)
+
+    def clear_callback(self, surf, rect):
+        surf.blit(source=self.origin_screen, dest=rect, area=rect)
+
+    def event_control(self):
+        for event in pygame.event.get():
+            self.keys = pygame.key.get_pressed()
+            if event.type == pygame.QUIT or self.keys[pygame.K_ESCAPE]:
+                self.exit_func()
+
+    def exit_func(self):
+        self.done = True
+
+
+    def main(self):
+
+        while not self.done:
+            pygame.display.flip()
+            self.clock.tick(config.FPS)
+
+            xy = pygame.Vector2(random.randint(0, 3200), random.randint(0, 2400))
+            # print(Box.BOX_CATALOG)
+            # print(xy,random.choice(.keys()))
+            self.box_group.add(Box(xy, random.choice(list(Box.BOX_CATALOG.keys()))))
+            self.draw(self.screen)
+            self.event_control()
+        pygame.quit()
+
+
 if __name__ == "__main__":
-    pass
+    window = Widget()
+    window.main()
