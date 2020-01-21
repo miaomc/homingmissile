@@ -218,7 +218,9 @@ class Weapon(Base):
             else:
                 self.delete()
         else:
-            super(Weapon, self).update()  # 正常更新
+            # super(Weapon, self).update()  # 正常更新
+            self.velocity += self.acc
+            matrix.change_add(self.index, self.velocity)
             self.fuel -= 1
 
 
@@ -394,7 +396,12 @@ class Widget:
         self.weapon_group.draw(surface)
         self.plane_group.draw(surface)
 
+    def update(self):
 
+        # self.box_group.update()
+        self.weapon_group.update()
+        # self.plane_group.update()
+        matrix.update()
 
     def erase(self):
         self.box_group.clear(self.screen, self.clear_callback)
@@ -418,7 +425,7 @@ class Widget:
         while not self.done:
             pygame.display.flip()
             self.clock.tick(config.FPS)
-
+            self.update()
 
             self.draw(self.screen)
             self.event_control()
