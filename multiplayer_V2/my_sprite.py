@@ -7,6 +7,7 @@ import math
 import config
 import matrix
 
+import time
 
 class Base(pygame.sprite.Sprite):
     """
@@ -17,12 +18,22 @@ class Base(pygame.sprite.Sprite):
 
     def __init__(self, location, image_surface):
         super(Base, self).__init__()
-        self.location = location
         self.image = image_surface
         self.rect = self.image.get_rect()
-        self.rect.center = (round(location.x / config.MAP_SCREEN_RATIO), round(location.y / config.MAP_SCREEN_RATIO))
 
-        self.index = matrix.add(self.location)
+        self.location = location
+        self.index = self.write_new(location)
+        self.rect.center = self.write_out()
+
+    def write_new(self, location):
+        return matrix.add(location)
+
+    def write_in(self, velocity):
+        matrix.change_add(self.index, velocity)
+
+    def write_out(self):
+        self.location = matrix.pos_array[self.index]
+        return self.location.astype(matrix.INT32)
 
     def delete(self):
         matrix.delete(self.index)
@@ -36,8 +47,6 @@ class Cloud(Base):
         image_path = random.choice(Cloud.CLOUD_IMAGE_LIST)
         image = pygame.image.load(image_path).convert_alpha().convert()
         super(Cloud, self).__init__(location=location, image_surface=image)
-
-
 
 
 class Box(Base):
@@ -98,15 +107,15 @@ class Weapon(Base):
     WEAPON_CATALOG = {
         'Bullet': {
             'health': 10,
-            'init_speed': 5000,
-            'max_speed': 2500,
+            'init_speed': 2,
+            'max_speed': 5,
             'thrust_acc': 0,
             'turn_acc': 0,
             'damage': 2,
             'image': ['./image/bullet.png'],
             'image_slot': './image/bullet.png',
             'image_explosion': './image/gunfire_explosion.png',
-            'fuel': 80,  # 8
+            'fuel': 2000,  # 8
             'sound_collide_plane': ['./sound/bulletLtoR08.wav', './sound/bulletLtoR09.wav', './sound/bulletLtoR10.wav',
                                     './sound/bulletLtoR11.wav', './sound/bulletLtoR13.wav', './sound/bulletLtoR14.wav']
         },
@@ -160,6 +169,8 @@ class Weapon(Base):
             self.sound_fire.play()
             self.sound_kill = pygame.mixer.Sound("./sound/ric5.wav")
             self.sound_collide_plane = pygame.mixer.Sound("./sound/shotgun_fire_1.wav")
+
+            self.acc = pygame.math.Vector2((0,0))
         if catalog == 'Cobra':
             self.detect_range = Weapon.WEAPON_CATALOG[catalog]['detect_range']
             self.target = None
@@ -173,7 +184,9 @@ class Weapon(Base):
         self.fuel = Weapon.WEAPON_CATALOG[catalog]['fuel']
 
         self.velocity = velocity + velocity.normalize()*self.init_speed  # 初始速度为飞机速度+发射速度
-        self.acc = self.velocity.normalize()*self.thrust_acc  # 加速度调整为速度方向
+        self.write_in(self.velocity)
+
+        # self.acc = self.velocity.normalize()*self.thrust_acc  # 加速度调整为速度方向
 
         self.rotate()
 
@@ -183,7 +196,7 @@ class Weapon(Base):
         self.image = pygame.transform.rotate(self.unrotate_image, angle)
 
 
-    def update(self, plane_group):
+    def update(self, target_group=None):
         if self.catalog == 'Cobra':
             """
             飞机、枪弹是一回事，加速度在不去动的情况下，为0；
@@ -203,25 +216,28 @@ class Weapon(Base):
                 # print 'target on:',self.target
             else:
                 self.target = None
-                for plane in plane_group:
+                for plane in target_group:
                     if abs(self.velocity.angle_to(plane.location - self.location)) < 60 and \
                             (self.location - plane.location).length() < self.detect_range:
                         self.target = plane
                         break
         # print self.min_speed, self.velocity.length(), self.max_speed
-        if self.min_speed < self.velocity.length() < self.max_speed:
+
+        if self.thrust_acc and self.velocity.length() < self.max_speed:
             self.acc += self.velocity.normalize()*self.thrust_acc  # 加上垂直速度
+            self.velocity += self.acc  # 在1000个object的时候需要2ms
+            self.write_in(self.velocity)  # [COST]在1000个object的时候需要30ms
+
 
         if self.fuel <= 0 or self.health <= 0:
             if self.catalog in ['Rocket', 'Cobra']:
                 self.delete(hit=True)
             else:
                 self.delete()
-        else:
+
             # super(Weapon, self).update()  # 正常更新
-            self.velocity += self.acc
-            matrix.change_add(self.index, self.velocity)
-            self.fuel -= 1
+
+        self.fuel -= 1
 
 
 class Plane(Base):
@@ -229,18 +245,18 @@ class Plane(Base):
     PLANE_CATALOG = {
         'J20': {
             'health': 200,
-            'max_speed': 3000,
-            'min_speed': 540,
-            'acc_speed': 60,
+            'max_speed': 15,
+            'min_speed': 2,
+            'acc_speed': 6,
             'turn_acc': 35,  # 20
             'image': './image/plane_red.png',
             'damage': 100,
         },
         'F35': {
             'health': 200,
-            'max_speed': 2400,  # 2400
-            'min_speed': 540,
-            'acc_speed': 50,
+            'max_speed': 2,  # 2400
+            'min_speed': 1,
+            'acc_speed': 5,
             'turn_acc': 25,
             'image': './image/plane_blue.png',
             'damage': 100,
@@ -358,6 +374,7 @@ class Widget:
         self.game_init()
 
     def screen_init(self):
+
         import os
         os.environ['SDL_VIDEO_CENTERED'] = '1'
         pygame.init()
@@ -367,27 +384,30 @@ class Widget:
 
         self.screen = pygame.display.get_surface()
         self.origin_screen = self.screen.copy()
-        self.screen.fill(config.BACKGROUND_COLOR)
+        self.screen.fill(config.BACKGROUND_COLOR)  # 暂时不提前----测试
         self.clock = pygame.time.Clock()
 
         self.done = False
 
     def game_init(self):
+
+
         self.box_group = pygame.sprite.Group()
         self.weapon_group = pygame.sprite.Group()
         self.plane_group = pygame.sprite.Group()
 
-        xy = pygame.Vector2(random.randint(0, config.MAP_SIZE[0]), random.randint(0, config.MAP_SIZE[1]))
-        p1 = Plane(location=xy, catalog='F35')
-        self.plane_group.add(p1)
-
-        xy = pygame.Vector2(random.randint(0, config.MAP_SIZE[0]), random.randint(0, config.MAP_SIZE[1]))
+        xy = pygame.Vector2(random.randint(config.MAP_SIZE[0]//3, config.MAP_SIZE[0]*2//3), random.randint(config.MAP_SIZE[1]//3, config.MAP_SIZE[1]*2//3))
         # print(Box.BOX_CATALOG)
         # print(xy,random.choice(.keys()))
         self.box_group.add(Box(xy, random.choice(list(Box.BOX_CATALOG.keys()))))
+        xy = pygame.Vector2(random.randint(config.MAP_SIZE[0]//3, config.MAP_SIZE[0]*2//3), random.randint(config.MAP_SIZE[1]//3, config.MAP_SIZE[1]*2//3))
+        p1 = Plane(location=xy, catalog='F35')
+        self.plane_group.add(p1)
+        # print((config.MAP_SIZE[0]/3, config.MAP_SIZE[0]*2/3))
         # print(dir(p1))
         # print(type(p1.velocity))
-        xy = p1.location+p1.velocity
+        self.test_xy =  xy = p1.location
+        self.test_v = p1.velocity
         w1 = Weapon(location=xy, catalog='Bullet', velocity=p1.velocity)
         self.weapon_group.add(w1)
 
@@ -397,16 +417,30 @@ class Widget:
         self.plane_group.draw(surface)
 
     def update(self):
+        self.t1 = time.time()
+        w1 = Weapon(location=self.test_xy, catalog='Bullet', velocity=self.test_v.rotate(random.randint(0,360)))
+        self.weapon_group.add(w1)
 
+        self.t2 = time.time()
         # self.box_group.update()
         self.weapon_group.update()
         # self.plane_group.update()
+
+        self.t3 = time.time()
         matrix.update()
+
+        self.t4 = time.time()
+        for _sprite in self.weapon_group:
+            _sprite.rect.center = _sprite.write_out()
+            # print(matrix.pos_array[0:3])
+        self.t5 = time.time()
 
     def erase(self):
         self.box_group.clear(self.screen, self.clear_callback)
-        self.weapon_group.clear(self.map.surface, self.clear_callback)
-        self.plane_group.clear(self.map.surface, self.clear_callback)
+        self.weapon_group.clear(self.screen, self.clear_callback)
+        self.plane_group.clear(self.screen, self.clear_callback)
+        # self.weapon_group.clear(self.map.surface, self.clear_callback)
+        # self.plane_group.clear(self.map.surface, self.clear_callback)
 
     def clear_callback(self, surf, rect):
         surf.blit(source=self.origin_screen, dest=rect, area=rect)
@@ -421,14 +455,21 @@ class Widget:
         self.done = True
 
     def main(self):
-
+        # 绘制文字
+        cur_font = pygame.font.SysFont("arial",15)
+        i = 0
         while not self.done:
-            pygame.display.flip()
-            self.clock.tick(config.FPS)
-            self.update()
-
+            i += 1
             self.draw(self.screen)
             self.event_control()
+            self.clock.tick(config.FPS)
+            self.screen.blit(cur_font.render(str(i)+'-'+str(self.clock.get_fps()), 1, config.BLACK, config.WHITE), (10,10))
+            self.update()
+            self.screen.blit(cur_font.render(str(i) + '-' + str(self.t3 - self.t2),
+                                             1, config.BLACK, config.WHITE), (40, 40))
+            pygame.display.flip()
+            self.erase()
+
         pygame.quit()
 
 

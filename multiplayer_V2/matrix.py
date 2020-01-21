@@ -2,6 +2,7 @@
 
 import numpy as np
 
+INT32 = np.int32
 GROUP_NUM = 500  # 一组增加的数量
 pos_array = np.zeros((GROUP_NUM, 2))
 add_array = np.zeros((GROUP_NUM, 2))
