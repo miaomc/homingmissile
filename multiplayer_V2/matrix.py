@@ -38,8 +38,8 @@ def delete(index):
 
 def change_add(index, xy):
     global add_array
-    add_array[index] += xy  # 采用累加的方式
-
+    # add_array[index] += xy  # 采用累加的方式
+    add_array[index] = xy
 
 def pick(index):
     global  pos_array
