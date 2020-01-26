@@ -9,6 +9,7 @@ import matrix
 
 import time
 
+
 class Base(pygame.sprite.Sprite):
     """
     pygame.sprite.Sprite __build-in__ may be used: alive(), kill()
@@ -18,7 +19,7 @@ class Base(pygame.sprite.Sprite):
 
     def __init__(self, location, image_surface):
         super(Base, self).__init__()
-        self.image = image_surface
+        self.image = image_surface.convert()
         self.rect = self.image.get_rect()
 
         self.location = location
@@ -181,11 +182,11 @@ class Weapon(Base):
         self.thrust_acc = Weapon.WEAPON_CATALOG[catalog]['thrust_acc']
         self.fuel = Weapon.WEAPON_CATALOG[catalog]['fuel']
 
-        self.velocity = velocity + velocity.normalize()*self.init_speed  # 初始速度为飞机速度+发射速度
+        self.velocity = velocity + velocity.normalize() * self.init_speed  # 初始速度为飞机速度+发射速度
         self.write_in(self.velocity)
 
         # self.acc = self.velocity.normalize()*self.thrust_acc  # 加速度调整为速度方向
-        self.acc =pygame.math.Vector2((0,0))
+        self.acc = pygame.math.Vector2((0, 0))
         self.rotate()
 
     def rotate(self):
@@ -197,7 +198,7 @@ class Weapon(Base):
         """degree:向前方扫描的半个张角 120/2 = 60"""
         _degree = abs(self.velocity.angle_to(target.location - self.location))
         _range = (self.location - target.location).length()
-        return _degree<self.detect_degree and _range<self.detect_range
+        return _degree < self.detect_degree and _range < self.detect_range
 
     def update(self, target_group=None):
         # 专门处理推进加速度
@@ -210,14 +211,14 @@ class Weapon(Base):
             """
             if self.target and self.detect_target(self.target):
                 # Vector2.angle_to 是顺时针,[0,180]and[-360,-180]就顺时针旋转90度
-                _degree = self.velocity.angle_to(self.target.location-self.location)
-                if 0<_degree<180 or -360<_degree<-180:
-                    self.acc = self.velocity.rotate(90).normalize()*self.turn_acc
+                _degree = self.velocity.angle_to(self.target.location - self.location)
+                if 0 < _degree < 180 or -360 < _degree < -180:
+                    self.acc = self.velocity.rotate(90).normalize() * self.turn_acc
                 else:
                     self.acc = self.velocity.rotate(-90).normalize() * self.turn_acc
             else:  # 探索新target
                 self.target = None
-                self.acc = pygame.math.Vector2(0,0)  # 如果
+                self.acc = pygame.math.Vector2(0, 0)  # 如果
                 for plane in target_group:
                     if self.detect_target(target=plane):
                         self.target = plane
@@ -225,7 +226,7 @@ class Weapon(Base):
                         #     print(id(self.target))
                         break
         # print self.min_speed, self.velocity.length(), self.max_speed
-        if self.acc != pygame.math.Vector2((0,0)):
+        if self.acc != pygame.math.Vector2((0, 0)):
             self.velocity += self.acc  # 在1000个object的时候需要2ms
             self.write_in(self.velocity)  # [COST]在1000个object的时候需要30ms
         # print(self.location, self.velocity, self.acc, self.velocity * self.acc)
@@ -244,7 +245,7 @@ class Weapon(Base):
     def delete(self, hit=False):
         if hit:
             self.sound_kill.play()
-        super(Weapon,self).delete()
+        super(Weapon, self).delete()
 
 
 class Plane(Base):
@@ -269,6 +270,7 @@ class Plane(Base):
             'damage': 100,
         },
     }
+
     def __init__(self, location, catalog='J20'):
         image_path = random.choice(Plane.PLANE_CATALOG[catalog]['image'])
         self.origin_image = pygame.image.load(image_path).convert()
@@ -281,7 +283,7 @@ class Plane(Base):
 
         self.destruct_image_index = self.origin_image.get_width() / self.origin_image.get_height()
         self.catalog = catalog
-        
+
         self.sound_kill = pygame.mixer.Sound("./sound/explode3.wav")
 
         self.max_speed = Plane.PLANE_CATALOG[catalog]['max_speed']
@@ -292,19 +294,22 @@ class Plane(Base):
         self.health = Plane.PLANE_CATALOG[catalog]['health']
 
         self.speed = self.min_speed  # 初速度为一半
-        self.velocity = pygame.math.Vector2(random.random(), random.random()).normalize()*self.speed  # Vector
+        self.velocity = pygame.math.Vector2(random.random(), random.random()).normalize() * self.speed  # Vector
         self.acc = pygame.math.Vector2(0, 0)
 
         self.weapon = {1: {}, 2: {}, 3: {}}  # 默认没有武器
 
         self.sound_kill = pygame.mixer.Sound("./sound/explode3.wav")
-        # self.health_bar = HealthBar(location=self.location)
+        # self.healthbar = HealthBar(location=self.location)
+
+    def add_healthbar(self, healthbar):
+        self.healthbar = healthbar
 
     def turn_left(self):
-        self.acc += self.velocity.rotate(-90).normalize()*self.turn_acc
+        self.acc += self.velocity.rotate(-90).normalize() * self.turn_acc
 
     def turn_right(self):
-        self.acc += self.velocity.rotate(90).normalize()*self.turn_acc
+        self.acc += self.velocity.rotate(90).normalize() * self.turn_acc
 
     def speedup(self):
         acc_tmp = self.acc + self.velocity.normalize() * self.thrust_acc
@@ -341,7 +346,7 @@ class Plane(Base):
             self.weapon[3]['number'] += number
 
     def weapon_fire(self, slot):
-        passwww
+        pass
         # print 'Plane:', self.plane.velocity
         # if self.plane.weapon[slot]:
         #     if self.plane.weapon[slot]['number'] > 0:
@@ -365,17 +370,19 @@ class Plane(Base):
 
     def update(self):
         self.velocity += self.acc
-        self.acc = pygame.math.Vector2(0,0)
+        self.acc = pygame.math.Vector2(0, 0)
         self.write_in(self.velocity)
         self.rotate()
+        self.healthbar.update(rect_topleft=self.rect.topleft, health=self.health)
+
         pass
         # if not self.alive:  # 如果挂了,就启动自爆动画
-        #     self.health_bar.delete()  # 删除血条
+        #     self.healthbar.delete()  # 删除血条
         #     super(Plane, self).update()
         #     return self.delete(hit=True)
         #
         # # super(Plane, self).update()
-        # self.health_bar.update(rect_topleft=self.rect.topleft, num=self.health)  # 更新血条
+        # self.healthbar.update(rect_topleft=self.rect.topleft, num=self.health)  # 更新血条
         # # self.health -= 50
         # if self.health <= 0:
         #     # if self.last_health_rect:  # 最后删除血条
@@ -387,6 +394,7 @@ class Plane(Base):
         pass
         # # """sprite.Group()是单独blit的"""
 
+
 class Bar(Base):
     def __init__(self, location, length=5, width=2, color=config.BLACK):
         self.color = color
@@ -397,11 +405,74 @@ class Bar(Base):
         image.convert()
         super(Bar, self).__init__(location=location, image=image)
 
-    # def update(self, rect_topleft, num):
-    #     self.image = self.health_surface.subsurface((0, 0, num / 5, 5))  # 默认是5的血量，对应1格血条长度
-    #     self.rect.topleft = rect_topleft
-    #     self.rect.move_ip(0, 50)  # 血条向下移50个像素点
 
+class HealthBar(pygame.sprite.Sprite):
+    COLOR_LIST = ((50, 200, 50), (50, 150, 150), (100, 100, 50), (200, 0, 50), (255, 0, 0), (0, 255, 0))
+    LEN_COLOR_LIST = len(COLOR_LIST)
+    FULL_HEALTH = 100
+    FULL_LENGTH = 25
+    MAX_LENGTH = FULL_LENGTH * 5
+    FULL_WIDTH = 5
+
+    def __init__(self, rect_topleft, health=100):
+        self.origin_image = pygame.Surface((HealthBar.MAX_LENGTH, HealthBar.FULL_WIDTH)).convert()
+        self.health = 0
+        super(HealthBar, self).__init__()
+        self.update(rect_topleft, health=health)
+
+    def update(self, rect_topleft, health):
+        if health != self.health:
+            self.health = health
+            # Set subsuface of healthbar
+            _length = int(self.health / HealthBar.FULL_HEALTH * HealthBar.FULL_LENGTH)
+            if _length > HealthBar.MAX_LENGTH:
+                _length = HealthBar.MAX_LENGTH
+            elif _length < 0:
+                _length = 0
+            self.image = self.origin_image.subsurface((0, 0, _length, HealthBar.FULL_WIDTH))
+            self.rect = self.image.get_rect()
+            # Set color of healthbar
+            _color_index = int(self.health / HealthBar.FULL_HEALTH * HealthBar.LEN_COLOR_LIST - 1)
+            if _color_index > HealthBar.LEN_COLOR_LIST - 1:
+                _color_index = HealthBar.LEN_COLOR_LIST - 1
+            elif _color_index < 0:
+                _color_index = 0
+            self.image.fill(HealthBar.COLOR_LIST[_color_index])
+        self.rect.topleft = rect_topleft
+
+
+class ThrustBar(pygame.sprite.Sprite):
+    def __init__(self, location, velocity):
+        self.rect_list = ((5, 2), (4, 2), (3, 2), (2, 2), (1, 2), (1, 1))
+        self.color_list = ((255, 51, 0), (255, 244, 237), (200, 213, 255), (181, 199, 255), (172, 192, 255), (167, 188, 255), (164, 186, 255))
+        self.location = [int(i) for i in location]
+        self.health = 0
+        self.max_health = 30
+        self.len_rect_list = len(self.rect_list)
+        self.len_color_list = len(self.color_list)
+        self.angle = velocity.angle_to(config.POLAR)
+        super(ThrustBar, self).__init__()
+        self.update()
+        # self.rect.center = [int(i) for i in self.location]
+
+    def update(self):
+        if self.health >= self.max_health:
+            self.delete()
+        else:
+            rect_index = int(self.health / self.max_health * self.len_rect_list)
+            color_index = int(self.health / self.max_health * self.len_color_list)
+            self.image = pygame.Surface( self.rect_list[rect_index]).convert()
+            self.image.fill(self.color_list[color_index])
+            self.rect = self.image.get_rect()
+            self.rect.center = self.location
+            self.rotate()
+            self.health += 1
+
+    def rotate(self):
+        self.image = pygame.transform.rotate(self.image, self.angle)
+
+    def delete(self):
+        self.kill()
 
 
 class Widget:
@@ -425,28 +496,34 @@ class Widget:
         self.clock = pygame.time.Clock()
 
         self.done = False
+        self.frame = 0
 
     def game_init(self):
-
 
         self.box_group = pygame.sprite.Group()
         self.weapon_group = pygame.sprite.Group()
         self.plane_group = pygame.sprite.Group()
+        self.healthbar_group = pygame.sprite.Group()
+        self.thrustbar_group = pygame.sprite.Group()
+        self.game_groups = [self.box_group, self.weapon_group, self.plane_group, self.healthbar_group,self.thrustbar_group]
 
-        xy = pygame.math.Vector2(random.randint(config.MAP_SIZE[0]//8, config.MAP_SIZE[0]*2//8),
-                                 random.randint(config.MAP_SIZE[1]//3, config.MAP_SIZE[1]*2//3))
+        xy = pygame.math.Vector2(random.randint(config.MAP_SIZE[0] // 8, config.MAP_SIZE[0] * 2 // 8),
+                                 random.randint(config.MAP_SIZE[1] // 3, config.MAP_SIZE[1] * 2 // 3))
         # print(Box.BOX_CATALOG)
         # print(xy,random.choice(.keys()))
         self.box_group.add(Box(xy, random.choice(list(Box.BOX_CATALOG.keys()))))
         for i in range(20):
-            xy = pygame.math.Vector2(random.randint(config.MAP_SIZE[0]//10, config.MAP_SIZE[1]),
-                                     random.randint(config.MAP_SIZE[1]//10, config.MAP_SIZE[1]))
+            xy = pygame.math.Vector2(random.randint(config.MAP_SIZE[0] // 10, config.MAP_SIZE[1]),
+                                     random.randint(config.MAP_SIZE[1] // 10, config.MAP_SIZE[1]))
             p1 = Plane(location=xy, catalog='F35')
             self.plane_group.add(p1)
+            h1 = HealthBar(rect_topleft=p1.rect.topleft, health=100)
+            p1.add_healthbar(h1)
+            self.healthbar_group.add(h1)
         # print((config.MAP_SIZE[0]/3, config.MAP_SIZE[1]*2/3))
         # print(dir(p1))
         # print(type(p1.velocity))
-        self.test_xy =  xy = p1.location
+        self.test_xy = xy = p1.location
         self.test_v = p1.velocity
         self.test_p = p1
         w1 = Weapon(location=xy, catalog='Bullet', velocity=p1.velocity)
@@ -454,23 +531,40 @@ class Widget:
         w1 = Weapon(location=xy, catalog='Rocket', velocity=p1.velocity)
         self.weapon_group.add(w1)
         for i in range(1):
-            w1 = Weapon(location=xy, catalog='Cobra', velocity=self.test_v.rotate(random.randint(0,360)))
+            w1 = Weapon(location=xy, catalog='Cobra', velocity=self.test_v.rotate(random.randint(0, 360)))
             self.weapon_group.add(w1)
 
+    def add_thrustbar(self, sprite_group):
+        for _sprite in sprite_group:
+            t1 = ThrustBar(location=_sprite.location, velocity=_sprite.velocity)
+            self.thrustbar_group.add(t1)
+
     def draw(self, surface):
-        self.box_group.draw(surface)
-        self.weapon_group.draw(surface)
-        self.plane_group.draw(surface)
+        for _group in self.game_groups:
+            _group.draw(surface)
 
     def update(self):
+        self.frame+=1
         # self.t1 = time.time()
         # w1 = Weapon(location=self.test_xy, catalog='Bullet', velocity=self.test_v.rotate(random.randint(0,360)))
         # self.weapon_group.add(w1)
 
         # self.t2 = time.time()
         # self.box_group.update()
-        self.weapon_group.update(self.plane_group)
-        self.plane_group.update()
+        # print(self.game_groups)
+        for _group in self.game_groups:
+            if id(_group) == id(self.weapon_group):
+                _group.update(self.plane_group)
+            elif id(_group) == id(self.healthbar_group):
+                continue
+            else:
+                # print(type(_group))
+                # for i in _group:
+                #     print(type(i))
+                _group.update()
+
+        if self.frame% 2 == 0:
+            self.add_thrustbar(self.plane_group)
 
         # self.t3 = time.time()
         matrix.update()  # 基本上不花时间
@@ -484,11 +578,8 @@ class Widget:
         # self.t5 = time.time()
 
     def erase(self):
-        self.box_group.clear(self.screen, self.clear_callback)
-        self.weapon_group.clear(self.screen, self.clear_callback)
-        self.plane_group.clear(self.screen, self.clear_callback)
-        # self.weapon_group.clear(self.map.surface, self.clear_callback)
-        # self.plane_group.clear(self.map.surface, self.clear_callback)
+        for _group in self.game_groups:
+            _group.clear(self.screen, self.clear_callback)
 
     def clear_callback(self, surf, rect):
         surf.blit(source=self.origin_screen, dest=rect, area=rect)
@@ -519,8 +610,8 @@ class Widget:
                     self.screen_focus_obj = self.local_player.plane
                     # self.screen_focus = Map.mars_translate(self.d[self.local_ip]['location'])
                     # self.screen_rect.center = Map.mars_translate(self.local_player.plane.location)
-            if keys[pygame.K_TAB] :
-                if self.syn_frame - self.last_tab_frame > self.fps/4:
+            if keys[pygame.K_TAB]:
+                if self.syn_frame - self.last_tab_frame > self.fps / 4:
                     self.last_tab_frame = self.syn_frame
                     self.hide_result = not self.hide_result  # 需要设置KEYUP和KEYDONW，to be continue...!!!!
 
@@ -555,7 +646,7 @@ class Widget:
 
     def main(self):
         # 绘制文字
-        cur_font = pygame.font.SysFont("arial",15)
+        cur_font = pygame.font.SysFont("arial", 15)
         i = 0
         while not self.done:
             i += 1
@@ -571,7 +662,8 @@ class Widget:
                 elif _key == 's':
                     self.test_p.speeddown()
             self.clock.tick(config.FPS)
-            self.screen.blit(cur_font.render(str(i)+'-'+str(self.clock.get_fps()), 1, config.BLACK, config.WHITE), (10,10))
+            self.screen.blit(cur_font.render(str(i) + '-' + str(self.clock.get_fps()), 1, config.BLACK, config.WHITE),
+                             (10, 10))
             self.update()
             # self.screen.blit(cur_font.render(str(i) + '-' + str(self.t5 - self.t4),1, config.BLACK, config.WHITE), (40, 40))
             pygame.display.flip()
