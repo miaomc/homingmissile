@@ -22,7 +22,7 @@ class Base(pygame.sprite.Sprite):
         self.image = image_surface.convert()
         self.rect = self.image.get_rect()
 
-        self.location = location
+        self.location = pygame.math.Vector2(location)
         self.index = self.write_new(location)
         self.rect.center = self.write_out()
 
@@ -41,6 +41,10 @@ class Base(pygame.sprite.Sprite):
         matrix.delete(self.index)
         self.kill()
 
+    def rotate(self):
+        angle = self.velocity.angle_to(config.POLAR)
+        self.image = pygame.transform.rotate(self.unrotate_image, angle)
+        self.rect = self.image.get_rect(center=self.rect.center)
 
 class Cloud(Base):
     CLOUD_IMAGE_LIST = ['./image/cloud1.png', './image/cloud2.png', './image/cloud3.png', './image/cloud4.png']
@@ -126,18 +130,18 @@ class Weapon(Base):
             'damage': 35,
             'image': ['./image/rocket.png'],
             'image_slot': './image/homingmissile2.png',
-            'fuel': 200,
+            'fuel': 2000,
         },
         'Cobra': {
             'health': 10,
             'init_speed': 0,
-            'max_speed': 1,  # 1360
+            'max_speed': 3,  # 1360
             'thrust_acc': 0.01,
-            'turn_acc': 0.01,
-            'damage': 25,
+            'turn_acc': 0.05,
+            'damage': 250,
             'image': ['./image/homingmissile.png'],
             'image_slot': './image/homingmissile1.png',
-            'fuel': 500,
+            'fuel': 5000,
             'detect_range': 1000,
             'detect_degree': 60
         },
@@ -189,10 +193,10 @@ class Weapon(Base):
         self.acc = pygame.math.Vector2((0, 0))
         self.rotate()
 
-    def rotate(self):
-        angle = self.velocity.angle_to(config.POLAR)
-        # angle = math.atan2(self.velocity.x, self.velocity.y) * 360 / 2 / math.pi - 180  # 这个角度是以当前方向结合默认朝上的原图进行翻转的
-        self.image = pygame.transform.rotate(self.unrotate_image, angle)
+    # def rotate(self):
+    #     angle = self.velocity.angle_to(config.POLAR)
+    #     # angle = math.atan2(self.velocity.x, self.velocity.y) * 360 / 2 / math.pi - 180  # 这个角度是以当前方向结合默认朝上的原图进行翻转的
+    #     self.image = pygame.transform.rotate(self.unrotate_image, angle)
 
     def detect_target(self, target):
         """degree:向前方扫描的半个张角 120/2 = 60"""
@@ -263,10 +267,10 @@ class Plane(Base):
         'F35': {
             'health': 200,
             'max_speed': 2,  # 2400
-            'min_speed': 1,
+            'min_speed': 0.1,
             'thrust_acc': 0.1,
             'turn_acc': 0.2,
-            'image': ['./image/plane_blue.png'],
+            'image': ['./image/plane_test.png'],
             'damage': 100,
         },
     }
@@ -364,9 +368,7 @@ class Plane(Base):
         #         self.weapon_group.add(weapon)
         #         return weapon
 
-    def rotate(self):
-        angle = self.velocity.angle_to(config.POLAR)
-        self.image = pygame.transform.rotate(self.unrotate_image, angle)
+
 
     def update(self):
         self.velocity += self.acc
@@ -374,7 +376,6 @@ class Plane(Base):
         self.write_in(self.velocity)
         self.rotate()
         self.healthbar.update(rect_topleft=self.rect.topleft, health=self.health)
-
         pass
         # if not self.alive:  # 如果挂了,就启动自爆动画
         #     self.healthbar.delete()  # 删除血条
@@ -442,29 +443,36 @@ class HealthBar(pygame.sprite.Sprite):
 
 
 class ThrustBar(pygame.sprite.Sprite):
-    def __init__(self, location, velocity):
-        self.rect_list = ((5, 2), (4, 2), (3, 2), (2, 2), (1, 2), (1, 1))
-        self.color_list = ((255, 51, 0), (255, 244, 237), (200, 213, 255), (181, 199, 255), (172, 192, 255), (167, 188, 255), (164, 186, 255))
-        self.location = [int(i) for i in location]
+    RECT_LIST = ((5, 2), (4, 2), (3, 2), (2, 2), (1, 2), (1, 1))
+    COLOR_LIST = (
+    (255, 51, 0), (255, 244, 237), (200, 213, 255), (181, 199, 255), (172, 192, 255), (167, 188, 255), (164, 186, 255))
+    MAX_HEALTH = 30
+    LEN_RECT_LIST = len(RECT_LIST)
+    LEN_COLOR_LIST = len(COLOR_LIST)
+    
+    def __init__(self, sprite_obj):
+        """sprite_obj has member: .origin_image.get_height(), .location, .velocity"""
         self.health = 0
-        self.max_health = 30
-        self.len_rect_list = len(self.rect_list)
-        self.len_color_list = len(self.color_list)
-        self.angle = velocity.angle_to(config.POLAR)
+        self.angle = sprite_obj.velocity.angle_to(config.POLAR)
+        _diff = rotate_around(sprite_obj.origin_image.get_height()/2, self.angle)
+        self.location = [int(sprite_obj.location[0]+_diff[0]), int(sprite_obj.location[1]+_diff[1])]
+        # self.location = [int(i) for i in location]
         super(ThrustBar, self).__init__()
         self.update()
         # self.rect.center = [int(i) for i in self.location]
 
     def update(self):
-        if self.health >= self.max_health:
+        if self.health >= ThrustBar.MAX_HEALTH:
             self.delete()
         else:
-            rect_index = int(self.health / self.max_health * self.len_rect_list)
-            color_index = int(self.health / self.max_health * self.len_color_list)
-            self.image = pygame.Surface( self.rect_list[rect_index]).convert()
-            self.image.fill(self.color_list[color_index])
+            rect_index = int(self.health / ThrustBar.MAX_HEALTH * ThrustBar.LEN_RECT_LIST)
+            color_index = int(self.health / ThrustBar.MAX_HEALTH * ThrustBar.LEN_COLOR_LIST)
+            self.image = pygame.Surface(ThrustBar.RECT_LIST[rect_index]).convert()
+            self.image.fill(ThrustBar.COLOR_LIST[color_index])
             self.rect = self.image.get_rect()
             self.rect.center = self.location
+            # self.rect.size = (40,40)
+            # print(self.rect)
             self.rotate()
             self.health += 1
 
@@ -474,6 +482,14 @@ class ThrustBar(pygame.sprite.Sprite):
     def delete(self):
         self.kill()
 
+
+def rotate_around(r,angle):
+    # print(angle-180)
+    x = + r*math.sin(math.radians(angle))
+    y = + r*math.cos(math.radians(angle))
+    # x = math.cos(math.radians(angle))*point[0] - math.sin(math.radians(angle))*point[1]
+    # y = math.sin(math.radians(angle))*point[0] + math.cos(math.radians(angle))*point[1]
+    return (x,y)
 
 class Widget:
     def __init__(self):
@@ -512,7 +528,7 @@ class Widget:
         # print(Box.BOX_CATALOG)
         # print(xy,random.choice(.keys()))
         self.box_group.add(Box(xy, random.choice(list(Box.BOX_CATALOG.keys()))))
-        for i in range(20):
+        for i in range(11):
             xy = pygame.math.Vector2(random.randint(config.MAP_SIZE[0] // 10, config.MAP_SIZE[1]),
                                      random.randint(config.MAP_SIZE[1] // 10, config.MAP_SIZE[1]))
             p1 = Plane(location=xy, catalog='F35')
@@ -536,7 +552,7 @@ class Widget:
 
     def add_thrustbar(self, sprite_group):
         for _sprite in sprite_group:
-            t1 = ThrustBar(location=_sprite.location, velocity=_sprite.velocity)
+            t1 = ThrustBar(_sprite)
             self.thrustbar_group.add(t1)
 
     def draw(self, surface):
@@ -563,8 +579,15 @@ class Widget:
                 #     print(type(i))
                 _group.update()
 
+
         if self.frame% 2 == 0:
             self.add_thrustbar(self.plane_group)
+            for _sprite in self.weapon_group:
+                if _sprite.catalog in ['Rocket', 'Cobra']:
+                    self.thrustbar_group.add(ThrustBar(_sprite))
+                    # print(_sprite.location)
+
+            # self.add_thrustbar(self.weapon_group)
 
         # self.t3 = time.time()
         matrix.update()  # 基本上不花时间
@@ -572,10 +595,15 @@ class Widget:
         # self.t4 = time.time()
         for _sprite in self.weapon_group:  # 读取1000个对象大约花5ms
             _sprite.rect.center = _sprite.write_out()
+            # print('M:',_sprite.location)
+
             # print(matrix.pos_array[0:3])
         for _sprite in self.plane_group:  # 读取1000个对象大约花5ms
             _sprite.rect.center = _sprite.write_out()
+            # print('P:',_sprite.location)
         # self.t5 = time.time()
+        # print()
+        pygame.draw.rect(self.screen, (255, 0, 0), self.test_p.rect, 1)
 
     def erase(self):
         for _group in self.game_groups:

@@ -6,7 +6,7 @@
 ·采用pygame.math.Vector2代替自己构建的Vector()  
 ·取消19M的字体文件   
   
-#P.S.  
+# P.S.  
 ·README.md在要换行的语句最后打上2个空格  
 ·pip install -i https://pypi.douban.com/simple/ python_docx  
 ·numpy:  
@@ -20,3 +20,4 @@
     a[:]  
     a.x  
 ·变量尽量用全称  
+  传参不要传对象，这样就传了一个引用过去
