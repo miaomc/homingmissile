@@ -6,7 +6,7 @@ import threading
 from queue import Queue
 import logging
 
-PORT = 8988
+UDP_PORT = 8988
 TCP_PORT = 8987
 
 
@@ -14,20 +14,21 @@ class Sock:
     """
     当前主机探测直接采用udp群发消息，没有采用多线程tcp探测主机端口和arp缩小主机范围
     目前已经打开 8987 TCP 主机探测端口； 8988 UDP 游戏初始化端口
+    发现就算将UDP切换为TCP协议，也无法改变类似UDP一样采用多线程，一样要统计每个玩家是否发送成功，跟自己构造回复消息类似，只是多了TCP的重传机制
     """
 
     def __init__(self):
-        self.port = PORT
+        self.port_udp = UDP_PORT
         self.port_tcp = TCP_PORT
 
         # UDP connect
-        address = (self.localip(), self.port)
+        address = (self.localip(), self.port_udp)
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind(address)
         logging.info('Bind socket %s ok.' % str(address))
         self.done = False
 
-        # MSG QUEUE
+        # UDP MSG QUEUE
         self.q = Queue()  # GET  [((info,msg), ip), (), ...]
         self.q_send = Queue()  # SEND [((info,msg), ip), (), ...]
 
@@ -70,8 +71,8 @@ class Sock:
             if not self.q_send.empty():
                 msg, ip = self.q_send.get()
                 tmp = json.dumps(msg, )
-                self.sock.sendto(tmp.encode('utf-8'), (ip, self.port))
-                logging.info('SEND [%s]:%s' % (ip + ':' + str(self.port), json.dumps(msg)))
+                self.sock.sendto(tmp.encode('utf-8'), (ip, self.port_udp))
+                logging.info('SEND [%s]:%s' % (ip + ':' + str(self.port_udp), json.dumps(msg)))
 
     def msg_recv(self):
         """
@@ -85,14 +86,14 @@ class Sock:
         while not self.done:
             try:
                 data, address = self.sock.recvfrom(1024)  # data=JSON, address=(ip, port)
-                logging.info('RECV [%s]:%s' % (address[0] + ':' + str(self.port), data))
+                logging.info('RECV [%s]:%s' % (address[0] + ':' + str(self.port_udp), data))
                 self.q.put((json.loads(data), address[0]))
             except Exception as msg:
                 logging.warning('SOCK RECV ERROR-->%s' % msg)
-                logging.info('RECV [%s]:%s' % (address[0] + ':' + str(self.port), data))
+                logging.info('RECV [%s]:%s' % (address[0] + ':' + str(self.port_udp), data))
                 self.q.put((json.loads(data), address[0]))  # 获取数据，将数据转换为正常数据，并且只提取ip，不提取port
             # data, address = self.sock.recvfrom(1024)  # data=JSON, address=(ip, port)
-            # logging.info('RECV [%s]:%s' % (address[0] + ':' + str(self.port), data))
+            # logging.info('RECV [%s]:%s' % (address[0] + ':' + str(self.port_udp), data))
             # self.q.put((json.loads(data) , address[0]))
 
     def localip(self):
@@ -114,7 +115,7 @@ class Sock:
                 result = s.connect_ex((ip, port))
                 # print (ip,port),
                 if result == 0:
-                    print(ip)
+                    # print(ip)
                     logging.info('Port %d: open' % (port))
                     up = True
                 s.close()

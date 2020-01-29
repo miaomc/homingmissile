@@ -270,7 +270,7 @@ class Plane(Base):
             'min_speed': 0.1,
             'thrust_acc': 0.1,
             'turn_acc': 0.2,
-            'image': ['./image/plane_test.png'],
+            'image': ['./image/plane_blue.png'],
             'damage': 100,
         },
     }
@@ -301,7 +301,7 @@ class Plane(Base):
         self.velocity = pygame.math.Vector2(random.random(), random.random()).normalize() * self.speed  # Vector
         self.acc = pygame.math.Vector2(0, 0)
 
-        self.weapon = {1: {}, 2: {}, 3: {}}  # 默认没有武器
+        self.weapon = {1: {}, 2: {}, 3: { }}  # 默认没有武器
 
         self.sound_kill = pygame.mixer.Sound("./sound/explode3.wav")
         # self.healthbar = HealthBar(location=self.location)

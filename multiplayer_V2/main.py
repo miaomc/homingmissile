@@ -52,11 +52,23 @@ ok爆炸效果（目前只制作了F35和J20飞机的效果）
 """
 
 import logging
+import widget
 import menu
-# import my_game
+import game
+
+
+def main():
+    logging.basicConfig(level=logging.DEBUG,  # CRITICAL > ERROR > WARNING > INFO > DEBUG > NOTSET
+                        format='%(asctime)s [line:%(lineno)d] [%(levelname)s] %(message)s',
+                        filename='logger.log',
+                        filemode='w')  # 每次真正import logging之后，filemode为w就会清空内容
+    w = widget.Widget()
+    m = menu.Menu()  # 菜单界面
+    m.main()
+    g = game.Game()  # 游戏主逻辑
+    g.main()
+    del w
+
 
 if __name__ == "__main__":
-    widget = menu.Widget()
-    if widget.main_loop():
-        logging.info('-------------------plane_player.main() start-------------------')
-        # my_game.main()
+    main()

@@ -32,6 +32,11 @@ class Map(object):
             sprite_group.add(cloud)
         sprite_group.draw(self.surface)
 
+        if rect.right > big_rect.right:
+            rect.right = big_rect.right
+        if rect.bottom > big_rect.bottom:
+            rect.bottom = big_rect.bottom
+
     @staticmethod
     def adjust_rect(rect, big_rect):
         """调节rect，不出big_rect的大框框"""
@@ -39,11 +44,6 @@ class Map(object):
             rect.left = big_rect.left
         if rect.top < big_rect.top:
             rect.top = big_rect.top
-        if rect.right > big_rect.right:
-            rect.right = big_rect.right
-        if rect.bottom > big_rect.bottom:
-            rect.bottom = big_rect.bottom
-
 
 class MiniMap(object):
 

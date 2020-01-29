@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import glob
 
 PINK = (255, 228, 225)
 DARK_GREEN = (49, 79, 79)
@@ -17,3 +18,5 @@ POLAR = (0, -1)
 SCREEN_SIZE = (1300, 700)
 MAP_SCREEN_RATIO = 1
 MAP_SIZE = [SCREEN_SIZE[0] * MAP_SCREEN_RATIO, SCREEN_SIZE[1] * MAP_SCREEN_RATIO]
+
+BACKGROUND_MUSIC_LIST = glob.glob('./bgm/*.mp3')
