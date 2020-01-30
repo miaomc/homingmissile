@@ -14,8 +14,8 @@ class Game:
         self.game_init()
 
     def screen_init(self):
-        ret = pygame.display.set_mode(size=(1366, 768), flags=pygame.FULLSCREEN | pygame.HWSURFACE | pygame.DOUBLEBUF)
-        logging.info('DISPLAY:%s' % str(ret))        
+        # ret = pygame.display.set_mode(size=(1366, 768), flags=pygame.FULLSCREEN | pygame.HWSURFACE | pygame.DOUBLEBUF)
+        # logging.info('DISPLAY:%s' % str(ret))
         self.screen = pygame.display.get_surface()  # 游戏窗口对象
         self.screen_rect = self.screen.get_rect()  # 游戏窗口对象的rect
         logging.info('DISPLAY:%s' % self.screen_rect)
@@ -25,13 +25,22 @@ class Game:
         self.clock = pygame.time.Clock()
 
     def game_init(self):
-        self.sock = my_sock.Sock()
 
+
+        self.player_dict = {}  # {'ip1':player_obj1, 'ip2':player_obj2}
+
+        self.plane_group = pygame.sprite.Group()
+        self.health_group = pygame.sprite.Group()
+
+        self.map = None
+        self.minimap = None
+        self.origin_map_surface = None
+
+        self.sock = my_sock.Sock()
         # ------------------------------------------------------------------------------------
         self.local_player = None # 需要区分本地的其他ai玩家
         self.host_player = None
         
-        self.num_player = 0
         self.lock_frame = 0
         self.delay_frame = 0
         # self.start_time = 0
@@ -43,86 +52,87 @@ class Game:
         self.screen_focus_obj = None  # 默认为空，首次指向本地plane, 空格指向本地plane, 为空但是本地plane还存在就指向plane
         
         self.done = False
-        self.map = None
-        self.minimap = None
+
         # self.current_rect = self.screen.get_rect()
 
-        self.player_list = []
-        self.d = {}
 
         self.syn_frame = 0
         
         self.done = False
         self.box_group = pygame.sprite.Group()
         self.weapon_group = pygame.sprite.Group()
-        self.plane_group = pygame.sprite.Group()
-
 
     def main(self):
-        'to be contineu................start from here 2020/01/29'
-
+        # Read&Format player_dict.dat
         with open('player_dict.dat','r') as f1:
             player_dict_origin = json.load(f1)
-            self.d = self.deal_player_dict(player_dict_origin)
-            logging.info('load "player_dict.dat":success')
+        _d = self.format_playerdict(player_dict_origin)
+        logging.info('formatting "player_dict.dat" to game.dict success: %s'%str(self.d))
 
-        # Pygame screen init
-        for ip in self.d.keys():
-            self.add_player(self.msg2player(self.d[ip]))
+        # Loading Players INFO
+        for ip in _d.keys():
+            msg_player = self.d[ip]
+            player = Player(weapon_group=self.weapon_group, ip=msg_player['ip'])
+            plane = Plane(catalog=msg_player['Plane'], location=msg_player['location'])
+            plane.load_weapon(catalog='Cobra', number=msg_player['Cobra'])
+            plane.load_weapon(catalog='Bullet', number=msg_player['Bullet'])
+            plane.load_weapon(catalog='Rocket', number=msg_player['Rocket'])
+            player.add_plane(plane)
+            self.player_dict[ip] = player
+        logging.info('loading player INFO success: %s'%str(self.player_dict))
+
+        # add sprite_group
+        for player in self.player_list:
+            self.plane_group.add(player.plane)
+            self.health_group.add(player.plane.health_bar)
+
+        # # Weapon SlotWidget
+        # self.slot = SlotWidget(screen=self.screen)
+
+        # 获取本地玩家对象 self.local_player
+        self.local_ip = self.sock.localip()
+        if self.local_ip in self.player_dict:
+            self.local_player = self.player_dict[self.local_player]
+            logging.info('get local_player success: ip - %s'%self.local_ip)
+        else:
+            logging.error('get local_player failed: localip-%s not in player_dict_ip-%s'%(self.local_ip), str(self.player_dict.keys()))
 
         # MAP
-        self.map = Map()  # 8000*4500--->screen, (8000*5)*(4500*5)---->map
+        self.map = Map()
         self.map.add_cloud()
         self.minimap = MiniMap(self.screen, self.map.surface.get_rect(), self.screen_rect, self.plane_group)
         self.origin_map_surface = self.map.surface.copy()
 
-        # Weapon SlotWidget
-        self.slot = SlotWidget(screen=self.screen)
-
-
-        # 获取本地玩家对象
-        self.local_ip = self.sock.localip()
-        for player in self.player_list:
-            if player.ip == self.local_ip:
-                self.local_player = player
-
-        # 根据local player位置移动一次self.screen_rect git
-        # self.screen_rect.center = Map.mars_translate(self.d[self.local_ip]['location'])
         self.screen_focus_obj = self.local_player.plane
-        self.deal_screen_focus(self.screen_rect)
+        self.deal_screen_focus() # 根据local_player位置移动一次self.screen_rect
 
-        # PYGAME LOOP
-        pygame.key.set_repeat(10)  # control how held keys are repeated
-        logging.info('Game Start.My IP&PORT: %s - %d' % (self.local_ip, self.port))
-
+        # to be continue ....start from here  2020-01-31 存在大量的self.player_list和len(self.player_list)需要处理，需要处理matirx的变换，考虑player_dict[ip]['ip']是否还有保留价值,保留sock两种模式?
         # MAIN LOOP
+        pygame.key.set_repeat(10)  # control how held keys are repeated
+        logging.info('MAIN LOOP Start.My IP&PORT: %s - %d' % (self.local_ip, self.port))
         self.main_loop()
 
-    def add_player(self, player):
-        self.player_list.append(player)
-        self.plane_group.add(player.plane)
-        self.health_group.add(player.plane.health_bar)
-        self.num_player += 1
 
-    def init_local_player(self, localip, plane_type):
-        msg_player = {'ip': localip,
-                      'location': (randint(MARS_MAP_SIZE[0] / 5, MARS_MAP_SIZE[0] * 4 / 5),
-                                   randint(MARS_MAP_SIZE[1] / 5, MARS_MAP_SIZE[1] * 4 / 5)),
-                      'Plane': plane_type,
-                      'Gun': 200,
-                      'Rocket': 10,
-                      'Cobra': 3,
-                      }
-        return msg_player
 
-    def msg2player(self, msg_player):
-        player = Player(weapon_group=self.weapon_group, ip=msg_player['ip'])
-        plane = Plane(catalog=msg_player['Plane'], location=msg_player['location'])
-        plane.load_weapon(catalog='Cobra', number=msg_player['Cobra'])
-        plane.load_weapon(catalog='Gun', number=msg_player['Gun'])
-        plane.load_weapon(catalog='Rocket', number=msg_player['Rocket'])
-        player.add_plane(plane)
-        return player
+    
+    def format_playerdict(self, player_dict):
+        """From: dict_player = {'ip':{'location': (randint(20, 80) / 100.0, randint(20, 80) / 100.0),
+                                      'Plane': 'F35','Bullet': 200, 'Rocket': 10, 'Cobra': 3}，
+                               }
+            To:  d = {'ip':msg_player，
+                     }
+            P.S. msg_player = {'ip': localip,
+                        'location': (randint(config.MAP_SIZE[0] / 5, config.MAP_SIZE[0] * 4 / 5),
+                                   randint(config.MAP_SIZE[1] / 5, config.MAP_SIZE[1] * 4 / 5)),
+                        'Plane': plane_type, 'Bullet': 200, 'Rocket': 10, 'Cobra': 3,}
+        }"""
+        d = {}
+        for ip in player_dict.keys():
+            d[ip] = player_dict[ip]
+            d[ip]['ip'] = ip
+            d[ip]['location'] = [config.MAP_SIZE[n]*i for n,i in enumerate(player_dict[ip]['location'])]
+        return d
+
 
     def render(self, screen_rect):
         self.current_rect = screen_rect
@@ -166,7 +176,7 @@ class Game:
             # 如果不是枪弹就进行相互碰撞测试
             if not weapon.alive:
                 continue
-            if weapon.catalog != 'Gun':
+            if weapon.catalog != 'Bullet':
                 # print weapon
                 weapon_collide_lst = pygame.sprite.spritecollide(weapon, self.weapon_group, False, pygame.sprite.collide_rect_ratio(1))  # False代表不直接kill该对象
                 weapon.hitted(weapon_collide_lst)  # 发生碰撞相互减血
@@ -265,7 +275,7 @@ class Game:
 
     def box_msg_send(self):
         if self.syn_frame % (10 * FPS) == 0:  # 每n=10秒同步一次自己状态给对方
-            location = [randint(0, MARS_MAP_SIZE[0]), randint(0, MARS_MAP_SIZE[1])]
+            location = [randint(0, config.MAP_SIZE[0]), randint(0, config.MAP_SIZE[1])]
             # Medic and so on. -->  10%, 30%, 30%, #0%
             rand_x = randint(0,100)
             if rand_x <= 10:
@@ -322,8 +332,8 @@ class Game:
         logging.info('Tp.22:%d' % pygame.time.get_ticks())
         self.tail_group.update()  # update尾焰
         if self.local_player.plane:
-            for weapon in ['Gun', 'Rocket', 'Cobra']:  # update SlotWidget
-                if weapon == 'Gun':
+            for weapon in ['Bullet', 'Rocket', 'Cobra']:  # update SlotWidget
+                if weapon == 'Bullet':
                     index_ = 1
                 elif weapon == 'Rocket':
                     index_ = 2
@@ -373,7 +383,7 @@ class Game:
                     self.plane_lost_msg_send(player.ip)  # 发送玩家lost的消息
                     player.plane = None  # player.update()为True说明飞机已经delete了
                     player.alive = False  # End Game
-                    self.num_player -= 1
+                    len(self.player_list) -= 1
                     logging.info("Player lost: %s" % player.ip)
                     # return True
         logging.info('Tp.50:%d' % pygame.time.get_ticks())
@@ -405,7 +415,7 @@ class Game:
             # print self.screen_focus_obj
             if not self.screen_focus_obj.groups():  # 本地飞机还活着，但是focus_obj不在任何group里面了，就指回本地飞机
                 self.screen_focus_obj = self.local_player.plane
-            if self.num_player == 1:  # 只剩你一个人了
+            if len(self.player_list) == 1:  # 只剩你一个人了
                 self.show_result = True
                 self.info.add_middle('YOU WIN!')
                 self.info.add_middle_below('press "ESC" to exit the game.')
@@ -477,195 +487,10 @@ class Game:
             #         self.delay_frame = self.syn_frame - data_tmp[1]
             #     logging.info("DelayFrames:%d--->%s"%(self.delay_frame, str(data_tmp)))
 
-        def deal_player_dict(self, player_dict):
-            """From: dict_player = {'ip':{'location': (randint(20, 80) / 100.0, randint(20, 80) / 100.0),
-                                          'Plane': 'F35','Gun': 200, 'Rocket': 10, 'Cobra': 3}，
-                                   }
-                To:  d = {'ip':msg_player，
-                         }
-                P.S. msg_player = {'ip': localip,
-                            'location': (randint(MARS_MAP_SIZE[0] / 5, MARS_MAP_SIZE[0] * 4 / 5),
-                                       randint(MARS_MAP_SIZE[1] / 5, MARS_MAP_SIZE[1] * 4 / 5)),
-                            'Plane': plane_type, 'Gun': 200, 'Rocket': 10, 'Cobra': 3,}
-            }"""
-            d = {}
-            for ip in player_dict.keys():
-                d[ip] = player_dict[ip]
-                d[ip]['ip'] = ip
-                d[ip]['location'] = [MARS_MAP_SIZE[n] * i for n, i in enumerate(player_dict[ip]['location'])]
-            return d
 
-        def deal_screen_focus(self, screen_rect):
-            if self.screen_focus_obj:
-                screen_rect.center = self.screen_focus_obj.rect.center
-                # screen_rect.center = Map.mars_translate(self.screen_focus_obj.location)
-
-        def main(self):
-            self.local_ip = localip = self.get_local_ip()
-            if SINGLE_TEST:
-                plane_type = PLANE_TYPE
-                msg_player = self.init_local_player(localip, plane_type)
-                self.game_init(localip)
-                self.d[localip] = msg_player
-                self.other_ip = localip
-
-            self.game_init(self.local_ip)
-            with open('player_dict.dat', 'r') as f1:
-                player_dict_origin = json.load(f1)
-                self.d = self.deal_player_dict(player_dict_origin)
-                logging.info('load "player_dict.dat":success')
-
-            # Pygame screen init
-            self.screen_init()
-            for ip in self.d.keys():
-                self.add_player(self.msg2player(self.d[ip]))
-
-            # MAP
-            self.map = Map()  # 8000*4500--->screen, (8000*5)*(4500*5)---->map
-            self.map.add_cloud()
-            self.minimap = MiniMap(self.screen, self.map.surface.get_rect(), self.screen_rect, self.plane_group)
-            self.origin_map_surface = self.map.surface.copy()
-
-            # Weapon SlotWidget
-            self.slot = SlotWidget(screen=self.screen)
-
-            # 获取本地玩家对象
-            for player in self.player_list:
-                if player.ip == self.local_ip:
-                    self.local_player = player
-
-            # 根据local player位置移动一次self.screen_rect git
-            # self.screen_rect.center = Map.mars_translate(self.d[self.local_ip]['location'])
-            self.screen_focus_obj = self.local_player.plane
-            self.deal_screen_focus(self.screen_rect)
-
-            # PYGAME LOOP
-            pygame.key.set_repeat(10)  # control how held keys are repeated
-            logging.info('Game Start.My IP&PORT: %s - %d' % (self.local_ip, self.port))
-
-            # MAIN LOOP
-            self.main_loop()
-
-        def main_loop(self):
-            # GET MSG DEAL INIT
-            self.thread_msg = threading.Thread(target=self.get_deal_msg)
-            self.thread_msg.setDaemon(True)  # True:不关注这个子线程，主线程跑完就结束整个python process
-
-            # # lockframe deal
-            # if self.host_ip == self.local_ip:  # 主机才发送同步LockFrame
-            #     self.thread_lock = threading.Thread(target=self.syn_lock_frame)
-            #     self.thread_lock.setDaemon(True)  # True:不关注这个子线程，主线程跑完就结束整个python process
-
-            # 同步开始循环
-            for ip in self.d.keys():
-                self.sock_send('200 OK', (ip, self.port))
-
-            now_count = start_count = pygame.time.get_ticks()
-            waiting_times = 20000  # 这里其实需要改写为TCP确认， 等待对方收到消息 to be continue...
-            msg_get_ip_list = {}
-            while True:  # 等收到所有玩家的'200 ok'
-                while not self.q.empty():
-                    data, address = self.q.get()
-                    if json.loads(data) == '200 OK':
-                        self.sock_send('200 OK', address)  # 收到补发一个200 OK，因为对方都是先打开监听，然后开始发送
-                        logging.info('Start Msg Get:%s:%s' % (address, data))
-                        msg_get_ip_list[address[0]] = True
-                        if len(msg_get_ip_list.keys()) >= len(self.player_list):
-                            break
-
-                if len(msg_get_ip_list.keys()) >= len(self.player_list):
-                    logging.info('game:begin')
-                    break
-
-                if pygame.time.get_ticks() - now_count > 1000:  # 每一秒朝没有收到消息的主机发送一个200 OK
-                    now_count = pygame.time.get_ticks()
-                    for ip in self.d.keys():
-                        if ip not in msg_get_ip_list.keys():
-                            self.sock_send('200 OK', (ip, self.port))
-
-                if pygame.time.get_ticks() - start_count > waiting_times:
-                    logging.error('Sock Waiting Timeout: %s' % '"200 OK"')
-                    self.done = True  # 通过self.done关闭线程，防止Errno 9：bad file descriptor(错误的文件名描述符)
-                    return False
-
-            # MSG deal
-            logging.info('deal_msg:begin')
-            self.thread_msg.start()  # 开启玩家处理接受消息的线程
-
-            # 主循环 Main Loop
-            # if self.host_ip == self.local_ip:  # 主机才发送同步LockFrame
-            #     self.thread_lock.start()  # 开启玩家处理接受消息的线程
-            # last_time = pygame.time.get_ticks()
-            while not self.done:
-                last_time = pygame.time.get_ticks()
-                logging.info("Frame No:%s" % self.syn_frame)
-                logging.info('T1:%d' % pygame.time.get_ticks())
-                event_list = self.event_control()
-
-                logging.info('T1.1:%d' % pygame.time.get_ticks())
-                self.deal_screen_focus(self.screen_rect)  # 在飞机update()之前就不会抖动
-
-                logging.info('T1.2:%d' % pygame.time.get_ticks())
-                if self.process(event_list):  # 在FULLSCREEN下，这个函数最占性能20~40ms
-                    self.done = True
-                    break
-
-                logging.info('T2:%d' % pygame.time.get_ticks())  # T1与T2之间平均花费12ms
-                Map.adjust_rect(self.screen_rect, self.map.surface.get_rect())
-
-                logging.info('T3:%d' % pygame.time.get_ticks())
-                self.render(self.screen_rect)  # 该函数平均花费10ms(26ms), 在FULLSCREEN下是2ms
-
-                logging.info('T4:%d' % pygame.time.get_ticks())
-                pygame.display.flip()  # 2ms
-
-                logging.info('T5:%d' % pygame.time.get_ticks())
-                # self.clock.tick(self.fps)
-                self.erase()  # 8ms,如果采用blit方式，就不用clear()的方法了
-
-                # 这个是按整理计算延迟的，如果前面卡了，后面就会加速：没必要因为会定时同步状态
-                # stardard_diff_time = -(pygame.time.get_ticks() - self.start_time) + self.syn_frame * 1000 / FPS
-                # 计算每帧时间，和时间等待
-                _time = pygame.time.get_ticks()
-                logging.info('CostTime:%s' % str(_time - last_time))
-                # 每帧需要的时间 - 每帧实际运行时间，如果还有时间多，就等待一下
-                stardard_diff_time = 1000 / FPS - (_time - last_time)
-                if stardard_diff_time > 0:  # 等待多余的时间
-                    pygame.time.wait(stardard_diff_time)  # 这个等待时间写在这里不合适
-                    logging.info('WaitingTime:%s' % str(stardard_diff_time))
-
-                self.syn_frame += 1  # 发送同步帧(上来就发送)
-                logging.info('T6:%d' % pygame.time.get_ticks())
-
-            # self.thread1.close
-            # self.sock.close()
-            # pygame.time.wait(1000)
-            pygame.quit()
-
-    def deal_player_dict(self, player_dict):
-        """From: dict_player = {'ip':{'location': (randint(20, 80) / 100.0, randint(20, 80) / 100.0),
-                                      'Plane': 'F35','Gun': 200, 'Rocket': 10, 'Cobra': 3}，
-                               }
-            To:  d = {'ip':msg_player，
-                     }
-            P.S. msg_player = {'ip': localip,
-                        'location': (randint(MARS_MAP_SIZE[0] / 5, MARS_MAP_SIZE[0] * 4 / 5),
-                                   randint(MARS_MAP_SIZE[1] / 5, MARS_MAP_SIZE[1] * 4 / 5)),
-                        'Plane': plane_type, 'Gun': 200, 'Rocket': 10, 'Cobra': 3,}
-        }"""
-        d = {}
-        for ip in player_dict.keys():
-            d[ip] = player_dict[ip]
-            d[ip]['ip'] = ip
-            d[ip]['location'] = [MARS_MAP_SIZE[n]*i for n,i in enumerate(player_dict[ip]['location'])]
-        return d
-
-    def deal_screen_focus(self, screen_rect):
+    def deal_screen_focus(self):
         if self.screen_focus_obj:
-            screen_rect.center = self.screen_focus_obj.rect.center
-            # screen_rect.center = Map.mars_translate(self.screen_focus_obj.location)
-
-
+            self.screen_rect.center = self.screen_focus_obj.rect.center
 
     def main_loop(self):
         # GET MSG DEAL INIT
@@ -678,11 +503,11 @@ class Game:
         #     self.thread_lock.setDaemon(True)  # True:不关注这个子线程，主线程跑完就结束整个python process
 
         # 同步开始循环
-        for ip in self.d.keys():
+        for ip in self.player_dict:
             self.sock_send('200 OK', (ip, self.port))
 
         now_count = start_count = pygame.time.get_ticks()
-        waiting_times = 20000  # 这里其实需要改写为TCP确认， 等待对方收到消息 to be continue...
+        waiting_times = 20000
         msg_get_ip_list = {}
         while True:  # 等收到所有玩家的'200 ok'
             while not self.q.empty():
@@ -700,7 +525,7 @@ class Game:
 
             if pygame.time.get_ticks() - now_count > 1000: # 每一秒朝没有收到消息的主机发送一个200 OK
                 now_count = pygame.time.get_ticks()
-                for ip in self.d.keys():
+                for ip in self.player_dict:
                     if ip not in msg_get_ip_list.keys():
                         self.sock_send('200 OK', (ip, self.port))
 
@@ -724,7 +549,7 @@ class Game:
             event_list = self.event_control()
 
             logging.info('T1.1:%d' % pygame.time.get_ticks())
-            self.deal_screen_focus(self.screen_rect)  # 在飞机update()之前就不会抖动
+            self.deal_screen_focus()  # 在飞机update()之前就不会抖动
 
             logging.info('T1.2:%d' % pygame.time.get_ticks())
             if self.process(event_list):  # 在FULLSCREEN下，这个函数最占性能20~40ms
