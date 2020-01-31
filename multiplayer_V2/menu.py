@@ -74,14 +74,9 @@ class Menu():
                            'Gun': 200, 'Rocket': 10, 'Cobra': 3, }
         self.dict_player = {self.localip: self.msg_player}
 
-        self.create_bool = False
-        self.join_func_bool = False
-        self.join_enter_bool = False
-        self.start_bool = False
-
         self.done = False
 
-        self.frame_chosen_gap = config.FPS * 2
+        self.frame_chosen_gap = int(config.FPS / 2)
 
     def get_localip(self):
         return self.sock.localip()
@@ -132,6 +127,12 @@ class Menu():
         join_node.args = (join_node)
         join_node.back_target = self.join_func_back
 
+        # VIRGIN PARAMETER
+        self.create_bool = False
+        self.join_func_bool = False
+        self.join_enter_bool = False
+        self.start_bool = False
+
         # EXIT_NODE
         exit_node.target = self.exit_func
 
@@ -145,10 +146,9 @@ class Menu():
                                 'Gun':200, 'Rocket':10, 'Cobra':3}，
                         }
         """
-        if not (self.frame % self.frame_chosen_gap == 0 or self.create_bool == False):  # 每*1帧发一次
-            return
-        # 局域网同网段群发
-        self.sock.host_broadcast()
+        if self.frame % self.frame_chosen_gap*2 == 0 and self.create_bool:  # 每*1帧发一次
+            # 局域网同网段群发
+            self.sock.host_broadcast()
 
         if not self.create_bool:
             node.add(Node(u'主机(host):' + self.localip))
@@ -189,10 +189,12 @@ class Menu():
         return self.sock.scan_hostip()
 
     def join_func(self, node):
-        if not (self.frame % (self.frame_chosen_gap * 2) == 0 or self.join_func_bool == False):  # 每*2帧探测一次
-            return
-        self.join_func_bool = True
-        hostip_list = self.scan_hostip()
+        # if self.frame % self.frame_chosen_gap != 0: #and self.join_func_bool:  # 每*s探测一次
+        #     return
+        #
+        if self.frame % self.frame_chosen_gap == 0 or not self.join_enter_bool:  # 每gap时间，或者第一次进入则进行扫描
+            hostip_list = self.scan_hostip()
+            self.join_func_bool = True
         # children_list = []  # 把不在主机列表的node节点都清除
         # for node_ in node.children:
         #     if node_.label not in hostip_list:
@@ -251,6 +253,9 @@ class Menu():
     # EXIT FUNCTION
     def exit_func(self):
         self.done = True
+        self.sock.close()
+        logging.info('close sock.')
+
 
     # START FUNCTION
     def start_func(self):
@@ -281,18 +286,24 @@ class Menu():
         # 游戏选择界面
         self.done = False
         while not self.done:
+            # logging.info('Tp.61:%d' % pygame.time.get_ticks())
             self.frame += 1
             # 每一帧运行当前节点的子项刷新，当前 帧运行一次
             logging.info(str(self.frame))
-            if self.frame % self.frame_chosen_gap == 0:
-                self.node_point.be_chosen()
-                self.list_node = self.node_point.children
+            # if self.frame % self.frame_chosen_gap == 0:
+            self.node_point.be_chosen()
+            self.list_node = self.node_point.children
             # 正常显示
             self.display_list = [i.label for i in self.list_node]
+            # logging.info('Tp.62:%d' % pygame.time.get_ticks())
             self.draw(self.display_list)
+            # logging.info('Tp.63:%d' % pygame.time.get_ticks())
             self.event_control()
-            pygame.display.flip()
+            # logging.info('Tp.64:%d' % pygame.time.get_ticks())
+            pygame.display.flip()  # 6ms
+            # logging.info('Tp.65:%d' % pygame.time.get_ticks())
             self.clock.tick(config.FPS)
+            # logging.info('Tp.66:%d' % pygame.time.get_ticks())
             if self.has_selected:
                 # 如果所选的这个有子集，进入这个子集
                 if not self.has_backspace:  # and
@@ -317,8 +328,6 @@ class Menu():
                     # break  # Start from here!!!!!!!!!!!!!!!!!!
                 self.has_selected = False
 
-        self.sock.close()
-        pygame.quit()
         return self.start_bool
 
     def draw(self, display_list):

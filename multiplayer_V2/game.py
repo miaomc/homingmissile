@@ -67,12 +67,12 @@ class Game:
         with open('player_dict.dat','r') as f1:
             player_dict_origin = json.load(f1)
         _d = self.format_playerdict(player_dict_origin)
-        logging.info('formatting "player_dict.dat" to game.dict success: %s'%str(self.d))
+        logging.info('formatting "player_dict.dat" to game.dict success: %s'%str(_d))
 
         # Loading Players INFO
         for ip in _d.keys():
-            msg_player = self.d[ip]
-            player = Player(weapon_group=self.weapon_group, ip=msg_player['ip'])
+            msg_player = _d[ip]
+            player = Player(weapon_group=self.weapon_group, ip=ip)
             plane = Plane(catalog=msg_player['Plane'], location=msg_player['location'])
             plane.load_weapon(catalog='Cobra', number=msg_player['Cobra'])
             plane.load_weapon(catalog='Bullet', number=msg_player['Bullet'])
@@ -82,9 +82,9 @@ class Game:
         logging.info('loading player INFO success: %s'%str(self.player_dict))
 
         # add sprite_group
-        for player in self.player_list:
-            self.plane_group.add(player.plane)
-            self.health_group.add(player.plane.health_bar)
+        for ip in self.player_dict:
+            self.plane_group.add(self.player_dict[ip].plane)
+            self.health_group.add(self.player_dict[ip].health_bar)
 
         # # Weapon SlotWidget
         # self.slot = SlotWidget(screen=self.screen)
@@ -106,33 +106,42 @@ class Game:
         self.screen_focus_obj = self.local_player.plane
         self.deal_screen_focus() # 根据local_player位置移动一次self.screen_rect
 
-        # to be continue ....start from here  2020-01-31 存在大量的self.player_list和len(self.player_list)需要处理，需要处理matirx的变换，考虑player_dict[ip]['ip']是否还有保留价值,保留sock两种模式?
+        # to be continue ....start from here  2020-01-31 需要处理matirx的变换，考虑player_dict[ip]['ip']是否还有保留价值,保留sock两种模式?
         # MAIN LOOP
         pygame.key.set_repeat(10)  # control how held keys are repeated
         logging.info('MAIN LOOP Start.My IP&PORT: %s - %d' % (self.local_ip, self.port))
         self.main_loop()
 
-
-
-    
     def format_playerdict(self, player_dict):
         """From: dict_player = {'ip':{'location': (randint(20, 80) / 100.0, randint(20, 80) / 100.0),
                                       'Plane': 'F35','Bullet': 200, 'Rocket': 10, 'Cobra': 3}，
                                }
             To:  d = {'ip':msg_player，
                      }
-            P.S. msg_player = {'ip': localip,
-                        'location': (randint(config.MAP_SIZE[0] / 5, config.MAP_SIZE[0] * 4 / 5),
-                                   randint(config.MAP_SIZE[1] / 5, config.MAP_SIZE[1] * 4 / 5)),
-                        'Plane': plane_type, 'Bullet': 200, 'Rocket': 10, 'Cobra': 3,}
         }"""
         d = {}
         for ip in player_dict.keys():
             d[ip] = player_dict[ip]
-            d[ip]['ip'] = ip
+            # d[ip]['ip'] = ip
             d[ip]['location'] = [config.MAP_SIZE[n]*i for n,i in enumerate(player_dict[ip]['location'])]
         return d
 
+    def sock_waitfor(self, msg, dest, delay=100, waiting_times=30):
+        count = 0
+        while self.sock.q.empty():
+            pygame.time.wait(delay)
+            count += 1
+            if count > waiting_times:
+                logging.error('Sock Waiting Timeout: %s' % msg)
+                return False
+        data, address = self.sock.q.get()
+        logging.info('GET:%s' % str(json.loads(data)))
+        if address[0] == dest[0]:
+            logging.info('Sock Msg Get:%s' % json.loads(data))
+            return json.loads(data)
+        else:
+            logging.error('Sock Wrong Msg:%s %s' % (str(address), json.loads(data)))
+            return False
 
     def render(self, screen_rect):
         self.current_rect = screen_rect
@@ -157,13 +166,10 @@ class Game:
         if not self.local_player.alive:
             return
         # str_key_list = json.dumps((self.syn_frame, key_list))  # # 如果没操作队列: event_list = key_list = []
-        for player in self.player_list:  # 发送给每一个网卡，包括自己
-            # print player.ip
+        for ip in self.player_dict:  # 发送给每一个网卡，包括自己
             try:
-                # logging.info('Send %d---> %s, %s' % (self.syn_frame, str((player.ip, self.port)), str_key_list))
-                self.sock_send((self.syn_frame, key_list), (player.ip, self.port))
-                # self.sock.sendto(str_key_list, (player.ip, self.port))
-                # self.sock.sendto(str_event_list, (player.ip, self.port))  # 发双份
+                # logging.info('Send %d---> %s, %s' % (self.syn_frame, str((ip, self.port)), str_key_list))
+                self.sock.q_send.put(((self.syn_frame, key_list), ip))
             except Exception as msg:
                 logging.warn('Offline(Socket Error):' + str(msg))
 
@@ -195,18 +201,14 @@ class Game:
 
     def syn_status(self):
         if self.syn_frame % (int(2 * FPS)) == 0:  # 每2秒同步一次自己状态给对方
-            # print self.player_list, self.local_ip, self.other_ip
-            for player in self.player_list:
-                # logging.info('PLAYERS INFO:%s, loca[%s],velo[%s]'%(player.ip,str(player.plane.location), str(player.plane.velocity)))
-                if player.ip == self.local_ip and player.alive:
-                    status_msg = ('syn_player_status', {'location': (player.plane.location.x, player.plane.location.y),
-                                                        'velocity': (player.plane.velocity.x, player.plane.velocity.y),
-                                                        'health': player.plane.health})
-                    for player in self.player_list:
-                        self.sock_send(status_msg, (player.ip, self.port))  # test 谁都发
-                        # if player.ip != self.local_ip:
-                        #     self.sock_send(status_msg, (player.ip, self.port))
-                    break
+            if self.local_player.alive:
+                status_msg = ('syn_player_status', {'location': (self.local_player.plane.location[:]),
+                                                    'velocity': (self.local_player.plane.velocity[:]),
+                                                    'health': player.plane.health})
+                for ip in self.player_dict:  # 发送给除自己的所有玩家
+                    if ip != self.local_ip:
+                        self.sock.q_send.put((status_msg, ip))
+
 
     def add_weapon_tail(self, weapon_group):
         for weapon in weapon_group:
@@ -287,21 +289,21 @@ class Game:
             elif rand_x <= 100:
                 rand_catalog = 'Cobra_num'
             status_msg = ('box_status', {'location': location, 'catalog': rand_catalog})
-            for player in self.player_list:
-                self.sock_send(status_msg, (player.ip, self.port))
+            for ip in self.player_dict:
+                self.sock.q_send.put((status_msg, ip))
 
     def plane_lost_msg_send(self, player_ip):
         status_msg = ('plane_lost', {'ip':player_ip})
-        for player in self.player_list:
-            self.sock_send(status_msg, (player.ip, self.port))
+        for ip in self.player_dict:
+            self.sock.q_send.put((status_msg, ip))
 
     # def syn_lock_frame(self):
     #     lock_frame = 0
     #     while not self.done:
     #         pygame.time.wait(1000/FPS)
     #         status_msg = ('syn_lock_frame', lock_frame)
-    #         for player in self.player_list:
-    #             self.sock_send(status_msg, (player.ip, self.port))
+    #         for ip in self.player_dict:
+    #             self.sock.q_send.put((status_msg, ip))
     #         lock_frame += 1
 
     def process(self, event_list):
@@ -375,16 +377,17 @@ class Game:
         self.deal_collide_with_box()
         # logging.info('Tp.42:%d' % pygame.time.get_ticks())  # 1ms
         # 判断游戏是否结束
-        for player in self.player_list:
+        for ip in self.player_dict:
+            player = self.player_dict[ip]
             if player.alive:
                 # player.plane.draw_health(self.map.surface)  # 显示飞机血条
                 # 更新玩家状态,player.update()-->plane.update()-->plane.delete(),delete没了的的飞机
                 if player.update():  # player.update==True就是玩家飞机lost了
-                    self.plane_lost_msg_send(player.ip)  # 发送玩家lost的消息
+                    self.plane_lost_msg_send(ip)  # 发送玩家lost的消息
                     player.plane = None  # player.update()为True说明飞机已经delete了
                     player.alive = False  # End Game
-                    len(self.player_list) -= 1
-                    logging.info("Player lost: %s" % player.ip)
+                    self.player_dict.pop(ip)
+                    logging.info("Player lost: %s" % ip)
                     # return True
         logging.info('Tp.50:%d' % pygame.time.get_ticks())
 
@@ -394,14 +397,14 @@ class Game:
         self.info.add(u'')
         self.info.add(u'')
         self.info.add(u'')
-        for py in self.player_list:
-            self.info.add(u'Player IP:%s' % py.ip)
-            if py.plane:
-                self.info.add(u'Health:%d' % py.plane.health)
-                self.info.add(u'Weapon:%s' % str(py.plane.weapon))
+        for ip in self.player_dict:
+            self.info.add(u'Player IP:%s' % ip)
+            if self.player_dict[ip].plane:
+                self.info.add(u'Health:%d' % self.player_dict[ip].plane.health)
+                self.info.add(u'Weapon:%s' % str(self.player_dict[ip].plane.weapon))
                 self.info.add(u'Tail:%s' % self.tail_group)
                 self.info.add(u'speed:%s,  location:%s,  rect:%s' % (
-                    str(py.plane.velocity), str(py.plane.location), str(py.plane.rect)))
+                    str(self.player_dict[ip].plane.velocity), str(self.player_dict[ip].plane.location), str(self.player_dict[ip].plane.rect)))
             self.info.add(u'Groups:%s' % str(self.plane_group))
 
         # 屏幕显示，本地飞机聚焦处理
@@ -412,10 +415,9 @@ class Game:
             self.info.add_middle_below('press "ESC" to exit the game.')
             self.info.add_middle_below('press "Tab" to hide/show this message.')
         else:  # 本地飞机还或者的情况
-            # print self.screen_focus_obj
             if not self.screen_focus_obj.groups():  # 本地飞机还活着，但是focus_obj不在任何group里面了，就指回本地飞机
                 self.screen_focus_obj = self.local_player.plane
-            if len(self.player_list) == 1:  # 只剩你一个人了
+            if len(self.player_dict.keys()) == 1:  # 只剩你一个人了
                 self.show_result = True
                 self.info.add_middle('YOU WIN!')
                 self.info.add_middle_below('press "ESC" to exit the game.')
@@ -433,41 +435,33 @@ class Game:
     def get_deal_msg(self):
         while not self.done:  # 游戏结束判定
             # 空就不进行读取处理
-            if self.q.empty():
+            if self.sock.q.empty():
                 continue
                 pygame.time.wait(1)
 
             # 处理消息
-            data, address = self.q.get()
+            data, address = self.sock.q.get()
             data_tmp = json.loads(data)  # [frame_number, key_list], ['syn_player_status', dict]，['box_status', dict]
 
             # Msg Type1:操作类型的消息
             if isinstance(data_tmp[0], int):
-                for player in self.player_list:  # 遍历玩家，看这个收到的数据是谁的
-                    if player.ip == address[0] and player.alive:
-                        # # 接收到大于当前帧的消息就等待, 比如：我自己才发送到第15帧，别人发到15,16,17帧来了我要等待
-                        # while data_tmp[0] > self.syn_frame:
-                        #     pygame.time.wait(1)
-                        if data_tmp[1]:  # 消息-->操作
-                            weapon_obj = player.operation(data_tmp[1],
-                                             self.syn_frame)  # data is list of pygame.key.get_pressed() of json.dumps
-                            if player.ip==self.local_ip and weapon_obj:  # 如果导弹对象不为空，就将屏幕聚焦对象指向它
-                                self.screen_focus_obj = weapon_obj
-                        logging.info("Get %d----> %s, %s" % (data_tmp[0], str(address), str(data_tmp)))
-                        break  # 一个数据只有可能对应一个玩家的操作，有一个玩家取完消息就可以了
+                player = self.player_dict[address[0]]
+                if player.alive and data_tmp[1]:  # 消息-->操作
+                    weapon_obj = player.operation(data_tmp[1],self.syn_frame)  # data is list of pygame.key.get_pressed() of json.dumps
+                    if address[0] == self.local_ip and weapon_obj:  # 如果导弹对象不为空，就将屏幕聚焦对象指向它
+                        self.screen_focus_obj = weapon_obj
+                    logging.info("Get %d----> %s, %s" % (data_tmp[0], str(address), str(data_tmp)))
 
             # Msg Type2:状态同步-->对象，同步类型消息
             elif data_tmp[0] == 'syn_player_status':
-                # print 'in status.....', address
-                for player in self.player_list:  # 因为没用{IP:玩家}，所以遍历玩家，看这个收到的数据是谁的
-                    if player.ip == address[0] and player.alive:
-                        player.plane.location = Vector(data_tmp[1]['location'])
-                        #+ Vector(data_tmp[1]['velocity'])/ R_F  # 1帧的时间, 反而有跳跃感
-                        player.plane.velocity = Vector(data_tmp[1]['velocity'])
-                        player.plane.health = data_tmp[1]['health']  # !!!!!!!!会出现掉血了，然后回退回去的情况
-                        logging.info("Get player status, local_frame:%d----> %s, %s" % (
-                            self.syn_frame, str(address), str(data_tmp)))
-                        break
+                player = self.player_dict[address[0]]
+                if player.alive and data_tmp[1]:  # 消息-->操作
+                    player.plane.location[:] = data_tmp[1]['location']
+                    #+ data_tmp[1]['velocity']/ R_F  # 1帧的时间, 反而有跳跃感
+                    player.plane.velocity[:] = data_tmp[1]['velocity']
+                    player.plane.health = data_tmp[1]['health']  # !!!!!!!!会出现掉血了，然后回退回去的情况
+                    logging.info("Get player status, local_frame:%d----> %s, %s" % (
+                        self.syn_frame, str(address), str(data_tmp)))
 
             # Msg Type3:接受并处理Box类型消息
             elif data_tmp[0] == 'box_status':
@@ -475,10 +469,7 @@ class Game:
 
             # Msg Type4:接受并处理玩家飞机lost类型消息
             elif data_tmp[0] == 'plane_lost':  # status_msg = ('plane_lost', {'ip':player_ip})
-                for player in self.player_list:
-                    if player.alive and player.ip == data_tmp[1]['ip']:
-                        player.plane.health = 0
-                        break
+                self.player_dict[data_tmp[1]['ip']].plane.health = 0
 
             ## Msg Type:接受并处理LockFrame
             # elif data_tmp[0] == 'syn_lock_frame':
@@ -504,22 +495,22 @@ class Game:
 
         # 同步开始循环
         for ip in self.player_dict:
-            self.sock_send('200 OK', (ip, self.port))
+            self.sock.q_send.put(('200 OK', ip))
 
         now_count = start_count = pygame.time.get_ticks()
         waiting_times = 20000
         msg_get_ip_list = {}
         while True:  # 等收到所有玩家的'200 ok'
-            while not self.q.empty():
-                data, address = self.q.get()
+            while not self.sock.q.empty():
+                data, address = self.sock.q.get()
                 if json.loads(data)=='200 OK':
-                    self.sock_send('200 OK', address)  # 收到补发一个200 OK，因为对方都是先打开监听，然后开始发送
+                    self.sock.q_send.put(('200 OK', address))  # 收到补发一个200 OK，因为对方都是先打开监听，然后开始发送
                     logging.info('Start Msg Get:%s:%s' % (address,data))
                     msg_get_ip_list[address[0]] = True
-                    if len(msg_get_ip_list.keys()) >= len(self.player_list):
+                    if len(msg_get_ip_list.keys()) >= len(self.player_dict.keys()):
                         break
 
-            if len(msg_get_ip_list.keys())>=len(self.player_list):
+            if len(msg_get_ip_list.keys())>=len(self.player_dict.keys()):
                 logging.info('game:begin')
                 break
 
@@ -527,7 +518,7 @@ class Game:
                 now_count = pygame.time.get_ticks()
                 for ip in self.player_dict:
                     if ip not in msg_get_ip_list.keys():
-                        self.sock_send('200 OK', (ip, self.port))
+                        self.sock.q_send.put(('200 OK', self.port))
 
             if pygame.time.get_ticks()-start_count > waiting_times:
                 logging.error('Sock Waiting Timeout: %s' % '"200 OK"')

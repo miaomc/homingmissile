@@ -1,5 +1,6 @@
 # -*- coding: cp936 -*-
 import pygame
+import logging
 
 
 class Information(object):
@@ -12,6 +13,13 @@ class Information(object):
         self.text_middle = 'MIDDLE TEST'
         self.text_middle_below = []
         self.whether_show_end = False
+        # 获取系统字体，并设置文字大小 pygame.font.get_fonts()
+        self.ttc = u"msyh.ttc"
+        self.font_dict = {16:pygame.font.Font(self.ttc, 16)}
+        # try:
+        #    self.font_dict = pygame.font.SysFont(u"microsoftyaheimicrosoftyaheiui", size)
+        # except:
+        #    self.font_dict = pygame.font.SysFont(pygame.font.get_fonts()[0], size)
 
     def add(self, message):
         self.message_list.append(message)
@@ -23,16 +31,13 @@ class Information(object):
 
     def show_text(self, screen, pos, text, color=(0, 0, 0), size=16, bold=False):
         """文字处理函数"""
-        # 获取系统字体，并设置文字大小 pygame.font.get_fonts()
-        cur_font = pygame.font.Font(u"msyh.ttc", size)
-        #try:
-        #    cur_font = pygame.font.SysFont(u"microsoftyaheimicrosoftyaheiui", size)
-        #except:
-        #    cur_font = pygame.font.SysFont(pygame.font.get_fonts()[0], size)
-        cur_font.set_bold(bold)
+        if size not in self.font_dict:
+            self.font_dict[size] = pygame.font.Font(self.ttc, size)
+        self.font_dict[size].set_bold(bold)
         # 设置文字内容
-        text_fmt = cur_font.render(text, 1, color)
-
+        # logging.info('Text.t1:%d' % pygame.time.get_ticks())
+        text_fmt = self.font_dict[size].render(text, 1, color)  # 1ms
+        # logging.info('Text.t2:%d' % pygame.time.get_ticks())
         # 绘制文字
         screen.blit(text_fmt, pos)
 
