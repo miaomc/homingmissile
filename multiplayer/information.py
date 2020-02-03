@@ -1,6 +1,7 @@
 # -*- coding: cp936 -*-
 import pygame
 import logging
+import os
 
 
 class Information(object):
@@ -14,7 +15,10 @@ class Information(object):
         self.text_middle_below = []
         self.whether_show_end = False
         # 获取系统字体，并设置文字大小 pygame.font.get_fonts()
-        self.ttc = u"msyh.ttc"
+        # self.ttc = os.path.join(os.getcwd(),"msyh.ttc")
+        # print(self.ttc)
+        pygame.init()
+        self.ttc = 'msyh.ttc'
         self.font_dict = {16:pygame.font.Font(self.ttc, 16)}
         # try:
         #    self.font_dict = pygame.font.SysFont(u"microsoftyaheimicrosoftyaheiui", size)
