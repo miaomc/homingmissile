@@ -368,13 +368,11 @@ class Plane(Base):
         #         self.weapon_group.add(weapon)
         #         return weapon
 
-
-
     def update(self):
         # print(self.velocity.length(), self.velocity, self.acc, self.velocity*self.acc,self.velocity+self.acc)
         self.velocity += self.acc
 
-        self.acc = pygame.math.Vector2(0, 0)
+        self.acc = pygame.math.Vector2((0, 0))
         self.write_in(self.velocity)
         self.rotate()
         self.healthbar.update(rect_topleft=self.rect.topleft, health=self.health)

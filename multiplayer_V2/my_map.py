@@ -1,41 +1,24 @@
 # -*- coding: utf-8 -*-
+import config
+import pygame
+import random
+import my_sprite
+
+
 class Map(object):
 
-    def __init__(self, size=MARS_MAP_SIZE):
-        self.size = Map.mars_translate(size)  # print size, self.size
+    def __init__(self, size=config.MAP_SIZE):
+        self.size = size
         self.surface = pygame.Surface(self.size)
-        self.surface.fill(BACKGROUND_COLOR)
-
-    @staticmethod
-    def mars_translate(coordinate):
-        """translate Mars Coordinate to current Display Coordinate"""
-        return [int(coordinate[i] / MARS_RATIO[i]) for i in [0, 1]]
-
-    @staticmethod
-    def mars_unti_translate(coordinate):
-        return [int(coordinate[i] * MARS_RATIO[i]) for i in [0, 1]]
-
-    # @staticmethod
-    # def mars_translate(coordinate):
-    #     """translate Mars Coordinate to current Display Coordinate"""
-    #     return [int(coordinate[i] / (float(MARS_SCREEN_SIZE[i]) / SCREEN_SIZE[i])) for i in [0, 1]]
-    #
-    # @staticmethod
-    # def mars_unti_translate(coordinate):
-    #     return [int(coordinate[i] * (float(MARS_SCREEN_SIZE[i]) / SCREEN_SIZE[i])) for i in [0, 1]]
+        self.surface.fill(config.BACKGROUND_COLOR)
 
     def add_cloud(self, cloud_num=100):
         sprite_group = pygame.sprite.Group()
         for i in range(cloud_num):  # make 100 clouds randomly
-            location = [randint(0, MARS_MAP_SIZE[0]), randint(0, MARS_MAP_SIZE[1])]
-            cloud = Base(location=location)
+            location = [random.randint(0, self.size[0]), random.randint(0, self.size[1])]
+            cloud = my_sprite.Cloud(location=location)
             sprite_group.add(cloud)
         sprite_group.draw(self.surface)
-
-        if rect.right > big_rect.right:
-            rect.right = big_rect.right
-        if rect.bottom > big_rect.bottom:
-            rect.bottom = big_rect.bottom
 
     @staticmethod
     def adjust_rect(rect, big_rect):
@@ -45,8 +28,8 @@ class Map(object):
         if rect.top < big_rect.top:
             rect.top = big_rect.top
 
-class MiniMap(object):
 
+class MiniMap(object):
     def __init__(self, screen, map_rect, current_rect, plane_group):
         self.screen = screen
         self.screen_rect = self.screen.get_rect()
@@ -59,8 +42,8 @@ class MiniMap(object):
 
         self.current_rect = current_rect
         self.map_rect = map_rect
-        self.mini_width = int(self.rect.width / (float(MARS_MAP_SIZE[0]) / MARS_SCREEN_SIZE[0]))
-        self.mini_height = int(self.rect.height / (float(MARS_MAP_SIZE[1]) / MARS_SCREEN_SIZE[1]))
+        self.mini_width = int(self.rect.width / config.MAP_SCREEN_RATIO)
+        self.mini_height = int(self.rect.height / config.MAP_SCREEN_RATIO)
         self.mini_left = self.rect.left + int(
             self.rect.width * self.current_rect.left / float(self.map_rect.left + 1))
         self.mini_top = self.rect.top + int(self.rect.height * self.current_rect.top / float(self.map_rect.top + 1))

@@ -11,8 +11,10 @@ class Widget:
         os.environ['SDL_VIDEO_CENTERED'] = '1'
         pygame.init()
         pygame.mixer.init()  # 声音初始化
+        # ret = pygame.display.set_mode(size=(1366, 768), flags=pygame.FULLSCREEN | pygame.HWSURFACE | pygame.DOUBLEBUF)
+        # logging.info('DISPLAY:%s' % str(ret))
         pygame.display.set_mode(config.SCREEN_SIZE)
-        pygame.mouse.set_visible(False)
+        # pygame.mouse.set_visible(False)
 
         self.frame = 0
         self.clock = pygame.time.Clock()

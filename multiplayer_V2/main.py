@@ -65,8 +65,8 @@ def main():
     w = widget.Widget()
     m = menu.Menu()  # 菜单界面
     m.main()
-    # g = game.Game()  # 游戏主逻辑
-    # g.main()
+    g = game.Game()  # 游戏主逻辑
+    g.main()
     del w
 
 
