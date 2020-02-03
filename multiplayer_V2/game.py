@@ -23,13 +23,11 @@ class Game:
         self.screen_rect = self.screen.get_rect()  # 游戏窗口对象的rect
         logging.info('DISPLAY:%s' % self.screen_rect)
 
-        self.origin_screen = self.screen.copy()
+        # self.origin_screen = self.screen.copy()
         # self.screen.fill(config.BACKGROUND_COLOR)  # 暂时不提前----测试
-        self.clock = pygame.time.Clock()
+        # self.clock = pygame.time.Clock()
 
     def game_init(self):
-
-
         self.player_dict = {}  # {'ip1':player_obj1, 'ip2':player_obj2}
 
         self.plane_group = pygame.sprite.Group()
@@ -44,7 +42,7 @@ class Game:
         self.minimap = None
         self.origin_map_surface = None
 
-        self.sock = my_sock.Sock()
+        self.sock = my_sock.Sock(tcp_bool=False)
 
         self.local_player = None  # 需要区分本地的其他ai玩家
         self.local_ip = None
@@ -59,28 +57,19 @@ class Game:
         self.operation_dict = {}  # use for host msg
         # ------------------------------------------------------------------------------------
 
-        
         # self.lock_frame = 0
         # self.delay_frame = 0
         # self.start_time = 0
 
-        self.info = information.Information()
+        # self.info = information.Information()
         self.show_result = False  # 用来显示Win or Lose
         self.hide_result = False
         self.last_tab_frame = 0
 
         self.screen_focus_obj = None  # 默认为空，首次指向本地plane, 空格指向本地plane, 为空但是本地plane还存在就指向plane
-        
-
 
         # self.current_rect = self.screen.get_rect()
-
-
-
-        
         self.done = False
-        self.box_group = pygame.sprite.Group()
-        self.weapon_group = pygame.sprite.Group()
 
     def main(self):
         self.game_start()
@@ -407,27 +396,27 @@ class Game:
         if not self.local_player.alive:  # 本地玩家
             self.screen_focus_obj = None  # screen_rect聚焦为空，回复上下左右控制
             self.show_result = True
-            self.info.add_middle('YOU LOST.')
-            self.info.add_middle_below('press "ESC" to exit the game.')
-            self.info.add_middle_below('press "Tab" to hide/show this message.')
+            # self.info.add_middle('YOU LOST.')
+            # self.info.add_middle_below('press "ESC" to exit the game.')
+            # self.info.add_middle_below('press "Tab" to hide/show this message.')
         else:  # 本地飞机还或者的情况
             # print self.screen_focus_obj
             if not self.screen_focus_obj.groups():  # 本地飞机还活着，但是focus_obj不在任何group里面了，就指回本地飞机
                 self.screen_focus_obj = self.local_player.plane
             if len(self.player_dict.keys()) == 1:  # 只剩你一个人了
                 self.show_result = True
-                self.info.add_middle('YOU WIN!')
-                self.info.add_middle_below('press "ESC" to exit the game.')
-                self.info.add_middle_below('press "Tab" to hide/show this message.')
+                # self.info.add_middle('YOU WIN!')
+                # self.info.add_middle_below('press "ESC" to exit the game.')
+                # self.info.add_middle_below('press "Tab" to hide/show this message.')
 
     def wait_syn_frame(self):
         # 计算每帧时间，和时间等待
         _time = pygame.time.get_ticks()
         logging.info('CostTime:%s' % str(_time - self.lastframe_time))
         # 每帧需要的时间 - 每帧实际运行时间，如果还有时间多，就等待一下
-        stardard_diff_time = 1000 / config.FPS - (_time - self.lastframe_time)
+        stardard_diff_time = int(1000 / config.FPS) - (_time - self.lastframe_time)
         if stardard_diff_time > 0:  # 等待多余的时间
-            pygame.time.wait(int(stardard_diff_time))  # 这个等待时间写在这里不合适
+            pygame.time.wait(stardard_diff_time)  # 这个等待时间写在这里不合适
             logging.info('WaitingTime:%s' % str(stardard_diff_time))
         return _time
 

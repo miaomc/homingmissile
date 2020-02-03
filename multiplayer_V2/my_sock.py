@@ -5,6 +5,7 @@ import json
 import threading
 from queue import Queue
 import logging
+import pygame
 
 UDP_PORT = 8988
 TCP_PORT = 8987
@@ -17,9 +18,10 @@ class Sock:
     发现就算将UDP切换为TCP协议，也无法改变类似UDP一样采用多线程，一样要统计每个玩家是否发送成功，跟自己构造回复消息类似，只是多了TCP的重传机制
     """
 
-    def __init__(self):
+    def __init__(self, tcp_bool=True):
         self.port_udp = UDP_PORT
         self.port_tcp = TCP_PORT
+        self.tcp_bool = tcp_bool
 
         # UDP connect
         address = (self.localip(), self.port_udp)
@@ -43,16 +45,21 @@ class Sock:
         thread1.start()
 
         # TCP listening
-        thread_tcp = threading.Thread(target=self.tcp_server)
-        thread_tcp.setDaemon(True)  # True:不关注这个子线程，主线程跑完就结束整个python process
-        thread_tcp.start()
+        if self.tcp_bool:
+            thread_tcp = threading.Thread(target=self.tcp_server)
+            thread_tcp.setDaemon(True)  # True:不关注这个子线程，主线程跑完就结束整个python process
+            thread_tcp.start()
 
     def close(self):
         self.done = True
-        self.sock_tcp.close()
-        logging.info('done Sock.sock_tcp.close().')
+        if self.tcp_bool:
+            self.close_tcp()
         self.sock.close()
         logging.info('done Sock.sock.close().')
+
+    def close_tcp(self):
+        self.sock_tcp.close()
+        logging.info('done Sock.sock_tcp.close().')
 
 
     def tcp_server(self):
@@ -79,6 +86,8 @@ class Sock:
                 tmp = json.dumps(msg, )
                 logging.info('SEND [%s]:%s' % (ip + ':' + str(self.port_udp), json.dumps(msg)))
                 self.sock.sendto(tmp.encode('utf-8'), (ip, self.port_udp))
+            else:
+                pygame.time.wait(1)  # 卧槽，加了这一句就神奇之至了！瞬间不卡了。
 
 
     def msg_recv(self):
