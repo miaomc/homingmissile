@@ -371,7 +371,9 @@ class Plane(Base):
 
 
     def update(self):
+        # print(self.velocity.length(), self.velocity, self.acc, self.velocity*self.acc,self.velocity+self.acc)
         self.velocity += self.acc
+
         self.acc = pygame.math.Vector2(0, 0)
         self.write_in(self.velocity)
         self.rotate()
@@ -528,7 +530,7 @@ class Widget:
         # print(Box.BOX_CATALOG)
         # print(xy,random.choice(.keys()))
         self.box_group.add(Box(xy, random.choice(list(Box.BOX_CATALOG.keys()))))
-        for i in range(11):
+        for i in range(1):
             xy = pygame.math.Vector2(random.randint(config.MAP_SIZE[0] // 10, config.MAP_SIZE[1]),
                                      random.randint(config.MAP_SIZE[1] // 10, config.MAP_SIZE[1]))
             p1 = Plane(location=xy, catalog='F35')
@@ -678,6 +680,7 @@ class Widget:
         i = 0
         while not self.done:
             i += 1
+            self.erase()
             self.draw(self.screen)
             key_list = self.event_control()
             for _key in key_list:
@@ -695,7 +698,7 @@ class Widget:
             self.update()
             # self.screen.blit(cur_font.render(str(i) + '-' + str(self.t5 - self.t4),1, config.BLACK, config.WHITE), (40, 40))
             pygame.display.flip()
-            self.erase()
+
 
         pygame.quit()
 

@@ -7,6 +7,7 @@ import json
 import config
 import my_sprite
 import my_sock
+import my_player
 
 class Game:
     def __init__(self):
@@ -72,8 +73,8 @@ class Game:
         # Loading Players INFO
         for ip in _d.keys():
             msg_player = _d[ip]
-            player = Player(weapon_group=self.weapon_group, ip=ip)
-            plane = Plane(catalog=msg_player['Plane'], location=msg_player['location'])
+            player = my_player.Player(weapon_group=self.weapon_group, ip=ip)
+            plane = my_sprite.Plane(catalog=msg_player['Plane'], location=msg_player['location'])
             plane.load_weapon(catalog='Cobra', number=msg_player['Cobra'])
             plane.load_weapon(catalog='Bullet', number=msg_player['Bullet'])
             plane.load_weapon(catalog='Rocket', number=msg_player['Rocket'])
@@ -106,7 +107,8 @@ class Game:
         self.screen_focus_obj = self.local_player.plane
         self.deal_screen_focus() # 根据local_player位置移动一次self.screen_rect
 
-        # to be continue ....start from here  2020-01-31 需要处理matirx的变换，考虑player_dict[ip]['ip']是否还有保留价值,保留sock两种模式?
+        # to be continue ....start from here  2020-01-31 需要处理matirx的变换,保留sock两种模式?
+        # 2020/2/2 采用HOST模式，首先要player.dat里面要带HOST标记
         # MAIN LOOP
         pygame.key.set_repeat(10)  # control how held keys are repeated
         logging.info('MAIN LOOP Start.My IP&PORT: %s - %d' % (self.local_ip, self.port))
@@ -204,7 +206,7 @@ class Game:
             if self.local_player.alive:
                 status_msg = ('syn_player_status', {'location': (self.local_player.plane.location[:]),
                                                     'velocity': (self.local_player.plane.velocity[:]),
-                                                    'health': player.plane.health})
+                                                    'health': my_player.plane.health})
                 for ip in self.player_dict:  # 发送给除自己的所有玩家
                     if ip != self.local_ip:
                         self.sock.q_send.put((status_msg, ip))

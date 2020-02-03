@@ -25,7 +25,7 @@ class Sock:
         address = (self.localip(), self.port_udp)
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind(address)
-        logging.info('Bind socket %s ok.' % str(address))
+        logging.info('Bind UDP socket %s ok.' % str(address))
         self.done = False
 
         # UDP MSG QUEUE
@@ -49,7 +49,11 @@ class Sock:
 
     def close(self):
         self.done = True
+        self.sock_tcp.close()
+        logging.info('done Sock.sock_tcp.close().')
         self.sock.close()
+        logging.info('done Sock.sock.close().')
+
 
     def tcp_server(self):
         """任何程序都开启这个TCP监听"""
@@ -57,10 +61,12 @@ class Sock:
         self.sock_tcp.bind((self.localip(), self.port_tcp))
         self.sock_tcp.listen(20)
         while not self.done:
-            client_connect, client_address = self.sock_tcp.accept()
-            # data, address = self.sock_tcp.recv(1024)
-            client_connect.close()
-        self.sock_tcp.close()
+            try:
+                client_connect, client_address = self.sock_tcp.accept()  # 是阻塞的
+                # data, address = self.sock_tcp.recv(1024)
+                client_connect.close()
+            except Exception as msg:
+                logging.warning('SOCK_TCP ERROR-->%s' % msg)
 
     def msg_send(self):
         """
@@ -71,8 +77,9 @@ class Sock:
             if not self.q_send.empty():
                 msg, ip = self.q_send.get()
                 tmp = json.dumps(msg, )
-                self.sock.sendto(tmp.encode('utf-8'), (ip, self.port_udp))
                 logging.info('SEND [%s]:%s' % (ip + ':' + str(self.port_udp), json.dumps(msg)))
+                self.sock.sendto(tmp.encode('utf-8'), (ip, self.port_udp))
+
 
     def msg_recv(self):
         """
@@ -85,16 +92,13 @@ class Sock:
         """
         while not self.done:
             try:
-                data, address = self.sock.recvfrom(1024)  # data=JSON, address=(ip, port)
+                data, address = self.sock.recvfrom(1024)  # data=JSON, address=(ip, port)  是阻塞的
                 logging.info('RECV [%s]:%s' % (address[0] + ':' + str(self.port_udp), data))
                 self.q.put((json.loads(data), address[0]))
             except Exception as msg:
                 logging.warning('SOCK RECV ERROR-->%s' % msg)
-                logging.info('RECV [%s]:%s' % (address[0] + ':' + str(self.port_udp), data))
-                self.q.put((json.loads(data), address[0]))  # 获取数据，将数据转换为正常数据，并且只提取ip，不提取port
-            # data, address = self.sock.recvfrom(1024)  # data=JSON, address=(ip, port)
-            # logging.info('RECV [%s]:%s' % (address[0] + ':' + str(self.port_udp), data))
-            # self.q.put((json.loads(data) , address[0]))
+                    # logging.info('RECV [%s]:%s' % (address[0] + ':' + str(self.port_udp), data))
+                    # self.q.put((json.loads(data), address[0]))  # 获取数据，将数据转换为正常数据，并且只提取ip，不提取port
 
     def localip(self):
         return socket.gethostbyname(socket.gethostname())

@@ -71,9 +71,8 @@ class Menu():
 
         self.msg_player = {'location': (randint(20, 80) / 100.0, randint(20, 80) / 100.0),
                            'Plane': 'F35',
-                           'Gun': 200, 'Rocket': 10, 'Cobra': 3, }
-        self.dict_player = {self.localip: self.msg_player}
-
+                           'Bullet': 200, 'Rocket': 10, 'Cobra': 3,}
+        self.dict_game = {'player': {self.localip: self.msg_player}, 'host': None}
         self.done = False
 
         self.frame_chosen_gap = int(config.FPS / 2)
@@ -143,8 +142,10 @@ class Menu():
         """dict_player = {'ip':
                                 {'location':(randint(20,80)/100.0,randint(20,80)/100.0),
                                 'Plane':'F35',
-                                'Gun':200, 'Rocket':10, 'Cobra':3}，
+                                'Bullet':200, 'Rocket':10, 'Cobra':3}，
+                            ’ip2‘:...,
                         }
+            dict_game = {'player':dict_player, 'host':'x.x.x.x'}
         """
         if self.frame % self.frame_chosen_gap*2 == 0 and self.create_bool:  # 每*1帧发一次
             # 局域网同网段群发
@@ -154,33 +155,34 @@ class Menu():
             node.add(Node(u'主机(host):' + self.localip))
             self.sock.q_send.put((('player join', self.msg_player), self.localip))  # 先给自己发个消息，自己就是主机
             self.create_bool = True
-
             start_node = Node(u'开始游戏(Start)')
             node.add(start_node)
             start_node.target = self.start_func
             # to be con...
+
+        self.dict_game['host'] = self.localip  # HOST-1/2:自己建主机的情况添加自己到host
         while not self.sock.q.empty():
             (info, msg), ip = self.sock.q.get()  # 接受处理单个玩家的加入消息msg_player
             if info == 'player join' and ip not in node.get_children_label():
                 node.add(Node(ip))  # 添加
-                self.dict_player[ip] = msg
-                for i in self.dict_player.keys():  # 给所有ip都发送所有玩家信息self.dict_player
+                self.dict_game['player'][ip] = msg
+                for i in self.dict_game['player'].keys():  # 给所有ip都发送所有玩家信息self.dict_game
                     if i != self.localip:  # 自己是主机，就不用发自己了
-                        self.sock.q_send.put((('dict_player', self.dict_player), i))
+                        self.sock.q_send.put((('dict_game', self.dict_game), i))  # HOST-2/2:其他Guest玩家的self.dict_game直接等于这个
             elif info == 'player exit':  # 处理收到玩家退出消息，删除玩家
-                if self.dict_player.has_key(ip):
-                    self.dict_player.pop(ip)
+                if self.dict_game['player'].has_key(ip):
+                    self.dict_game['player'].pop(ip)
                     node.pop(label=ip)  # 删除
-                    for i in self.dict_player.keys():  # 给所有ip都发送所有玩家信息self.dict_player
+                    for i in self.dict_game['player'].keys():  # 给所有ip都发送所有玩家信息self.dict_game
                         if i != self.localip:  # 自己是主机，就不用发自己了
-                            self.sock.q_send.put((('dict_player', self.dict_player), i))
+                            self.sock.q_send.put((('dict_game', self.dict_game), i))
 
     def create_func_back(self, node):
         self.create_bool = False
         for i in node.children:
             del i
         node.children = []
-        for i in self.dict_player.keys():  # 给所有ip都发送所有玩家信息self.dict_player
+        for i in self.dict_game['player'].keys():  # 给所有ip都发送所有玩家信息host exit
             if i != self.localip:  # 自己是主机，就不用发自己了
                 self.sock.q_send.put((('host exit', ''), i))
 
@@ -224,11 +226,11 @@ class Menu():
             self.sock.q_send.put((('player join', self.msg_player), host_ip))  # 先给主机发个加入
             self.join_enter_bool = True
 
-        # 获取&更新 self.dict_player
+        # 获取&更新 self.dict_game
         while not self.sock.q.empty():
-            (info, dict_player), ip = self.sock.q.get()
-            if info == 'dict_player':
-                self.dict_player = dict_player  # 直接等于主机所发送的dict_player
+            (info, dict_game), ip = self.sock.q.get()
+            if info == 'dict_game':
+                self.dict_game = dict_game  # 直接等于主机所发送的dict_game
             elif info == 'host exit':
                 self.has_backspace = True  # 自动回退
                 self.has_selected = True
@@ -241,33 +243,32 @@ class Menu():
         node.children = []
         if 'Host:' + host_ip not in node.get_children_label():
             node.add(Node(u'主机地址(host):' + host_ip))
-        for i in self.dict_player.keys():
+        for i in self.dict_game['player'].keys():
             node.add(Node(i))
         node.add(Node(u'等待主机开始游戏(waiting host to "Start")..'))
 
     def join_enter_back(self, host_ip):
         self.join_enter_bool = False
         self.sock.q_send.put((('player exit', ''), host_ip))  # 发送消息给主机
-        self.dict_player = {self.localip: self.msg_player}  # dict_player就只有自己了
+        self.dict_game['player'] = {self.localip: self.msg_player}  # player就只有自己了
+        self.dict_game['host'] = None
 
     # EXIT FUNCTION
     def exit_func(self):
         self.done = True
         self.sock.close()
-        logging.info('close sock.')
-
 
     # START FUNCTION
     def start_func(self):
-        for i in self.dict_player.keys():  # 给所有ip都发送所有玩家信息self.dict_player
+        for i in self.dict_game['player'].keys():  # 给所有ip都发送所有玩家信息self.dict_game
             if i != self.localip:  # 自己是主机，就不用发自己了
                 self.sock.q_send.put((('start game', ''), i))
         self.start_game()
 
     def start_game(self):
-        with open('player_dict.dat', 'w') as f:
-            json.dump(self.dict_player, f)
-            logging.info("start:write in players' data..ok")
+        with open('game_dict.dat', 'w') as f:
+            json.dump(self.dict_game, f)
+            logging.info("start:write in game&player's data..ok")
         self.exit_func()
         self.start_bool = True
         logging.info('start:content is done')
