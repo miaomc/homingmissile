@@ -1015,6 +1015,8 @@ class Game(object):
                 msg_dumped,dest = self.q_send.get()
                 self.sock.sendto(msg_dumped, dest)
                 logging.info('SEND [%s]:%s' % (str(dest), msg_dumped))
+            else:
+                pygame.time.wait(1)
 
     def msg_recv(self):
         while not self.done:
@@ -1425,8 +1427,8 @@ class Game(object):
         while not self.done:  # 游戏结束判定
             # 空就不进行读取处理
             if self.q.empty():
-                continue
                 pygame.time.wait(1)
+                continue
 
             # 处理消息
             data, address = self.q.get()
