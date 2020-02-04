@@ -64,9 +64,9 @@ def main():
                         filemode='w')  # 每次真正import logging之后，filemode为w就会清空内容
     w = widget.Widget()
     m = menu.Menu()  # 菜单界面
-    m.main()
-    g = engin.Game()  # 游戏主逻辑
-    g.main()
+    if m.main():
+        g = engin.Game()  # 游戏主逻辑
+        g.main()
     del w
 
 

@@ -172,38 +172,38 @@ class Game:
         self.done = False
         while not self.done:
             logging.info("Frame No:%s" % self.syn_frame)
-            logging.info('T1.1:%d' % pygame.time.get_ticks())
+            # logging.info('T1.1:%d' % pygame.time.get_ticks())
             # OPERATION
             key_list = self.get_eventlist()
-            logging.info('T1.2:%d' % pygame.time.get_ticks())
+            # logging.info('T1.2:%d' % pygame.time.get_ticks())
             self.sendtohost_eventlist(key_list)
-            logging.info('T1.3:%d' % pygame.time.get_ticks())
+            # logging.info('T1.3:%d' % pygame.time.get_ticks())
             self.getfromhost_operation()
 
             # SCREEN
-            logging.info('T2.2:%d' % pygame.time.get_ticks())
+            # logging.info('T2.2:%d' % pygame.time.get_ticks())
             self.erase()  # 后clear可以保留一下残影？
-            logging.info('T2.3:%d' % pygame.time.get_ticks())
+            # logging.info('T2.3:%d' % pygame.time.get_ticks())
             self.blit_map()
-            logging.info('T2.4:%d' % pygame.time.get_ticks())
+            # logging.info('T2.4:%d' % pygame.time.get_ticks())
             self.blit_screen()
-            logging.info('T2.5:%d' % pygame.time.get_ticks())
+            # logging.info('T2.5:%d' % pygame.time.get_ticks())
             pygame.display.flip()
-            logging.info('T2.6:%d' % pygame.time.get_ticks())
+            # logging.info('T2.6:%d' % pygame.time.get_ticks())
 
             # HOST
-            logging.info('T2.1:%d' % pygame.time.get_ticks())
+            # logging.info('T2.1:%d' % pygame.time.get_ticks())
             if self.host_ip == self.local_ip:
                 self.sendbyhost_operation()
 
             # MATH
-            logging.info('T3.1:%d' % pygame.time.get_ticks())
+            # logging.info('T3.1:%d' % pygame.time.get_ticks())
             self.update()
             self.deal_collide()
             self.deal_collide_with_box()
 
             # GAME
-            logging.info('T4.1:%d' % pygame.time.get_ticks())
+            # logging.info('T4.1:%d' % pygame.time.get_ticks())
             self.deal_endgame()
             self.lastframe_time = self.wait_syn_frame()
 
@@ -280,27 +280,29 @@ class Game:
     def sendbyhost_operation(self):
         """get all guests msg, then merge & send host_operation"""
         start_time = pygame.time.get_ticks()
+        over = False
         # logging.info('start time:%d'%start_time)
-        while pygame.time.get_ticks()-start_time <= 1000/config.FPS:  # 没有收集齐的就等待一帧
+        while not over and pygame.time.get_ticks()-start_time <= 1000/config.FPS:  # 没有收集齐的就等待一帧
             self.split_hostmsgqueue()
-            while not self.guest_operation_queue.empty():
+            while not over and not self.guest_operation_queue.empty():
                 (_tmp,frame), key_dict = self.guest_operation_queue.get() # (('guest',self.syn_frame), {self.ip: key_list})
-                if frame >= self.syn_frame - 1:  # 小于的syn_frame-1的guest操作就直接丢弃了
+                if frame >= self.syn_frame:  # 小于的syn_frame的guest操作就直接丢弃
                     if frame not in self.operation_dict:
                         self.operation_dict[frame] = key_dict
                     else:
                         self.operation_dict[frame].update([key_dict])
 
-            if self.syn_frame in self.operation_dict and len(self.operation_dict[self.syn_frame].keys()) == len(self.player_dict.keys()):
-                _host_msg = ('host',self.syn_frame), self.operation_dict[self.syn_frame]
-                for ip in self.player_dict:  # 发送给每个玩家
-                    self.sock.q_send.put((_host_msg, ip))
-                self.operation_dict.pop(self.syn_frame)
-                break
-            else:
-                pygame.time.wait(1)
-                logging.info('wait 1 ms%d'%(pygame.time.get_ticks()-start_time))
-            logging.info('operation_dict:%s'%str(self.operation_dict))
+                if self.syn_frame in self.operation_dict and len(self.operation_dict[self.syn_frame].keys()) == len(self.player_dict.keys()):
+                    _host_msg = ('host',self.syn_frame), self.operation_dict[self.syn_frame]
+                    over = True
+
+            pygame.time.wait(1)
+            logging.info('wait one times, ms:%d' % (pygame.time.get_ticks() - start_time))
+        if over:
+            for ip in self.player_dict:  # 发送给每个玩家
+                self.sock.q_send.put((_host_msg, ip))
+            self.operation_dict.pop(self.syn_frame)
+        logging.info('operation_dict:%s'%str(self.operation_dict))
 
     def erase(self):
         for _group in self.game_groups:

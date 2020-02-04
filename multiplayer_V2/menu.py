@@ -75,7 +75,8 @@ class Menu():
         self.dict_game = {'player': {self.localip: self.msg_player}, 'host': None}
         self.done = False
 
-        self.frame_chosen_gap = int(config.FPS / 2)
+        self.frame_chosen_gap = int(config.FPS / 2)  # create的周期是 2*gap， 扫描周期是 1*gap，扫描存活周期是4*gap
+        self. last_hostip = {}
 
     def get_localip(self):
         return self.sock.localip()
@@ -188,7 +189,10 @@ class Menu():
 
     # JOIN FUNCTION
     def scan_hostip(self):
-        return self.sock.scan_hostip()
+        """scan period: gap*4"""
+        for ip in self.sock.scan_hostip():
+            self.last_hostip[ip] = self.frame
+        return [ip for ip in self.last_hostip if self.frame-self.last_hostip[ip]<self.frame_chosen_gap*4]
 
     def join_func(self, node):
         # if self.frame % self.frame_chosen_gap != 0: #and self.join_func_bool:  # 每*s探测一次
