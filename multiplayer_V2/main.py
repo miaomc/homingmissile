@@ -67,6 +67,7 @@ def main():
     if m.main():
         g = engin.Game()  # 游戏主逻辑
         g.main()
+        engin.test_calc_frame_cost()
     del w
 
 

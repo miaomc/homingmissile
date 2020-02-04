@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import pygame
+# import time
 import random
 import logging
 import json
@@ -22,6 +23,9 @@ class Game:
         self.screen = pygame.display.get_surface()  # 游戏窗口对象
         self.screen_rect = self.screen.get_rect()  # 游戏窗口对象的rect
         logging.info('DISPLAY:%s' % self.screen_rect)
+
+        self.test_font = pygame.font.SysFont("arial", 15)
+        self.clock = pygame.time.Clock()
 
         # self.origin_screen = self.screen.copy()
         # self.screen.fill(config.BACKGROUND_COLOR)  # 暂时不提前----测试
@@ -61,7 +65,7 @@ class Game:
         # self.delay_frame = 0
         # self.start_time = 0
 
-        # self.info = information.Information()
+        self.info = information.Information()
         self.show_result = False  # 用来显示Win or Lose
         self.hide_result = False
         self.last_tab_frame = 0
@@ -168,9 +172,11 @@ class Game:
         # if self.host_ip == self.local_ip:  # 主机才发送同步LockFrame
         #     self.thread_lock.start()  # 开启玩家处理接受消息的线程
         # last_time = pygame.time.get_ticks()
-        self.lastframe_time = pygame.time.get_ticks()
+        # self.lastframe_time = pygame.time.get_ticks()
+        # self.lastframe_time = time.time()*1000
         self.done = False
         while not self.done:
+            self.lastframe_time = pygame.time.get_ticks()
             logging.info("Frame No:%s" % self.syn_frame)
             # logging.info('T1.1:%d' % pygame.time.get_ticks())
             # OPERATION
@@ -205,7 +211,7 @@ class Game:
             # GAME
             # logging.info('T4.1:%d' % pygame.time.get_ticks())
             self.deal_endgame()
-            self.lastframe_time = self.wait_syn_frame()
+            self.wait_syn_frame()
 
             # FRAME PLUS ONE
             self.syn_frame = self.syn_frame + 1
@@ -290,15 +296,16 @@ class Game:
                     if frame not in self.operation_dict:
                         self.operation_dict[frame] = key_dict
                     else:
-                        self.operation_dict[frame].update([key_dict])
+                        # logging.info('key_dict%s'%str(key_dict))
+                        self.operation_dict[frame].update(key_dict)
 
                 if self.syn_frame in self.operation_dict and len(self.operation_dict[self.syn_frame].keys()) == len(self.player_dict.keys()):
                     _host_msg = ('host',self.syn_frame), self.operation_dict[self.syn_frame]
                     over = True
-
-            pygame.time.wait(1)
-            logging.info('wait one times, ms:%d' % (pygame.time.get_ticks() - start_time))
-        if over:
+            if not over:
+                pygame.time.wait(1)
+                logging.info('wait one times, ms:%d' % (pygame.time.get_ticks() - start_time))
+        if self.syn_frame in self.operation_dict:
             for ip in self.player_dict:  # 发送给每个玩家
                 self.sock.q_send.put((_host_msg, ip))
             self.operation_dict.pop(self.syn_frame)
@@ -328,15 +335,34 @@ class Game:
     def blit_screen(self):
 
         self.screen.blit(source=self.map.surface, dest=(0, 0), area=self.screen.get_rect())  # Cost 5ms
-
-
         self.minimap.draw()
         # self.slot.draw()  # draw SlotWidget
+        # self.show_info()
 
-        # self.info.show(self.screen)  # 吃性能所在之处！！！！！！！！！！！！！！！
-
+        self.screen.blit(self.test_font.render(str(self.clock.get_fps()), 1, config.BLACK, config.WHITE),
+                         (10, 10))
+        self.clock.tick()
         # if self.show_result and not self.hide_result:
         #     self.info.show_end(self.screen)  # 吃性能所在之处！！！！！！！！！！！！！！！
+
+    # def show_info(self):
+    #     # 显示游戏信息
+    #     _time = pygame.time.get_ticks()
+    #     self.info.add(str)
+    #     self.info.show(self.screen)
+    #     self.info.add(u'')
+    #     self.info.add(u'')
+    #     self.info.add(u'')
+    #     self.info.add(u'')
+    #     for ip in self.player_dict:
+    #         self.info.add(u'Player IP:%s' % ip)
+    #         if self.player_dict[ip].plane:
+    #             self.info.add(u'Health:%d' % self.player_dict[ip].plane.health)
+    #             self.info.add(u'Weapon:%s' % str(self.player_dict[ip].plane.weapon))
+    #             self.info.add(u'Tail:%s' % self.tail_group)
+    #             self.info.add(u'speed:%s,  location:%s,  rect:%s' % (
+    #                 str(self.player_dict[ip].plane.velocity), str(self.player_dict[ip].plane.location), str(self.player_dict[ip].plane.rect)))
+    #         self.info.add(u'Groups:%s' % str(self.plane_group))
 
 
     def update(self):
@@ -372,6 +398,20 @@ class Game:
 
             # print(matrix.pos_array[0:3])
         for _sprite in self.plane_group:  # 读取1000个对象大约花5ms
+            _sprite.rect.center = _sprite.write_out()
+            if _sprite.location.x < 10:
+                _sprite.velocity.x = - _sprite.velocity.x
+                _sprite.location.x = 10
+            elif _sprite.location.x > config.MAP_SIZE[0] - 10:
+                _sprite.velocity.x = - _sprite.velocity.x
+                _sprite.location.x = config.MAP_SIZE[0] - 10
+            if _sprite.location.y < 10:
+                _sprite.velocity.y = - _sprite.velocity.y
+                _sprite.location.y = 10
+            elif _sprite.location.y > config.MAP_SIZE[1] - 10:
+                _sprite.velocity.y = - _sprite.velocity.y
+                _sprite.location.y = config.MAP_SIZE[1] - 10
+            _sprite.write_in(_sprite.location)
             _sprite.rect.center = _sprite.write_out()
 
     def deal_collide(self):
@@ -420,14 +460,14 @@ class Game:
 
     def wait_syn_frame(self):
         # 计算每帧时间，和时间等待
+        # _time = time.time()*1000
         _time = pygame.time.get_ticks()
-        logging.info('CostTime:%s' % str(_time - self.lastframe_time))
+        logging.info('CostTime:%d' % int(_time - self.lastframe_time))
         # 每帧需要的时间 - 每帧实际运行时间，如果还有时间多，就等待一下
-        stardard_diff_time = int(1000 / config.FPS) - (_time - self.lastframe_time)
+        stardard_diff_time = int(1000 / config.FPS - (_time - self.lastframe_time))
         if stardard_diff_time > 0:  # 等待多余的时间
             pygame.time.wait(stardard_diff_time)  # 这个等待时间写在这里不合适
-            logging.info('WaitingTime:%s' % str(stardard_diff_time))
-        return _time
+            logging.info('WaitingTime:%d' % stardard_diff_time)
 
     # def syn_status(self):
     #     if self.syn_frame % (int(2 * FPS)) == 0:  # 每2秒同步一次自己状态给对方

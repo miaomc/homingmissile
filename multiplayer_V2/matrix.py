@@ -30,11 +30,13 @@ def update():
     global pos_array, add_array
     pos_array += add_array
 
-
 def delete(index):
     global left_list
     left_list.append(index)
 
+def set(index, xy):
+    global pos_array
+    pos_array[index] = xy
 
 def change_add(index, xy):
     global add_array

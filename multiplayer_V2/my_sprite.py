@@ -29,7 +29,10 @@ class Base(pygame.sprite.Sprite):
     def write_new(self, location):
         return matrix.add(location)
 
-    def write_in(self, velocity):
+    def write_in(self, location):
+        return matrix.set(self.index, location)
+
+    def write_add(self, velocity):
         matrix.change_add(self.index, velocity)
 
     def write_out(self):
@@ -190,7 +193,7 @@ class Weapon(Base):
         self.fuel = Weapon.WEAPON_CATALOG[catalog]['fuel']
 
         self.velocity = velocity + velocity.normalize() * self.init_speed  # 初始速度为飞机速度+发射速度
-        self.write_in(self.velocity)
+        self.write_add(self.velocity)
 
         # self.acc = self.velocity.normalize()*self.thrust_acc  # 加速度调整为速度方向
         self.acc = pygame.math.Vector2((0, 0))
@@ -235,7 +238,7 @@ class Weapon(Base):
         # print self.min_speed, self.velocity.length(), self.max_speed
         if self.acc != pygame.math.Vector2((0, 0)):
             self.velocity += self.acc  # 在1000个object的时候需要2ms
-            self.write_in(self.velocity)  # [COST]在1000个object的时候需要30ms
+            self.write_add(self.velocity)  # [COST]在1000个object的时候需要30ms
         # print(self.location, self.velocity, self.acc, self.velocity * self.acc)
         # print(matrix.pos_array[self.index],matrix.add_array[self.index])
 
@@ -407,7 +410,7 @@ class Plane(Base):
         self.velocity += self.acc
 
         self.acc = pygame.math.Vector2((0, 0))
-        self.write_in(self.velocity)
+        self.write_add(self.velocity)
         self.rotate()
         self.healthbar.update(rect_topleft=self.rect.topleft, health=self.health)
         # if not self.alive:  # 如果挂了,就启动自爆动画
