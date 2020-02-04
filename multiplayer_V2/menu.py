@@ -171,7 +171,7 @@ class Menu():
                     if i != self.localip:  # 自己是主机，就不用发自己了
                         self.sock.q_send.put((('dict_game', self.dict_game), i))  # HOST-2/2:其他Guest玩家的self.dict_game直接等于这个
             elif info == 'player exit':  # 处理收到玩家退出消息，删除玩家
-                if self.dict_game['player'].has_key(ip):
+                if ip in self.dict_game['player']:
                     self.dict_game['player'].pop(ip)
                     node.pop(label=ip)  # 删除
                     for i in self.dict_game['player'].keys():  # 给所有ip都发送所有玩家信息self.dict_game
@@ -232,16 +232,18 @@ class Menu():
 
         # 获取&更新 self.dict_game
         while not self.sock.q.empty():
-            (info, dict_game), ip = self.sock.q.get()
-            if info == 'dict_game':
-                self.dict_game = dict_game  # 直接等于主机所发送的dict_game
-            elif info == 'host exit':
-                self.has_backspace = True  # 自动回退
-                self.has_selected = True
-            elif info == 'start game':
-                self.start_game()
+            try:
+                (info, dict_game), ip = self.sock.q.get()
+                if info == 'dict_game':
+                    self.dict_game = dict_game  # 直接等于主机所发送的dict_game
+                elif info == 'host exit':
+                    self.has_backspace = True  # 自动回退
+                    self.has_selected = True
+                elif info == 'start game':
+                    self.start_game()
+            except Exception as err:
+                logging.warning('Get Exception:%s'%err)
         # 清空&刷新
-
         for i in node.children:
             del i
         node.children = []

@@ -248,7 +248,7 @@ class Game:
             # print '    KEY:', keys
             if keys[pygame.K_ESCAPE]:
                 self.done = True
-                return  # EXIT GAME
+                return key_list # EXIT GAME
             if keys[pygame.K_LEFT]:  # 直接使用 pygame.key.get_pressed() 可以多键同时独立识别
                 self.screen_rect.x -= self.move_pixels
             if keys[pygame.K_RIGHT]:
