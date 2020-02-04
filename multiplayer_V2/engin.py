@@ -157,7 +157,7 @@ class Game:
                     if ip in msg_get_ip_list:
                         continue
                     self.sock.msg_direct_send(('start main loop', ip))  # host send start msg to all players
-                pygame.time.wait(1)
+                pygame.time.wait(10)
                 while not self.sock.q.empty():
                     msg, ip = self.sock.q.get()
                     if msg == '200 OK':
@@ -286,10 +286,11 @@ class Game:
         if self.host_operation_queue.empty():
             logging.warning('do not receive operation from host at frame:%d'%self.syn_frame)
         else:
-            tmp, msg_player = self.host_operation_queue.get() # data = (('host',self.syn_frame), operation_dict)
-            for ip in msg_player:
-                self.player_dict[ip].operation(msg_player[ip], self.syn_frame)
-            logging.info('running host operation at frame:%d'%tmp[1])
+            while not self.host_operation_queue.empty():  # 非空就把队列都去出来
+                tmp, msg_player = self.host_operation_queue.get() # data = (('host',self.syn_frame), operation_dict)
+                for ip in msg_player:
+                    self.player_dict[ip].operation(msg_player[ip], self.syn_frame)
+                logging.info('running host operation at frame:%d'%tmp[1])
 
     def split_hostmsgqueue(self):
         """self.q ----> self.guest/host_operation_queue"""
