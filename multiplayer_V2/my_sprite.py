@@ -159,9 +159,12 @@ class Weapon(Base):
         self.unrotate_image = image.copy()
         super(Weapon, self).__init__(location=location, image_surface=image)
 
+        self.alive = True
+        self.self_destruction = 0
         self.destruct_image_index = self.origin_image.get_width() / self.origin_image.get_height()
-        self.catalog = catalog
+        self.sound_kill = None
 
+        self.catalog = catalog
         if catalog == 'Bullet':
             self.sound_fire = pygame.mixer.Sound("./sound/minigun_fire.wav")
             self.sound_fire.play(maxtime=200)
@@ -246,10 +249,40 @@ class Weapon(Base):
             self.rotate()
             self.fuel -= 1
 
+    def hitted(self, base_lst):
+        for base in base_lst:
+            if id(self) == id(base):  # spritecollide如果是自己和自己就不需要碰撞了
+                continue
+            # print base.rect, self.rect
+            self.health -= base.damage
+            base.health -= self.damage
+            if self.catalog == 'Bullet' and isinstance(base, Plane):
+                self.sound_collide_plane.play()
+                self.delete(hit=True)
+            elif self.catalog in ['Rocket', 'Cobra'] and isinstance(base, Plane):
+                self.sound_collide_plane.play()
+                self.delete(hit=True)
+
     def delete(self, hit=False):
-        if hit:
-            self.sound_kill.play()
-        super(Weapon, self).delete()
+        """hit用来判断是否是击中，用来触发爆炸特效"""
+        if self.alive:  # 第一次进行的操作
+            self.hit = hit
+            # self.kill()  # remove the Sprite from all Groups
+            self.alive = False
+            if self.sound_kill:
+                self.sound_kill.play()
+
+        # 启动自爆动画
+        self.self_destruction += 0.5
+        if self.hit and self.self_destruction < self.destruct_image_index:
+            self.unrotate_image = self.origin_image.subsurface(
+                [self.self_destruction //
+                 1 * self.origin_image.get_height(), 0, self.origin_image.get_height()-1, self.origin_image.get_height()-1])
+            self.rotate()
+            return False
+        else:
+            super(Weapon,self).delete()
+            return True
 
 
 class Plane(Base):
@@ -267,9 +300,9 @@ class Plane(Base):
         'F35': {
             'health': 200,
             'max_speed': 2,  # 2400
-            'min_speed': 0.1,
-            'thrust_acc': 0.1,
-            'turn_acc': 0.2,
+            'min_speed': 0.5,
+            'thrust_acc': 0.03,
+            'turn_acc': 0.02,
             'image': ['./image/plane_blue.png'],
             'damage': 100,
         },
@@ -285,11 +318,12 @@ class Plane(Base):
         self.unrotate_image = image.copy()
         super(Plane, self).__init__(location=location, image_surface=image)
 
+        self.alive = True
+        self.self_destruction = 0
         self.destruct_image_index = self.origin_image.get_width() / self.origin_image.get_height()
-        self.catalog = catalog
-
         self.sound_kill = pygame.mixer.Sound("./sound/explode3.wav")
 
+        self.catalog = catalog
         self.max_speed = Plane.PLANE_CATALOG[catalog]['max_speed']
         self.min_speed = Plane.PLANE_CATALOG[catalog]['min_speed']
         self.turn_acc = Plane.PLANE_CATALOG[catalog]['turn_acc']
@@ -376,7 +410,6 @@ class Plane(Base):
         self.write_in(self.velocity)
         self.rotate()
         self.healthbar.update(rect_topleft=self.rect.topleft, health=self.health)
-        pass
         # if not self.alive:  # 如果挂了,就启动自爆动画
         #     self.healthbar.delete()  # 删除血条
         #     super(Plane, self).update()
@@ -385,11 +418,34 @@ class Plane(Base):
         # # super(Plane, self).update()
         # self.healthbar.update(rect_topleft=self.rect.topleft, num=self.health)  # 更新血条
         # # self.health -= 50
-        # if self.health <= 0:
+        if self.health <= 0:
+            self.alive = False
+            self.healthbar.kill()
+            self.delete()
         #     # if self.last_health_rect:  # 最后删除血条
         #     #     surface.blit(source=self.health_surface, dest=self.last_health_rect)
         #     #     self.last_health_rect=pygame.Rect(self.rect.left, self.rect.top+self.rect.height+10, self.rect.width*(self.health*1.0/200), 5)
         #     return self.delete(hit=True)
+
+    def delete(self):
+        if self.alive:  # 第一次进行的操作
+            # self.kill()  # remove the Sprite from all Groups
+            self.alive = False
+            if self.sound_kill:
+                self.sound_kill.play()
+
+        # 启动自爆动画
+        self.self_destruction += 0.5
+        if self.self_destruction < self.destruct_image_index:
+            self.unrotate_image = self.origin_image.subsurface(
+                [self.self_destruction //
+                 1 * self.origin_image.get_height(), 0, self.origin_image.get_height()-1, self.origin_image.get_height()-1])
+            self.rotate()
+            return False
+        else:
+            super(Plane,self).delete()
+            return True
+
 
     def draw_health(self, surface):
         pass

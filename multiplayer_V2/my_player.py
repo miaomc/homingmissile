@@ -18,13 +18,15 @@ class Player(object):
         self.plane.add_healthbar(self.healthbar)
 
     def update(self):
-        if self.alive:
-            if self.plane.update():
-                return True
-            else:
-                # self.alive = False
-                # self.plane = None
-                return False
+        pass
+        #
+        # if self.alive:
+        #     if self.plane.update():
+        #         return True
+        #     else:
+        #         # self.alive = False
+        #         # self.plane = None
+        #         return False
 
     def weapon_fire(self, slot):
         # print 'Plane:', self.plane.velocity

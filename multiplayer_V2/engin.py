@@ -106,6 +106,16 @@ class Game:
             self.plane_group.add(self.player_dict[ip].plane)
             self.health_group.add(self.player_dict[ip].healthbar)
 
+        # GAME TEST ADD
+        for i in range(5):
+            xy = pygame.math.Vector2(random.randint(config.MAP_SIZE[0] // 10, config.MAP_SIZE[1]),
+                                     random.randint(config.MAP_SIZE[1] // 10, config.MAP_SIZE[1]))
+            p1 = my_sprite.Plane(location=xy, catalog='F35')
+            self.plane_group.add(p1)
+            h1 = my_sprite.HealthBar(rect_topleft=p1.rect.topleft, health=100)
+            p1.add_healthbar(h1)
+            self.health_group.add(h1)
+
         # # Weapon SlotWidget
         # self.slot = SlotWidget(screen=self.screen)
 
@@ -126,10 +136,7 @@ class Game:
         self.screen_focus_obj = self.local_player.plane
         self.deal_screen_focus() # 根据local_player位置移动一次self.screen_rect
 
-        # to be continue ....start from here  2020-01-31 需要处理matirx的变换,保留sock两种模式?
-        # # GET MSG DEAL INIT
-        # self.thread_msg = threading.Thread(target=self.get_deal_msg)
-        # self.thread_msg.setDaemon(True)  # True:不关注这个子线程，主线程跑完就结束整个python process
+
 
         # # lockframe deal
         # if self.host_ip == self.local_ip:  # 主机才发送同步LockFrame
@@ -339,10 +346,10 @@ class Game:
                     # player.alive = False  # End Game
                     logging.info("player lost: %s" % ip)
 
-        for _group in self.game_groups:
+        for _group in self.game_groups:  # WEAPON/PLANE update() 都放在这里
             if id(_group) == id(self.weapon_group):
                 _group.update(self.plane_group)
-            elif id(_group) in (id(self.health_group), id(self.plane_group)):
+            elif id(_group) in [id(self.health_group)]:
                 continue
             else:
                 _group.update()

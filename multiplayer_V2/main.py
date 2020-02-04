@@ -54,7 +54,7 @@ ok爆炸效果（目前只制作了F35和J20飞机的效果）
 import logging
 import widget
 import menu
-import game
+import engin
 
 
 def main():
@@ -65,7 +65,7 @@ def main():
     w = widget.Widget()
     m = menu.Menu()  # 菜单界面
     m.main()
-    g = game.Game()  # 游戏主逻辑
+    g = engin.Game()  # 游戏主逻辑
     g.main()
     del w
 

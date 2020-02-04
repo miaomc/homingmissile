@@ -49,10 +49,10 @@ class MiniMap(object):
         self.mini_top = self.rect.top + int(self.rect.height * self.current_rect.top / float(self.map_rect.top + 1))
         self.mini_rect = pygame.Rect(self.mini_left, self.mini_top, self.mini_width, self.mini_height)
 
-        self.unit_rect_list = []
-        self.mini_plane_group = plane_group
-        for plane in plane_group:
-            self.unit_rect_list.append(plane.rect)
+        # self.unit_rect_list = []
+        self.minimap_group = plane_group
+        # for plane in plane_group:
+        #     self.unit_rect_list.append(plane.rect)
 
     def update(self):
         self.mini_left = self.rect.left + int(
@@ -65,7 +65,12 @@ class MiniMap(object):
         pygame.draw.rect(self.screen, (0, 0, 0), self.rect, 1)  # Big Rect in MiniMap
         pygame.draw.rect(self.screen, (0, 225, 10), self.mini_rect, 1)  # Small(current display) Rect in MiniMap
 
-        for rect in self.unit_rect_list:
+        for _sprite in self.minimap_group:
+            rect = _sprite.rect
             left = self.rect.left + int(rect.left / float(self.map_rect.width) * self.rect.width)
             top = self.rect.top + int(rect.top / float(self.map_rect.height) * self.rect.height)
-            pygame.draw.rect(self.screen, (255, 0, 255), pygame.Rect(left, top, 2, 2), 4)
+            if _sprite.alive:
+                color = (0,255,255)
+            else:
+                color = (255,0,0)  # 消失的话就不在group里面了，所以没有红色的了
+            pygame.draw.rect(self.screen, color, pygame.Rect(left, top, 2, 2), 4)
