@@ -46,7 +46,7 @@ class Game:
         self.minimap = None
         self.origin_map_surface = None
 
-        self.sock = my_sock.Sock(tcp_bool=False)
+        self.sock = my_sock.Sock(tcp_bool=False, thread_udp_bool=False)
 
         self.local_player = None  # 需要区分本地的其他ai玩家
         self.local_ip = None
@@ -150,7 +150,7 @@ class Game:
         # last syn before main loop 同步开始循环
         if self.host_ip == self.local_ip:  # HOST
             for ip in self.player_dict:
-                self.sock.q_send.put(('start main loop', ip))  # host send start msg to all players
+                self.sock.msg_direct_send(('start main loop', ip))  # host send start msg to all players
         # GUEST(including HOST)
         now_time = last_time = pygame.time.get_ticks()
         while now_time-last_time < 20000:
@@ -177,7 +177,7 @@ class Game:
         self.done = False
         while not self.done:
             self.lastframe_time = pygame.time.get_ticks()
-            logging.info("Frame No:%s" % self.syn_frame)
+            logging.info("----------Frame No:%s----------" % self.syn_frame)
             # logging.info('T1.1:%d' % pygame.time.get_ticks())
             # OPERATION
             key_list = self.get_eventlist()
@@ -259,7 +259,7 @@ class Game:
         return key_list
 
     def sendtohost_eventlist(self, key_list):
-        self.sock.q_send.put(((('guest',self.syn_frame), {self.local_ip: key_list}), self.host_ip))
+        self.sock.msg_direct_send(((('guest',self.syn_frame), {self.local_ip: key_list}), self.host_ip))
 
     def getfromhost_operation(self):
         """msg_player = {ip1: 'asi', ip2: 'wop'...}"""
@@ -298,18 +298,19 @@ class Game:
                     else:
                         # logging.info('key_dict%s'%str(key_dict))
                         self.operation_dict[frame].update(key_dict)
-
+                logging.info('operation_dict:%s' % str(self.operation_dict))
                 if self.syn_frame in self.operation_dict and len(self.operation_dict[self.syn_frame].keys()) == len(self.player_dict.keys()):
-                    _host_msg = ('host',self.syn_frame), self.operation_dict[self.syn_frame]
                     over = True
             if not over:
                 pygame.time.wait(1)
-                logging.info('wait one times, ms:%d' % (pygame.time.get_ticks() - start_time))
+                logging.info('wait one times, to ms:%d' % (pygame.time.get_ticks() - start_time))
+
         if self.syn_frame in self.operation_dict:
+            _host_msg = ('host', self.syn_frame), self.operation_dict[self.syn_frame]
             for ip in self.player_dict:  # 发送给每个玩家
-                self.sock.q_send.put((_host_msg, ip))
+                self.sock.msg_direct_send((_host_msg, ip))
             self.operation_dict.pop(self.syn_frame)
-        logging.info('operation_dict:%s'%str(self.operation_dict))
+        # logging.info('operation_dict:%s'%str(self.operation_dict))
 
     def erase(self):
         for _group in self.game_groups:
@@ -477,7 +478,7 @@ class Game:
     #                                                 'health': my_player.plane.health})
     #             for ip in self.player_dict:  # 发送给除自己的所有玩家
     #                 if ip != self.local_ip:
-    #                     self.sock.q_send.put((status_msg, ip))
+    #                     self.sock.msg_direct_send((status_msg, ip))
     #
     # def box_msg_send(self):
     #     if self.syn_frame % (10 * FPS) == 0:  # 每n=10秒同步一次自己状态给对方
@@ -494,12 +495,12 @@ class Game:
     #             rand_catalog = 'Cobra_num'
     #         status_msg = ('box_status', {'location': location, 'catalog': rand_catalog})
     #         for ip in self.player_dict:
-    #             self.sock.q_send.put((status_msg, ip))
+    #             self.sock.msg_direct_send((status_msg, ip))
     #
     # def plane_lost_msg_send(self, player_ip):
     #     status_msg = ('plane_lost', {'ip':player_ip})
     #     for ip in self.player_dict:
-    #         self.sock.q_send.put((status_msg, ip))
+    #         self.sock.msg_direct_send((status_msg, ip))
     #
     # # def syn_lock_frame(self):
     # #     lock_frame = 0
@@ -507,7 +508,7 @@ class Game:
     # #         pygame.time.wait(1000/FPS)
     # #         status_msg = ('syn_lock_frame', lock_frame)
     # #         for ip in self.player_dict:
-    # #             self.sock.q_send.put((status_msg, ip))
+    # #             self.sock.msg_direct_send((status_msg, ip))
     # #         lock_frame += 1
     #
     # def process(self, event_list):
