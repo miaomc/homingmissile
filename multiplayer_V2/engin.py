@@ -140,26 +140,45 @@ class Game:
         self.screen_focus_obj = self.local_player.plane
         self.deal_screen_focus() # 根据local_player位置移动一次self.screen_rect
 
-
-
         # # lockframe deal
         # if self.host_ip == self.local_ip:  # 主机才发送同步LockFrame
         #     self.thread_lock = threading.Thread(target=self.syn_lock_frame)
         #     self.thread_lock.setDaemon(True)  # True:不关注这个子线程，主线程跑完就结束整个python process
 
+        self.start_syn_mainloop()
+
+    def start_syn_mainloop(self):
         # last syn before main loop 同步开始循环
         if self.host_ip == self.local_ip:  # HOST
-            for ip in self.player_dict:
-                self.sock.msg_direct_send(('start main loop', ip))  # host send start msg to all players
-        # GUEST(including HOST)
-        now_time = last_time = pygame.time.get_ticks()
-        while now_time-last_time < 20000:
-            if not self.sock.q.empty():
-                data, address = self.sock.q.get()
-                if data == 'start main loop':
-                    logging.info('Start Msg Get:%s:%s' % (address, data))
+            msg_get_ip_list = [self.local_ip]
+            last_time = pygame.time.get_ticks()
+            while True:
+                for ip in self.player_dict:
+                    if ip in msg_get_ip_list:
+                        continue
+                    self.sock.msg_direct_send(('start main loop', ip))  # host send start msg to all players
+                pygame.time.wait(1)
+                while not self.sock.q.empty():
+                    msg, ip = self.sock.q.get()
+                    if msg == '200 OK':
+                        msg_get_ip_list.append(ip)  # 每个IP只能回复1个 200 OK，否则会出问题
+                if len(msg_get_ip_list) == len(self.player_dict.keys()):
+                    logging.info('Start Msg All Get:%s'%str(msg_get_ip_list))
                     break
-            now_time = pygame.time.get_ticks()
+                if pygame.time.get_ticks()-last_time > 10000:
+                    logging.error('Start Msg Lost!:%s'%str(msg_get_ip_list))
+                    break
+
+        else:  # GUEST
+            last_time = pygame.time.get_ticks()
+            while pygame.time.get_ticks()-last_time < 10000:
+                if not self.sock.q.empty():
+                    msg, ip = self.sock.q.get()
+                    if msg == 'start main loop':
+                        self.sock.msg_direct_send(('200 OK', ip))
+                        logging.info('Start Msg Get')
+                        break
+                pygame.time.wait(1)
 
     def game_loop(self):
         # # MSG deal
@@ -167,7 +186,7 @@ class Game:
         # self.thread_msg.start()  # 开启玩家处理接受消息的线程
         # 主循环 Main Loop
         pygame.key.set_repeat(10)  # control how held keys are repeated
-        logging.info('MAIN LOOP Start.My IP&PORT: %s' % (self.local_ip))
+        logging.info('======MAIN LOOP Start.My IP&PORT: %s======' % (self.local_ip))
 
         # if self.host_ip == self.local_ip:  # 主机才发送同步LockFrame
         #     self.thread_lock.start()  # 开启玩家处理接受消息的线程
@@ -276,12 +295,15 @@ class Game:
         """self.q ----> self.guest/host_operation_queue"""
         while not self.sock.q.empty():
             msg, ip = self.sock.q.get()
-            if msg[0][0] == 'guest':  # msg =(('guest',self.syn_frame), {self.ip: key_list})
-                # logging.info('put in guest queque:%s' %msg)
-                self.guest_operation_queue.put(msg)
-            elif msg[0][0] == 'host':  # msg = (('host',self.syn_frame), operation_dict)
-                self.host_operation_queue.put(msg)
-                # logging.info('put in host queque:%s' % msg)
+            try:
+                if msg[0][0] == 'guest':  # msg =(('guest',self.syn_frame), {self.ip: key_list})
+                    # logging.info('put in guest queque:%s' %msg)
+                    self.guest_operation_queue.put(msg)
+                elif msg[0][0] == 'host':  # msg = (('host',self.syn_frame), operation_dict)
+                    self.host_operation_queue.put(msg)
+                    # logging.info('put in host queque:%s' % msg)
+            except Exception as err:
+                logging.warning('Invalid MSG:"%s". Exception:%s'%(str(msg), err))
 
     def sendbyhost_operation(self):
         """get all guests msg, then merge & send host_operation"""
