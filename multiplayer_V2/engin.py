@@ -111,20 +111,15 @@ class Game:
             self.plane_group.add(self.player_dict[ip].plane)
             self.health_group.add(self.player_dict[ip].healthbar)
 
-        # # GAME TEST ADD
-        # for i in range(5):
-        #     xy = pygame.math.Vector2(random.randint(config.MAP_SIZE[0] // 10, config.MAP_SIZE[1]),
-        #                              random.randint(config.MAP_SIZE[1] // 10, config.MAP_SIZE[1]))
-        #     p1 = my_sprite.Plane(location=xy, catalog='F35')
-        #     self.plane_group.add(p1)
-        #     h1 = my_sprite.HealthBar(stick_obj=p1)
-        #     p1.add_healthbar(h1)
-        #     self.health_group.add(h1)
-
-        # Weapon Slot
-        # my_sprite.SlotBar()
-
-        # self.slot = SlotWidget(screen=self.screen)
+        # GAME TEST ADD
+        for i in range(5):
+            xy = pygame.math.Vector2(random.randint(config.MAP_SIZE[0] // 10, config.MAP_SIZE[1]),
+                                     random.randint(config.MAP_SIZE[1] // 10, config.MAP_SIZE[1]))
+            p1 = my_sprite.Plane(location=xy, catalog='F35')
+            self.plane_group.add(p1)
+            h1 = my_sprite.HealthBar(stick_obj=p1)
+            p1.add_healthbar(h1)
+            self.health_group.add(h1)
 
         # 获取本地玩家对象 self.local_player
         self.local_ip = self.sock.localip()
@@ -133,6 +128,16 @@ class Game:
             logging.info('get local_player success: ip - %s'%self.local_ip)
         else:
             logging.error('get local_player failed: localip-%s not in player_dict_ip-%s'%(self.local_ip), str(self.player_dict.keys()))
+
+        # Weapon Slot
+        self.slot_obj_list = []  # ['Bullet', 'Rocket', 'Cobra']
+        for i in [1, 2, 3]:
+            _s = my_sprite.SlotBar(rect_topleft=(20, 15*i-10))
+            _s.update(health=self.local_player.plane.weapon[i]['number'])
+            _logo = my_sprite.Box(location=(10,15*i-5), catalog=self.local_player.plane.weapon[i]['catalog'])
+            self.slot_group.add(_logo)
+            self.slot_obj_list.append(_s)
+            self.slot_group.add(_s)
 
         # MAP
         self.map = my_map.Map()
@@ -372,7 +377,7 @@ class Game:
         # self.show_info()
 
         self.screen.blit(self.test_font.render(str(self.clock.get_fps()), 1, config.BLACK, config.WHITE),
-                         (10, 10))
+                         (config.SCREEN_SIZE[0]-100, 10))
         self.clock.tick()
         # if self.show_result and not self.hide_result:
         #     self.info.show_end(self.screen)  # 吃性能所在之处！！！！！！！！！！！！！！！
@@ -409,8 +414,10 @@ class Game:
         for _group in self.game_groups:  # WEAPON/PLANE update() 都放在这里
             if id(_group) == id(self.weapon_group):
                 _group.update(self.plane_group)
-            # elif id(_group) == id(self.health_group):
-
+            elif id(_group) == id(self.slot_group):
+                for index,obj in enumerate(self.slot_obj_list):
+                    # print(self.local_player.plane.weapon)
+                    obj.update(self.local_player.plane.weapon[index+1]['number'])
             else:
                 _group.update()
 
@@ -460,7 +467,8 @@ class Game:
                 continue
             weapon_list = pygame.sprite.spritecollide(plane, self.weapon_group, False)
             for weapon in weapon_list:
-                weapon.hitted(plane)
+                if weapon.alive:
+                    weapon.hitted(plane)
         # # -----------
         # for weapon in self.weapon_group:  # 遍历每一个武器
         #     # 如果不是枪弹就进行相互碰撞测试

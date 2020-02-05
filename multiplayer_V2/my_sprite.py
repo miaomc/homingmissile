@@ -129,8 +129,8 @@ class Weapon(Base):
         'Rocket': {
             'health': 10,
             'init_speed': 0,
-            'max_speed': 2,
-            'thrust_acc': 0.01,
+            'max_speed': 7,
+            'thrust_acc': 0.06,
             'damage': 35,
             'image': ['./image/rocket.png'],
             'image_slot': './image/homingmissile2.png',
@@ -139,10 +139,10 @@ class Weapon(Base):
         'Cobra': {
             'health': 10,
             'init_speed': 0,
-            'max_speed': 3,  # 1360
-            'thrust_acc': 0.01,
+            'max_speed': 6,  # 1360
+            'thrust_acc': 0.04,
             'turn_acc': 0.05,
-            'damage': 250,
+            'damage': 25,
             'image': ['./image/homingmissile.png'],
             'image_slot': './image/homingmissile1.png',
             'fuel': 5000,
@@ -354,7 +354,8 @@ class Plane(Base):
         self.health = Plane.PLANE_CATALOG[catalog]['health']
 
         self.speed = (self.min_speed+self.max_speed)/2  # 初速度为一半
-        self.velocity = pygame.math.Vector2(random.random(), random.random()).normalize() * self.speed  # Vector
+        # self.velocity = pygame.math.Vector2(random.random(), random.random()).normalize() * self.speed  # Vector
+        self.velocity = pygame.math.Vector2(1,0).normalize() * self.speed  # Vector
         self.acc = pygame.math.Vector2(0, 0)
 
         self.weapon = {1: {}, 2: {}, 3: { }}  # 默认没有武器
@@ -488,40 +489,48 @@ class SlotBar(pygame.sprite.Sprite):
     COLOR_LIST = ((50, 200, 50), (50, 150, 150), (100, 100, 50), (200, 0, 50), (255, 0, 0), (0, 255, 0))
     LEN_COLOR_LIST = len(COLOR_LIST)
     FULL_HEALTH = 100
-    FULL_LENGTH = 25
+    FULL_LENGTH = 100
     MAX_LENGTH = FULL_LENGTH * 5
-    FULL_WIDTH = 5
-    def __init__(self, rect_topleft, health=100):
+    FULL_WIDTH = 10
+    def __init__(self, rect_topleft):#, health=100):
         self.origin_image = pygame.Surface((SlotBar.MAX_LENGTH, SlotBar.FULL_WIDTH)).convert()
         super(SlotBar, self).__init__()
         self.health = 0
-        self.update()
+        self.rect_topleft = rect_topleft
+        # self.rect = self.origin_image.get_rect()
+
+        # self.rect = pygame.Rect((0,0,0,0))
+        # self.rect.topleft = rect_topleft
+        # self.update()
 
     def update(self, health):
         if health != self.health:
             self.health = health
-            # Set subsuface of SlotBar
-            _length = int(self.health / SlotBar.FULL_HEALTH * SlotBar.FULL_LENGTH)
-            if _length > SlotBar.MAX_LENGTH:
-                _length = SlotBar.MAX_LENGTH
+            # Set subsuface of self
+            _length = int(self.health / self.FULL_HEALTH * self.FULL_LENGTH)
+            if _length > self.MAX_LENGTH:
+                _length = self.MAX_LENGTH
             elif _length < 0:
                 _length = 0
-            self.image = self.origin_image.subsurface((0, 0, _length, SlotBar.FULL_WIDTH))
+            self.image = self.origin_image.subsurface((0, 0, _length, self.FULL_WIDTH))
             self.rect = self.image.get_rect()
-            # Set color of SlotBar
-            _color_index = int(self.health / SlotBar.FULL_HEALTH * SlotBar.LEN_COLOR_LIST - 1)
-            if _color_index > SlotBar.LEN_COLOR_LIST - 1:
-                _color_index = SlotBar.LEN_COLOR_LIST - 1
+            # Set color of self
+            _color_index = int(self.health / self.FULL_HEALTH * self.LEN_COLOR_LIST - 1)
+            if _color_index > self.LEN_COLOR_LIST - 1:
+                _color_index = self.LEN_COLOR_LIST - 1
             elif _color_index < 0:
                 _color_index = 0
-            self.image.fill(SlotBar.COLOR_LIST[_color_index])
+            self.image.fill(self.COLOR_LIST[_color_index])
+            self.rect.topleft = self.rect_topleft
 
 class HealthBar(SlotBar):
+    FULL_LENGTH = 25
+    FULL_WIDTH = 5
     def __init__(self,stick_obj):
         self.stick_obj = stick_obj
         rect_topleft = self.stick_obj.rect.topleft
-        health = self.stick_obj.health
-        super(HealthBar,self).__init__(rect_topleft=rect_topleft, health=health)
+        # health = self.stick_obj.health
+        super(HealthBar,self).__init__(rect_topleft=rect_topleft)
         self.update()  # !!!
 
     def update(self):
