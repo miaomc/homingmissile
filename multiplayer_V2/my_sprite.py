@@ -166,6 +166,9 @@ class Weapon(Base):
         self.self_destruction = 0
         self.destruct_image_index = self.origin_image.get_width() / self.origin_image.get_height()
         self.sound_kill = None
+        self.hit = None
+        self.hitted_obj = None
+        self.offset_vecter = None
 
         self.catalog = catalog
         if catalog == 'Bullet':
@@ -261,19 +264,21 @@ class Weapon(Base):
             base.health -= self.damage
             if self.catalog == 'Bullet' and isinstance(base, Plane):
                 self.sound_collide_plane.play()
-                self.delete(hit=True)
+                self.delete(hit=True, hitted_obj=base)
             elif self.catalog in ['Rocket', 'Cobra'] and isinstance(base, Plane):
                 self.sound_collide_plane.play()
-                self.delete(hit=True)
+                self.delete(hit=True, hitted_obj=base)
 
-    def delete(self, hit=False):
+    def delete(self, hit=False, hitted_obj=None):
         """hit用来判断是否是击中，用来触发爆炸特效"""
         if self.alive:  # 第一次进行的操作
-            self.hit = hit
-            # self.kill()  # remove the Sprite from all Groups
             self.alive = False
+            self.hit = hit
+            self.hitted_obj = hitted_obj
             if self.sound_kill:
                 self.sound_kill.play()
+            if hitted_obj:
+                self.offset_vecter = (self.rect.x-hitted_obj.rect.x)//3, (self.rect.y-hitted_obj.rect.y)//3
 
         # 启动自爆动画
         self.self_destruction += 0.5
@@ -282,6 +287,9 @@ class Weapon(Base):
                 [self.self_destruction //
                  1 * self.origin_image.get_height(), 0, self.origin_image.get_height()-1, self.origin_image.get_height()-1])
             self.rotate()
+            if self.hitted_obj:  # 被撞击的对象，跟着被撞击的对象移动-Plane
+                self.rect.center = self.hitted_obj.rect.center
+                self.rect.move_ip(self.offset_vecter[0], self.offset_vecter[1])
             return False
         else:
             super(Weapon,self).delete()
@@ -293,8 +301,8 @@ class Plane(Base):
     PLANE_CATALOG = {
         'J20': {
             'health': 200,
-            'max_speed': 5,
-            'min_speed': 2,
+            'max_speed': 10,
+            'min_speed': 0.5,
             'thrust_acc': 0.6,
             'turn_acc': 0.35,  # 20
             'image': ['./image/plane_red.png'],
@@ -302,7 +310,7 @@ class Plane(Base):
         },
         'F35': {
             'health': 200,
-            'max_speed': 2,  # 2400
+            'max_speed': 5,  # 2400
             'min_speed': 0.5,
             'thrust_acc': 0.03,
             'turn_acc': 0.02,
@@ -334,7 +342,7 @@ class Plane(Base):
         self.damage = Plane.PLANE_CATALOG[catalog]['damage']
         self.health = Plane.PLANE_CATALOG[catalog]['health']
 
-        self.speed = self.min_speed  # 初速度为一半
+        self.speed = (self.min_speed+self.max_speed)/2  # 初速度为一半
         self.velocity = pygame.math.Vector2(random.random(), random.random()).normalize() * self.speed  # Vector
         self.acc = pygame.math.Vector2(0, 0)
 

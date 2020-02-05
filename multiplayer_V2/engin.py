@@ -39,8 +39,8 @@ class Game:
         self.box_group = pygame.sprite.Group()
         self.weapon_group = pygame.sprite.Group()
         self.thrustbar_group = pygame.sprite.Group()
-        self.game_groups = [self.box_group, self.weapon_group, self.plane_group, self.health_group,
-                            self.thrustbar_group]
+        self.game_groups = [self.box_group, self.plane_group, self.weapon_group, self.health_group,
+                            self.thrustbar_group]  # 有顺序讲究
 
         self.map = None
         self.minimap = None
@@ -417,7 +417,9 @@ class Game:
         matrix.update()  # 基本上不花时间
 
         for _sprite in self.weapon_group:  # 读取1000个对象大约花5ms
-            _sprite.rect.center = _sprite.write_out()
+            if not _sprite.hit:
+                _sprite.rect.center = _sprite.write_out()
+                # pygame.draw.rect(self.map.surface, (255, 0, 0), _sprite.rect, 1)
             # print('M:',_sprite.location)
 
             # print(matrix.pos_array[0:3])
@@ -437,6 +439,7 @@ class Game:
                 _sprite.location.y = config.MAP_SIZE[1] - 10
             _sprite.write_in(_sprite.location)
             _sprite.rect.center = _sprite.write_out()
+            # pygame.draw.rect(self.map.surface, (255, 0, 0), _sprite.rect, 1)
 
     def deal_collide(self):
         """
@@ -449,17 +452,17 @@ class Game:
                 continue
             if weapon.catalog != 'Bullet':
                 # print weapon
-                weapon_collide_lst = pygame.sprite.spritecollide(weapon, self.weapon_group, False, pygame.sprite.collide_rect_ratio(1))  # False代表不直接kill该对象
+                weapon_collide_lst = pygame.sprite.spritecollide(weapon, self.weapon_group, False, pygame.sprite.collide_rect_ratio(config.COLLIDE_RATIO))  # False代表不直接kill该对象
                 weapon.hitted(weapon_collide_lst)  # 发生碰撞相互减血
                 # for hitted_weapon in weapon_collide_lst:
                 #     hitted_weapon.hitted([weapon])  # 本身受到攻击的对象
             # 检测武器与飞机之间的碰撞        
-            plane_collide_lst = pygame.sprite.spritecollide(weapon, self.plane_group, False, pygame.sprite.collide_rect_ratio(1))
+            plane_collide_lst = pygame.sprite.spritecollide(weapon, self.plane_group, False, pygame.sprite.collide_rect_ratio(config.COLLIDE_RATIO))
             weapon.hitted(plane_collide_lst)  # 发生碰撞相互减血
 
     def deal_collide_with_box(self):
         for plane in self.plane_group:  # 进行飞机与Box之间碰撞探测
-            box_collide_lst = pygame.sprite.spritecollide(plane, self.box_group, False, pygame.sprite.collide_rect_ratio(1))
+            box_collide_lst = pygame.sprite.spritecollide(plane, self.box_group, False, pygame.sprite.collide_rect_ratio(config.COLLIDE_RATIO))
             for box in box_collide_lst:
                 box.effect(plane)
                 box.delete()
@@ -862,7 +865,7 @@ def test_calc_frame_cost():
 
     # show diagram. vertiacal
     for i in range(min(len(l1), len(l2))):
-        logging.info("[%d]%s%s" % (int(l1[i]) + int(l2[i]), '+' * int(l1[i]), '-' * int(l2[i])))
+        logging.info("[%d][%d]%s%s" % (i,int(l1[i]) + int(l2[i]), '+' * int(l1[i]), '-' * int(l2[i])))
         # print("[%d]%s%s" % (int(l1[i]) + int(l2[i]), '+' * int(l1[i]), '-' * int(l2[i])))
 
     # average cost

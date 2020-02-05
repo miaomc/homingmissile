@@ -1,5 +1,6 @@
 import my_sprite
 import config
+import random
 
 class Player(object):
 
@@ -34,12 +35,15 @@ class Player(object):
             if self.plane.weapon[slot]['number'] > 0:
                 self.plane.weapon[slot]['number'] -= 1
                 # print dir(self.plane)
-                tmp_rect = (self.plane.velocity.normalize().x * self.plane.rect.height,self.plane.velocity.normalize().y * self.plane.rect.height)
-                location_x = self.plane.location.x + tmp_rect[0]
-                location_y = self.plane.location.y + tmp_rect[1]
+                tmp_rect = self.plane.velocity.normalize()*self.plane.rect.height  # 朝飞机前进的方向+velocity*角度
+                tmp_rect.rotate_ip(random.choice((-15,15)))
+                # tmp_rect = (self.plane.velocity.normalize().x * self.plane.rect.height,self.plane.velocity.normalize().y * self.plane.rect.height)
+                tmp_location = self.plane.location + tmp_rect
+                # location_x = self.plane.location.x + tmp_rect[0]
+                # location_y = self.plane.location.y + random.choice((tmp_rect[1]/2,-tmp_rect[1]/2))
                 # print location_x,location_y, '<------------', self.plane.location, self.plane.rect
                 weapon = my_sprite.Weapon(catalog=self.plane.weapon[slot]['catalog'],
-                                location=(location_x, location_y),
+                                location=tmp_location,
                                 velocity=self.plane.velocity)
                 self.weapon_group.add(weapon)
                 return weapon
