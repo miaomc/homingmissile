@@ -211,7 +211,7 @@ class Game:
         self.done = False
         while not self.done:
             # 两种思路：1不管之前帧是怎么样子的，这一帧开始就是接收信息然后发送信息，不需要是同一个帧
-            #2 从头开始就是按正常帧来，那么有个问题，如何同步开始的时间
+            #2 从头开始就是按正常帧来，那么有个问题，如何同步开始的时间------开始时间不重要，初步来看还不错，后面加上位置同步看看~~~
             # self.lastframe_time = pygame.time.get_ticks()
             logging.info("----------Frame No:%s----------" % self.syn_frame)
             # logging.info('T1.1:%d' % pygame.time.get_ticks())
