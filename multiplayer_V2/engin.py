@@ -207,9 +207,12 @@ class Game:
         # last_time = pygame.time.get_ticks()
         # self.lastframe_time = pygame.time.get_ticks()
         # self.lastframe_time = time.time()*1000
+        self.start_time = pygame.time.get_ticks()
         self.done = False
         while not self.done:
-            self.lastframe_time = pygame.time.get_ticks()
+            # 两种思路：1不管之前帧是怎么样子的，这一帧开始就是接收信息然后发送信息，不需要是同一个帧
+            #2 从头开始就是按正常帧来，那么有个问题，如何同步开始的时间
+            # self.lastframe_time = pygame.time.get_ticks()
             logging.info("----------Frame No:%s----------" % self.syn_frame)
             # logging.info('T1.1:%d' % pygame.time.get_ticks())
             # OPERATION
@@ -244,7 +247,8 @@ class Game:
             # GAME
             # logging.info('T4.1:%d' % pygame.time.get_ticks())
             self.deal_endgame()
-            self.wait_syn_frame()
+            # self.wait_syn_frame()
+            self.wait_whole_frame()
 
             # FRAME PLUS ONE
             self.syn_frame = self.syn_frame + 1
@@ -519,6 +523,11 @@ class Game:
         if stardard_diff_time > 0:  # 等待多余的时间
             pygame.time.wait(stardard_diff_time)  # 这个等待时间写在这里不合适
             logging.info('WaitingTime:%d' % stardard_diff_time)
+    def wait_whole_frame(self):
+        wait_time = int((1000/config.FPS)*(self.syn_frame+1) - (pygame.time.get_ticks() - self.start_time))
+        if wait_time > 0:
+            pygame.time.wait(wait_time)
+            logging.info('WaitTime:%d' % wait_time)
 
     # def syn_status(self):
     #     if self.syn_frame % (int(2 * FPS)) == 0:  # 每2秒同步一次自己状态给对方
