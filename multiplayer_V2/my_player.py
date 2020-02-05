@@ -15,7 +15,7 @@ class Player(object):
 
     def add_plane(self, plane):
         self.plane = plane
-        self.healthbar = my_sprite.HealthBar(rect_topleft=self.plane.rect.topleft, health=100)
+        self.healthbar = my_sprite.HealthBar(stick_obj=self.plane)
         self.plane.add_healthbar(self.healthbar)
 
     def update(self):

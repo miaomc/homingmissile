@@ -49,14 +49,15 @@ class Base(pygame.sprite.Sprite):
         self.image = pygame.transform.rotate(self.unrotate_image, angle)
         self.rect = self.image.get_rect(center=self.rect.center)
 
-class Cloud(Base):
+class Cloud(pygame.sprite.Sprite):
     CLOUD_IMAGE_LIST = ['./image/cloud1.png', './image/cloud2.png', './image/cloud3.png', './image/cloud4.png']
 
     def __init__(self, location):
+        super(Cloud,self).__init__()
         image_path = random.choice(Cloud.CLOUD_IMAGE_LIST)
-        image = pygame.image.load(image_path).convert_alpha().convert()
-        super(Cloud, self).__init__(location=location, image_surface=image)
-
+        self.image = pygame.image.load(image_path).convert_alpha()  # convert_alpha与convert冲突
+        self.rect = self.image.get_rect()
+        self.rect.center = [int(i) for i in location]
 
 class Box(Base):
     BOX_CATALOG = {
@@ -255,19 +256,29 @@ class Weapon(Base):
             self.rotate()
             self.fuel -= 1
 
-    def hitted(self, base_lst):
-        for base in base_lst:
-            if id(self) == id(base):  # spritecollide如果是自己和自己就不需要碰撞了
-                continue
-            # print base.rect, self.rect
-            self.health -= base.damage
-            base.health -= self.damage
-            if self.catalog == 'Bullet' and isinstance(base, Plane):
-                self.sound_collide_plane.play()
-                self.delete(hit=True, hitted_obj=base)
-            elif self.catalog in ['Rocket', 'Cobra'] and isinstance(base, Plane):
-                self.sound_collide_plane.play()
-                self.delete(hit=True, hitted_obj=base)
+    def hitted(self, base):
+        self.health -= base.damage
+        base.health -= self.damage
+        if self.catalog == 'Bullet' and isinstance(base, Plane):
+            self.sound_collide_plane.play()
+            self.delete(hit=True, hitted_obj=base)
+        elif self.catalog in ['Rocket', 'Cobra'] and isinstance(base, Plane):
+            self.sound_collide_plane.play()
+            self.delete(hit=True, hitted_obj=base)
+
+    # def hitted(self, base_lst):
+    #     for base in base_lst:
+    #         if id(self) == id(base):  # spritecollide如果是自己和自己就不需要碰撞了
+    #             continue
+    #         # print base.rect, self.rect
+    #         self.health -= base.damage
+    #         base.health -= self.damage
+    #         if self.catalog == 'Bullet' and isinstance(base, Plane):
+    #             self.sound_collide_plane.play()
+    #             self.delete(hit=True, hitted_obj=base)
+    #         elif self.catalog in ['Rocket', 'Cobra'] and isinstance(base, Plane):
+    #             self.sound_collide_plane.play()
+    #             self.delete(hit=True, hitted_obj=base)
 
     def delete(self, hit=False, hitted_obj=None):
         """hit用来判断是否是击中，用来触发爆炸特效"""
@@ -352,7 +363,7 @@ class Plane(Base):
         # self.healthbar = HealthBar(location=self.location)
 
     def add_healthbar(self, healthbar):
-        self.healthbar = healthbar
+        self.healthbar = healthbar  # 把self.healthbar加进来的目的就是为了可以kill()
 
     def turn_left(self):
         self.acc += self.velocity.rotate(-90).normalize() * self.turn_acc
@@ -420,7 +431,7 @@ class Plane(Base):
         self.acc = pygame.math.Vector2((0, 0))
         self.write_add(self.velocity)
         self.rotate()
-        self.healthbar.update(rect_topleft=self.rect.topleft, health=self.health)
+        # self.healthbar.update(rect_topleft=self.rect.topleft, health=self.health)
         # if not self.alive:  # 如果挂了,就启动自爆动画
         #     self.healthbar.delete()  # 删除血条
         #     super(Plane, self).update()
@@ -431,7 +442,7 @@ class Plane(Base):
         # # self.health -= 50
         if self.health <= 0:
             self.alive = False
-            self.healthbar.kill()
+            self.healthbar.kill()  # 把self.healthbar加进来的目的就是为了可以kill()
             self.delete()
         #     # if self.last_health_rect:  # 最后删除血条
         #     #     surface.blit(source=self.health_surface, dest=self.last_health_rect)
@@ -463,51 +474,63 @@ class Plane(Base):
         # # """sprite.Group()是单独blit的"""
 
 
-class Bar(Base):
-    def __init__(self, location, length=5, width=2, color=config.BLACK):
-        self.color = color
-        self.width = width
-        self.length = length
-        image = pygame.Surface((self.length, self.width))
-        image.fill(self.color)
-        image.convert()
-        super(Bar, self).__init__(location=location, image=image)
+# class Bar(Base):
+#     def __init__(self, location, length=5, width=2, color=config.BLACK):
+#         self.color = color
+#         self.width = width
+#         self.length = length
+#         image = pygame.Surface((self.length, self.width))
+#         image.fill(self.color)
+#         image.convert()
+#         super(Bar, self).__init__(location=location, image=image)
 
-
-class HealthBar(pygame.sprite.Sprite):
+class SlotBar(pygame.sprite.Sprite):
     COLOR_LIST = ((50, 200, 50), (50, 150, 150), (100, 100, 50), (200, 0, 50), (255, 0, 0), (0, 255, 0))
     LEN_COLOR_LIST = len(COLOR_LIST)
     FULL_HEALTH = 100
     FULL_LENGTH = 25
     MAX_LENGTH = FULL_LENGTH * 5
     FULL_WIDTH = 5
-
     def __init__(self, rect_topleft, health=100):
-        self.origin_image = pygame.Surface((HealthBar.MAX_LENGTH, HealthBar.FULL_WIDTH)).convert()
+        self.origin_image = pygame.Surface((SlotBar.MAX_LENGTH, SlotBar.FULL_WIDTH)).convert()
+        super(SlotBar, self).__init__()
         self.health = 0
-        super(HealthBar, self).__init__()
-        self.update(rect_topleft, health=health)
+        self.update()
 
-    def update(self, rect_topleft, health):
+    def update(self, health):
         if health != self.health:
             self.health = health
-            # Set subsuface of healthbar
-            _length = int(self.health / HealthBar.FULL_HEALTH * HealthBar.FULL_LENGTH)
-            if _length > HealthBar.MAX_LENGTH:
-                _length = HealthBar.MAX_LENGTH
+            # Set subsuface of SlotBar
+            _length = int(self.health / SlotBar.FULL_HEALTH * SlotBar.FULL_LENGTH)
+            if _length > SlotBar.MAX_LENGTH:
+                _length = SlotBar.MAX_LENGTH
             elif _length < 0:
                 _length = 0
-            self.image = self.origin_image.subsurface((0, 0, _length, HealthBar.FULL_WIDTH))
+            self.image = self.origin_image.subsurface((0, 0, _length, SlotBar.FULL_WIDTH))
             self.rect = self.image.get_rect()
-            # Set color of healthbar
-            _color_index = int(self.health / HealthBar.FULL_HEALTH * HealthBar.LEN_COLOR_LIST - 1)
-            if _color_index > HealthBar.LEN_COLOR_LIST - 1:
-                _color_index = HealthBar.LEN_COLOR_LIST - 1
+            # Set color of SlotBar
+            _color_index = int(self.health / SlotBar.FULL_HEALTH * SlotBar.LEN_COLOR_LIST - 1)
+            if _color_index > SlotBar.LEN_COLOR_LIST - 1:
+                _color_index = SlotBar.LEN_COLOR_LIST - 1
             elif _color_index < 0:
                 _color_index = 0
-            self.image.fill(HealthBar.COLOR_LIST[_color_index])
-        self.rect.topleft = rect_topleft
+            self.image.fill(SlotBar.COLOR_LIST[_color_index])
 
+class HealthBar(SlotBar):
+    def __init__(self,stick_obj):
+        self.stick_obj = stick_obj
+        rect_topleft = self.stick_obj.rect.topleft
+        health = self.stick_obj.health
+        super(HealthBar,self).__init__(rect_topleft=rect_topleft, health=health)
+        self.update()  # !!!
+
+    def update(self):
+        rect_topleft= self.stick_obj.rect.topleft
+        health = self.stick_obj.health
+        # health = stick_obj
+        # super(HealthBar,self).update(health)
+        super(HealthBar, self).update(health=health)
+        self.rect.topleft = rect_topleft
 
 class ThrustBar(pygame.sprite.Sprite):
     RECT_LIST = ((5, 2), (4, 2), (3, 2), (2, 2), (1, 2), (1, 1))

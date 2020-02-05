@@ -39,8 +39,9 @@ class Game:
         self.box_group = pygame.sprite.Group()
         self.weapon_group = pygame.sprite.Group()
         self.thrustbar_group = pygame.sprite.Group()
+        self.slot_group = pygame.sprite.Group()
         self.game_groups = [self.box_group, self.plane_group, self.weapon_group, self.health_group,
-                            self.thrustbar_group]  # 有顺序讲究
+                            self.thrustbar_group, self.slot_group]  # 有顺序讲究, 同时也是渲染叠加顺序
 
         self.map = None
         self.minimap = None
@@ -110,17 +111,19 @@ class Game:
             self.plane_group.add(self.player_dict[ip].plane)
             self.health_group.add(self.player_dict[ip].healthbar)
 
-        # GAME TEST ADD
-        for i in range(5):
-            xy = pygame.math.Vector2(random.randint(config.MAP_SIZE[0] // 10, config.MAP_SIZE[1]),
-                                     random.randint(config.MAP_SIZE[1] // 10, config.MAP_SIZE[1]))
-            p1 = my_sprite.Plane(location=xy, catalog='F35')
-            self.plane_group.add(p1)
-            h1 = my_sprite.HealthBar(rect_topleft=p1.rect.topleft, health=100)
-            p1.add_healthbar(h1)
-            self.health_group.add(h1)
+        # # GAME TEST ADD
+        # for i in range(5):
+        #     xy = pygame.math.Vector2(random.randint(config.MAP_SIZE[0] // 10, config.MAP_SIZE[1]),
+        #                              random.randint(config.MAP_SIZE[1] // 10, config.MAP_SIZE[1]))
+        #     p1 = my_sprite.Plane(location=xy, catalog='F35')
+        #     self.plane_group.add(p1)
+        #     h1 = my_sprite.HealthBar(stick_obj=p1)
+        #     p1.add_healthbar(h1)
+        #     self.health_group.add(h1)
 
-        # # Weapon SlotWidget
+        # Weapon Slot
+        # my_sprite.SlotBar()
+
         # self.slot = SlotWidget(screen=self.screen)
 
         # 获取本地玩家对象 self.local_player
@@ -133,9 +136,15 @@ class Game:
 
         # MAP
         self.map = my_map.Map()
-        self.map.add_cloud()
+        self.map.add_cloud(cloud_num=20)
         self.minimap = my_map.MiniMap(self.screen, self.map.surface.get_rect(), self.screen_rect, self.plane_group)
         self.origin_map_surface = self.map.surface.copy()
+
+        # self.screen = pygame.display.get_surface()
+        # self.screen.blit(source=self.map.surface, dest=(0, 0), area=self.screen.get_rect())
+        # self.minimap.draw()
+        # pygame.display.flip()
+        # pygame.time.wait(3000)
 
         self.screen_focus_obj = self.local_player.plane
         self.deal_screen_focus() # 根据local_player位置移动一次self.screen_rect
@@ -357,7 +366,6 @@ class Game:
             _group.draw(self.map.surface)
 
     def blit_screen(self):
-
         self.screen.blit(source=self.map.surface, dest=(0, 0), area=self.screen.get_rect())  # Cost 5ms
         self.minimap.draw()
         # self.slot.draw()  # draw SlotWidget
@@ -401,8 +409,8 @@ class Game:
         for _group in self.game_groups:  # WEAPON/PLANE update() 都放在这里
             if id(_group) == id(self.weapon_group):
                 _group.update(self.plane_group)
-            elif id(_group) in [id(self.health_group)]:
-                continue
+            # elif id(_group) == id(self.health_group):
+
             else:
                 _group.update()
 
@@ -417,8 +425,9 @@ class Game:
         matrix.update()  # 基本上不花时间
 
         for _sprite in self.weapon_group:  # 读取1000个对象大约花5ms
-            if not _sprite.hit:
+            if not _sprite.hit:  # 降到40帧，不一定是这里的愿意，可能跟碰撞也有关系
                 _sprite.rect.center = _sprite.write_out()
+            # _sprite.rect.center = _sprite.write_out()
                 # pygame.draw.rect(self.map.surface, (255, 0, 0), _sprite.rect, 1)
             # print('M:',_sprite.location)
 
@@ -446,19 +455,26 @@ class Game:
         self.plane_group = pygame.sprite.Group()
         self.weapon_group = pygame.sprite.Group()
         """
-        for weapon in self.weapon_group:  # 遍历每一个武器
-            # 如果不是枪弹就进行相互碰撞测试
-            if not weapon.alive:
+        for plane in self.plane_group:
+            if not plane.alive:
                 continue
-            if weapon.catalog != 'Bullet':
-                # print weapon
-                weapon_collide_lst = pygame.sprite.spritecollide(weapon, self.weapon_group, False, pygame.sprite.collide_rect_ratio(config.COLLIDE_RATIO))  # False代表不直接kill该对象
-                weapon.hitted(weapon_collide_lst)  # 发生碰撞相互减血
-                # for hitted_weapon in weapon_collide_lst:
-                #     hitted_weapon.hitted([weapon])  # 本身受到攻击的对象
-            # 检测武器与飞机之间的碰撞        
-            plane_collide_lst = pygame.sprite.spritecollide(weapon, self.plane_group, False, pygame.sprite.collide_rect_ratio(config.COLLIDE_RATIO))
-            weapon.hitted(plane_collide_lst)  # 发生碰撞相互减血
+            weapon_list = pygame.sprite.spritecollide(plane, self.weapon_group, False)
+            for weapon in weapon_list:
+                weapon.hitted(plane)
+        # # -----------
+        # for weapon in self.weapon_group:  # 遍历每一个武器
+        #     # 如果不是枪弹就进行相互碰撞测试
+        #     if not weapon.alive:
+        #         continue
+        #     if weapon.catalog != 'Bullet':
+        #         # print weapon
+        #         weapon_collide_lst = pygame.sprite.spritecollide(weapon, self.weapon_group, False, pygame.sprite.collide_rect_ratio(config.COLLIDE_RATIO))  # False代表不直接kill该对象
+        #         weapon.hitted(weapon_collide_lst)  # 发生碰撞相互减血
+        #         # for hitted_weapon in weapon_collide_lst:
+        #         #     hitted_weapon.hitted([weapon])  # 本身受到攻击的对象
+        #     # 检测武器与飞机之间的碰撞
+        #     plane_collide_lst = pygame.sprite.spritecollide(weapon, self.plane_group, False, pygame.sprite.collide_rect_ratio(config.COLLIDE_RATIO))
+        #     weapon.hitted(plane_collide_lst)  # 发生碰撞相互减血
 
     def deal_collide_with_box(self):
         for plane in self.plane_group:  # 进行飞机与Box之间碰撞探测

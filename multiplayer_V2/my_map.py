@@ -18,7 +18,10 @@ class Map(object):
             location = [random.randint(0, self.size[0]), random.randint(0, self.size[1])]
             cloud = my_sprite.Cloud(location=location)
             sprite_group.add(cloud)
+            # print('add cloud%s'%str(location))
         sprite_group.draw(self.surface)
+        # pygame.draw.line(self.surface,(255,0,0),(10,10),(500,500))
+        # print('draw cloud')
 
     @staticmethod
     def adjust_rect(rect, big_rect):
