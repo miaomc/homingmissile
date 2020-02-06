@@ -142,7 +142,7 @@ class Weapon(Base):
             'max_speed': 6,  # 1360
             'thrust_acc': 0.04,
             'turn_acc': 0.05,
-            'damage': 25,
+            'damage': 55,
             'image': ['./image/homingmissile.png'],
             'image_slot': './image/homingmissile1.png',
             'fuel': 5000,
@@ -430,6 +430,7 @@ class Plane(Base):
         self.velocity += self.acc
 
         self.acc = pygame.math.Vector2((0, 0))
+        self.write_in(self.location)
         self.write_add(self.velocity)
         self.rotate()
         # self.healthbar.update(rect_topleft=self.rect.topleft, health=self.health)

@@ -31,6 +31,8 @@ class Game:
         # self.screen.fill(config.BACKGROUND_COLOR)  # 暂时不提前----测试
         # self.clock = pygame.time.Clock()
 
+
+
     def game_init(self):
         self.player_dict = {}  # {'ip1':player_obj1, 'ip2':player_obj2}
 
@@ -60,6 +62,10 @@ class Game:
         self.host_operation_queue = Queue()
         self.guest_operation_queue = Queue()
         self.operation_dict = {}  # use for host msg
+
+        self.screen_focus_obj = None  # 默认为空，首次指向本地plane, 空格指向本地plane, 为空但是本地plane还存在就指向plane
+        self.move_pixels = 30
+        self.done = False
         # ------------------------------------------------------------------------------------
 
         # self.lock_frame = 0
@@ -71,10 +77,7 @@ class Game:
         self.hide_result = False
         self.last_tab_frame = 0
 
-        self.screen_focus_obj = None  # 默认为空，首次指向本地plane, 空格指向本地plane, 为空但是本地plane还存在就指向plane
 
-        # self.current_rect = self.screen.get_rect()
-        self.done = False
 
     def main(self):
         self.game_start()
@@ -218,7 +221,8 @@ class Game:
             # OPERATION
             key_list = self.get_eventlist()
             # logging.info('T1.2:%d' % pygame.time.get_ticks())
-            self.sendtohost_eventlist(key_list)
+            if self.local_player.alive:  # 玩家或者才上报数据
+                self.sendtohost_eventlist(key_list)
             # logging.info('T1.3:%d' % pygame.time.get_ticks())
             self.getfromhost_operation()
 
@@ -228,6 +232,7 @@ class Game:
             # logging.info('T2.3:%d' % pygame.time.get_ticks())
             self.blit_map()
             # logging.info('T2.4:%d' % pygame.time.get_ticks())
+            self.focus_screen()
             self.blit_screen()
             # logging.info('T2.5:%d' % pygame.time.get_ticks())
             pygame.display.flip()
@@ -241,13 +246,12 @@ class Game:
             # MATH
             # logging.info('T3.1:%d' % pygame.time.get_ticks())
             self.update()
-            self.deal_collide()
-            self.deal_collide_with_box()
+            self.game_collide()
+            self.game_collide_with_box()
 
             # GAME
             # logging.info('T4.1:%d' % pygame.time.get_tick  s())
-            self.deal_endgame()
-            # self.wait_syn_frame()
+            self.end_game()
             self.wait_whole_frame()
 
             # FRAME PLUS ONE
@@ -308,7 +312,9 @@ class Game:
                 tmp, msg_dict = self.host_operation_queue.get() # data = (('host',self.syn_frame), {'opr':operation_dict})
                 msg_opr = msg_dict['opr']
                 for ip in msg_opr:
-                    self.player_dict[ip].operation(msg_opr[ip], self.syn_frame)
+                    weapon_obj = self.player_dict[ip].operation(msg_opr[ip], self.syn_frame)
+                    if ip == self.local_ip and weapon_obj:   # 如果导弹对象不为空，就将屏幕聚焦对象指向它
+                        self.screen_focus_obj = weapon_obj
                 logging.info('running host operation at frame:%d'%tmp[1])
                 if tmp[1]==self.syn_frame-1 and 'syn' in msg_dict:  # 在这一帧操作之前，进行上一帧的位置同步，后面会进行update()
                     msg_player = msg_dict['syn']
@@ -334,11 +340,18 @@ class Game:
 
     def sendbyhost_operation(self):
         """get all guests msg, then merge & send host_operation"""
+        alive_players = sum([player.alive for player in self.player_dict.values()])
+        if alive_players == 0:  # 或者已经没有玩家存活了
+            logging.info('alive players number:%d'%alive_players)
+            return
         start_time = pygame.time.get_ticks()
         over = False
         # logging.info('start time:%d'%start_time)
-        while not over and pygame.time.get_ticks()-start_time <= 1000/config.FPS:  # 没有收集齐的就等待一帧
+        # 接收发来的guest消息进行处理，没有收集齐的就等待一帧
+        while not over and pygame.time.get_ticks()-start_time <= 1000/config.FPS:
+            # 接受到的消息分类
             self.split_hostmsgqueue()
+            # 对分类进入到 guest_operation_queue 队列中的消息做HOST消息整合
             while not over and not self.guest_operation_queue.empty():
                 (_tmp,frame), key_dict = self.guest_operation_queue.get() # (('guest',self.syn_frame), {self.ip: key_list})
                 if frame >= self.syn_frame:  # 小于的syn_frame的guest操作就直接丢弃
@@ -348,17 +361,20 @@ class Game:
                         # logging.info('key_dict%s'%str(key_dict))
                         self.operation_dict[frame].update(key_dict)
                 logging.info('operation_dict:%s' % str(self.operation_dict))
-                if self.syn_frame in self.operation_dict and len(self.operation_dict[self.syn_frame].keys()) == len(self.player_dict.keys()):
+
+                if self.syn_frame in self.operation_dict and len(self.operation_dict[self.syn_frame].keys()) == alive_players:
                     over = True
+                # logging.info('TRUEorFalse%d'%self.syn_frame in self.operation_dict and len(self.operation_dict[self.syn_frame].keys()) == alive_players or alive_players==0)
             if not over:
                 pygame.time.wait(1)
                 logging.info('wait one times, to ms:%d' % (pygame.time.get_ticks() - start_time))
 
+        # 合并和发送HOST消息
         if self.syn_frame in self.operation_dict:
             # [["host", 74], {"192.168.0.103": "",..}]
             _head = ['host', self.syn_frame]
             _d = _operation = {'opr':self.operation_dict[self.syn_frame]}
-            # 添加同步的玩家信息
+            # 添加同步的玩家信息，每一秒
             if self.syn_frame % config.FPS == 0:
                 _syn_dict = {}
                 for ip in self.player_dict:
@@ -370,7 +386,7 @@ class Game:
             for ip in self.player_dict:  # 发送给每个玩家
                 self.sock.msg_direct_send((_host_msg, ip))
             self.operation_dict.pop(self.syn_frame)
-        # logging.info('operation_dict:%s'%str(self.operation_dict))
+
 
     def erase(self):
         for _group in self.game_groups:
@@ -393,8 +409,28 @@ class Game:
         for _group in self.game_groups:
             _group.draw(self.map.surface)
 
+    def focus_screen(self):
+        if self.screen_focus_obj:  # 跟随屏幕视角
+            self.screen_rect.center = self.screen_focus_obj.rect.center
+        # 调节屏幕不超出
+        if self.screen_rect.left < 0:
+            self.screen_rect.left = 0
+        elif self.screen_rect.right > self.map.size[0]:
+            self.screen_rect.right = self.map.size[0]
+        if self.screen_rect.top < 0:
+            self.screen_rect.top = 0
+        elif self.screen_rect.bottom > self.map.size[1]:
+            self.screen_rect.bottom = self.map.size[1]
+
+        if self.screen_focus_obj and not self.map.surface.get_rect().contains(self.screen_focus_obj.rect):
+            self.screen_focus_obj = None
+        # print(self.screen_focus_obj,self.screen_rect)
+
+
     def blit_screen(self):
-        self.screen.blit(source=self.map.surface, dest=(0, 0), area=self.screen.get_rect())  # Cost 5ms
+
+
+        self.screen.blit(source=self.map.surface, dest=(0, 0), area=self.screen_rect)  # Cost 5ms
         self.minimap.draw()
         # self.slot.draw()  # draw SlotWidget
         # self.show_info()
@@ -480,7 +516,9 @@ class Game:
             _sprite.rect.center = _sprite.write_out()
             # pygame.draw.rect(self.map.surface, (255, 0, 0), _sprite.rect, 1)
 
-    def deal_collide(self):
+        self.minimap.update()
+
+    def game_collide(self):
         """
         self.plane_group = pygame.sprite.Group()
         self.weapon_group = pygame.sprite.Group()
@@ -507,30 +545,35 @@ class Game:
         #     plane_collide_lst = pygame.sprite.spritecollide(weapon, self.plane_group, False, pygame.sprite.collide_rect_ratio(config.COLLIDE_RATIO))
         #     weapon.hitted(plane_collide_lst)  # 发生碰撞相互减血
 
-    def deal_collide_with_box(self):
+    def game_collide_with_box(self):
         for plane in self.plane_group:  # 进行飞机与Box之间碰撞探测
             box_collide_lst = pygame.sprite.spritecollide(plane, self.box_group, False, pygame.sprite.collide_rect_ratio(config.COLLIDE_RATIO))
             for box in box_collide_lst:
                 box.effect(plane)
                 box.delete()
 
-    def deal_endgame(self):
+    def end_game(self):
+        if not self.local_player.plane.alive:
+            self.local_player.alive = False
+
         # 屏幕显示，本地飞机聚焦处理
-        if not self.local_player.alive:  # 本地玩家
-            self.screen_focus_obj = None  # screen_rect聚焦为空，回复上下左右控制
-            self.show_result = True
-            # self.info.add_middle('YOU LOST.')
-            # self.info.add_middle_below('press "ESC" to exit the game.')
-            # self.info.add_middle_below('press "Tab" to hide/show this message.')
-        else:  # 本地飞机还或者的情况
-            # print self.screen_focus_obj
-            if not self.screen_focus_obj.groups():  # 本地飞机还活着，但是focus_obj不在任何group里面了，就指回本地飞机
+        if self.local_player.alive:  # 本地玩家
+            # FOCUS SCREEN
+            if self.screen_focus_obj == None or self.screen_focus_obj.groups() == []:  # 本地飞机还活着，但是focus_obj不在任何group里面了，就指回本地飞机
                 self.screen_focus_obj = self.local_player.plane
             if len(self.player_dict.keys()) == 1:  # 只剩你一个人了
                 self.show_result = True
                 # self.info.add_middle('YOU WIN!')
                 # self.info.add_middle_below('press "ESC" to exit the game.')
                 # self.info.add_middle_below('press "Tab" to hide/show this message.')
+        else:
+            self.screen_focus_obj = None  # screen_rect聚焦为空，回复上下左右控制
+            self.show_result = True
+            # self.info.add_middle('YOU LOST.')
+            # self.info.add_middle_below('press "ESC" to exit the game.')
+            # self.info.add_middle_below('press "Tab" to hide/show this message.')
+
+        # FOCUS SCREEN
 
     def wait_syn_frame(self):
         # 计算每帧时间，和时间等待
