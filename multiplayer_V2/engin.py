@@ -171,7 +171,7 @@ class Game:
                     if ip in msg_get_ip_list:
                         continue
                     self.sock.msg_direct_send(('start main loop', ip))  # host send start msg to all players
-                pygame.time.wait(10)
+                pygame.time.wait(100)
                 while not self.sock.q.empty():
                     msg, ip = self.sock.q.get()
                     if msg == '200 OK':
@@ -245,7 +245,7 @@ class Game:
             self.deal_collide_with_box()
 
             # GAME
-            # logging.info('T4.1:%d' % pygame.time.get_ticks())
+            # logging.info('T4.1:%d' % pygame.time.get_tick  s())
             self.deal_endgame()
             # self.wait_syn_frame()
             self.wait_whole_frame()
@@ -305,10 +305,18 @@ class Game:
             logging.warning('do not receive operation from host at frame:%d'%self.syn_frame)
         else:
             while not self.host_operation_queue.empty():  # 非空就把队列都去出来
-                tmp, msg_player = self.host_operation_queue.get() # data = (('host',self.syn_frame), operation_dict)
-                for ip in msg_player:
-                    self.player_dict[ip].operation(msg_player[ip], self.syn_frame)
+                tmp, msg_dict = self.host_operation_queue.get() # data = (('host',self.syn_frame), {'opr':operation_dict})
+                msg_opr = msg_dict['opr']
+                for ip in msg_opr:
+                    self.player_dict[ip].operation(msg_opr[ip], self.syn_frame)
                 logging.info('running host operation at frame:%d'%tmp[1])
+                if tmp[1]==self.syn_frame-1 and 'syn' in msg_dict:  # 在这一帧操作之前，进行上一帧的位置同步，后面会进行update()
+                    msg_player = msg_dict['syn']
+                    for ip in msg_player:
+                        self.player_dict[ip].plane.location[:] = msg_player[ip]['location']
+                        self.player_dict[ip].plane.velocity[:] = msg_player[ip]['velocity']
+                        self.player_dict[ip].plane.health = msg_player[ip]['health']
+                    logging.info('running player synchronize at frame:%d' % tmp[1])
 
     def split_hostmsgqueue(self):
         """self.q ----> self.guest/host_operation_queue"""
@@ -347,7 +355,18 @@ class Game:
                 logging.info('wait one times, to ms:%d' % (pygame.time.get_ticks() - start_time))
 
         if self.syn_frame in self.operation_dict:
-            _host_msg = ('host', self.syn_frame), self.operation_dict[self.syn_frame]
+            # [["host", 74], {"192.168.0.103": "",..}]
+            _head = ['host', self.syn_frame]
+            _d = _operation = {'opr':self.operation_dict[self.syn_frame]}
+            # 添加同步的玩家信息
+            if self.syn_frame % config.FPS == 0:
+                _syn_dict = {}
+                for ip in self.player_dict:
+                    plane = self.player_dict[ip].plane
+                    _syn_dict[ip] ={'location':plane.location[:],'velocity':plane.velocity[:],'health':plane.health}
+                _d.update({'syn': _syn_dict})
+            # HOST MSG SEND
+            _host_msg = _head, _d
             for ip in self.player_dict:  # 发送给每个玩家
                 self.sock.msg_direct_send((_host_msg, ip))
             self.operation_dict.pop(self.syn_frame)
@@ -527,7 +546,7 @@ class Game:
         wait_time = int((1000/config.FPS)*(self.syn_frame+1) - (pygame.time.get_ticks() - self.start_time))
         if wait_time > 0:
             pygame.time.wait(wait_time)
-            logging.info('WaitTime:%d' % wait_time)
+            logging.info('WaitingTime:%d' % wait_time)
 
     # def syn_status(self):
     #     if self.syn_frame % (int(2 * FPS)) == 0:  # 每2秒同步一次自己状态给对方
