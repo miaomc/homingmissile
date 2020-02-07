@@ -80,8 +80,8 @@ class Game:
 
 
     def main(self):
-        self.game_start()
-        self.game_loop()
+        if self.game_start():
+            self.game_loop()
 
     def game_start(self):
         # Read&Format player_dict.dat
@@ -130,7 +130,7 @@ class Game:
             self.local_player = self.player_dict[self.local_ip]
             logging.info('get local_player success: ip - %s'%self.local_ip)
         else:
-            logging.error('get local_player failed: localip-%s not in player_dict_ip-%s'%(self.local_ip), str(self.player_dict.keys()))
+            logging.error('get local_player failed: localip-%s not in player_dict_ip-%s'%(self.local_ip, str(self.player_dict.keys())))
 
         # Weapon Slot
         self.slot_obj_list = []  # ['Bullet', 'Rocket', 'Cobra']
@@ -162,7 +162,7 @@ class Game:
         #     self.thread_lock = threading.Thread(target=self.syn_lock_frame)
         #     self.thread_lock.setDaemon(True)  # True:不关注这个子线程，主线程跑完就结束整个python process
 
-        self.start_syn_mainloop()
+        return self.start_syn_mainloop()
 
     def start_syn_mainloop(self):
         # last syn before main loop 同步开始循环
@@ -181,7 +181,7 @@ class Game:
                         msg_get_ip_list.append(ip)  # 每个IP只能回复1个 200 OK，否则会出问题
                 if len(msg_get_ip_list) == len(self.player_dict.keys()):
                     logging.info('Start Msg All Get:%s'%str(msg_get_ip_list))
-                    break
+                    return True
                 if pygame.time.get_ticks()-last_time > 10000:
                     logging.error('Start Msg Lost!:%s'%str(msg_get_ip_list))
                     break
@@ -194,8 +194,10 @@ class Game:
                     if msg == 'start main loop':
                         self.sock.msg_direct_send(('200 OK', ip))
                         logging.info('Start Msg Get')
-                        break
+                        return True
                 pygame.time.wait(1)
+        logging.error('Get Start MSG FAILED! GAME EXIT.')
+        return False
 
     def game_loop(self):
         # # MSG deal
@@ -310,19 +312,24 @@ class Game:
         else:
             while not self.host_operation_queue.empty():  # 非空就把队列都去出来
                 tmp, msg_dict = self.host_operation_queue.get() # data = (('host',self.syn_frame), {'opr':operation_dict})
+                #  进行操作消息的读取&操作
                 msg_opr = msg_dict['opr']
                 for ip in msg_opr:
                     weapon_obj = self.player_dict[ip].operation(msg_opr[ip], self.syn_frame)
                     if ip == self.local_ip and weapon_obj:   # 如果导弹对象不为空，就将屏幕聚焦对象指向它
                         self.screen_focus_obj = weapon_obj
                 logging.info('running host operation at frame:%d'%tmp[1])
-                if tmp[1]==self.syn_frame-1 and 'syn' in msg_dict:  # 在这一帧操作之前，进行上一帧的位置同步，后面会进行update()
+                # 进行同步消息的读取&操作
+                if 'syn' in msg_dict:  # 在这一帧操作之前，进行上一帧的位置同步，后面会进行update()
                     msg_player = msg_dict['syn']
                     for ip in msg_player:
                         self.player_dict[ip].plane.location[:] = msg_player[ip]['location']
                         self.player_dict[ip].plane.velocity[:] = msg_player[ip]['velocity']
                         self.player_dict[ip].plane.health = msg_player[ip]['health']
-                    logging.info('running player synchronize at frame:%d' % tmp[1])
+                    if tmp[1] == self.syn_frame - 1:  # 正常在本帧update()之前，同步上一帧的状态
+                        logging.info('running player_synchronize at frame:%d.' % tmp[1])
+                    else:
+                        logging.warning('running player_synchronize at unnormal frame:%d!' % tmp[1])
 
     def split_hostmsgqueue(self):
         """self.q ----> self.guest/host_operation_queue"""
@@ -341,9 +348,9 @@ class Game:
     def sendbyhost_operation(self):
         """get all guests msg, then merge & send host_operation"""
         alive_players = sum([player.alive for player in self.player_dict.values()])
-        if alive_players == 0:  # 或者已经没有玩家存活了
-            logging.info('alive players number:%d'%alive_players)
-            return
+        # if alive_players == 0:  # 或者已经没有玩家存活了
+        #     logging.info('alive players number:%d'%alive_players)
+        #     return
         start_time = pygame.time.get_ticks()
         over = False
         # logging.info('start time:%d'%start_time)
