@@ -114,15 +114,15 @@ class Game:
             self.plane_group.add(self.player_dict[ip].plane)
             self.health_group.add(self.player_dict[ip].healthbar)
 
-        # GAME TEST ADD
-        for i in range(5):
-            xy = pygame.math.Vector2(random.randint(config.MAP_SIZE[0] // 10, config.MAP_SIZE[1]),
-                                     random.randint(config.MAP_SIZE[1] // 10, config.MAP_SIZE[1]))
-            p1 = my_sprite.Plane(location=xy, catalog='F35')
-            self.plane_group.add(p1)
-            h1 = my_sprite.HealthBar(stick_obj=p1)
-            p1.add_healthbar(h1)
-            self.health_group.add(h1)
+        # # GAME TEST ADD
+        # for i in range(5):
+        #     xy = pygame.math.Vector2(random.randint(config.MAP_SIZE[0] // 10, config.MAP_SIZE[1]),
+        #                              random.randint(config.MAP_SIZE[1] // 10, config.MAP_SIZE[1]))
+        #     p1 = my_sprite.Plane(location=xy, catalog='F35')
+        #     self.plane_group.add(p1)
+        #     h1 = my_sprite.HealthBar(stick_obj=p1)
+        #     p1.add_healthbar(h1)
+        #     self.health_group.add(h1)
 
         # 获取本地玩家对象 self.local_player
         self.local_ip = self.sock.localip()
