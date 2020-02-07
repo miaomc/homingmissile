@@ -414,7 +414,11 @@ class Game:
                   area=rect)  # blit(source, dest, area=None, special_flags=0) -> Rect
     def blit_map(self):
         for _group in self.game_groups:
-            _group.draw(self.map.surface)
+            if id(_group) == id(self.slot_group):  # 在screen的blit之后进行draw
+                continue
+            else:
+                _group.draw(self.map.surface)
+
 
     def focus_screen(self):
         if self.screen_focus_obj:  # 跟随屏幕视角
@@ -439,7 +443,7 @@ class Game:
 
         self.screen.blit(source=self.map.surface, dest=(0, 0), area=self.screen_rect)  # Cost 5ms
         self.minimap.draw()
-        # self.slot.draw()  # draw SlotWidget
+        self.slot_group.draw(self.screen)  # draw SlotWidget
         # self.show_info()
 
         self.screen.blit(self.test_font.render(str(self.clock.get_fps()), 1, config.BLACK, config.WHITE),
