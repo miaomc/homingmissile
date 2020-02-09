@@ -1,5 +1,9 @@
 player_dict.dat
 msyh.ttc
-logger.log
 old_*.py
 test_*.py
+__pycache__/
+game_dict.dat
+*.log
+test/*.png
+.gitignore

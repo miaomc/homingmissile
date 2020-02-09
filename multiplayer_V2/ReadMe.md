@@ -1,4 +1,4 @@
-# Refactor "Multiplayer",重构 homingmissile\multiplayer项目:  
+﻿# Refactor "Multiplayer",重构 homingmissile\multiplayer项目:  
 ·适应python3
 ·重新设计Sprite,引入numpy,采用矩阵进行批量运动计算-----step 1  
 ·仍然采用多对多方式通信，没有采用服务器架构,统一采用my_sock模块
@@ -21,3 +21,4 @@
     a.x  
 ·变量尽量用全称  
   传参不要传对象，这样就传了一个引用过去
+  git reset HEAD 如果后面什么都不跟的话 就是上一次add 里面的全部撤销了

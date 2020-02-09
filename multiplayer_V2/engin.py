@@ -114,15 +114,8 @@ class Game:
             self.plane_group.add(self.player_dict[ip].plane)
             self.health_group.add(self.player_dict[ip].healthbar)
 
-        # # GAME TEST ADD
-        # for i in range(5):
-        #     xy = pygame.math.Vector2(random.randint(config.MAP_SIZE[0] // 10, config.MAP_SIZE[1]),
-        #                              random.randint(config.MAP_SIZE[1] // 10, config.MAP_SIZE[1]))
-        #     p1 = my_sprite.Plane(location=xy, catalog='F35')
-        #     self.plane_group.add(p1)
-        #     h1 = my_sprite.HealthBar(stick_obj=p1)
-        #     p1.add_healthbar(h1)
-        #     self.health_group.add(h1)
+        # GAME TEST ADD
+        self.test_add_plane()
 
         # 获取本地玩家对象 self.local_player
         self.local_ip = self.sock.localip()
@@ -258,6 +251,16 @@ class Game:
 
             # FRAME PLUS ONE
             self.syn_frame = self.syn_frame + 1
+
+    def test_add_plane(self):
+        for i in range(50):
+            xy = pygame.math.Vector2(random.randint(config.MAP_SIZE[0] // 10, config.MAP_SIZE[1]),
+                                     random.randint(config.MAP_SIZE[1] // 10, config.MAP_SIZE[1]))
+            p1 = my_sprite.Plane(location=xy, catalog='F35')
+            self.plane_group.add(p1)
+            h1 = my_sprite.HealthBar(stick_obj=p1)
+            p1.add_healthbar(h1)
+            self.health_group.add(h1)
 
     def get_eventlist(self):
         """
@@ -564,8 +567,13 @@ class Game:
                 box.delete()
 
     def end_game(self):
-        if not self.local_player.plane.alive:
-            self.local_player.alive = False
+        # 更新每个Player的状态
+        for player in self.player_dict.values():
+            player.update()
+
+        # # 更新本地玩家的状态  ,本地玩家自动指向那个player object，状态自动更新
+        # if not self.local_player.plane.alive:
+        #     self.local_player.alive = False
 
         # 屏幕显示，本地飞机聚焦处理
         if self.local_player.alive:  # 本地玩家

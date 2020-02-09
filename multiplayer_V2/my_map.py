@@ -12,7 +12,7 @@ class Map(object):
         self.surface = pygame.Surface(self.size)
         self.surface.fill(config.BACKGROUND_COLOR)
 
-    def add_cloud(self, cloud_num=100):
+    def add_cloud(self, cloud_num=80):
         sprite_group = pygame.sprite.Group()
         for i in range(cloud_num):  # make 100 clouds randomly
             location = [random.randint(0, self.size[0]), random.randint(0, self.size[1])]

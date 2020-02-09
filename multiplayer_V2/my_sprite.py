@@ -122,7 +122,7 @@ class Weapon(Base):
             'image': ['./image/bullet.png'],
             'image_slot': './image/bullet.png',
             'image_explosion': './image/gunfire_explosion.png',
-            'fuel': 2000,  # 8
+            'fuel': 250,  # 8
             'sound_collide_plane': ['./sound/bulletLtoR08.wav', './sound/bulletLtoR09.wav', './sound/bulletLtoR10.wav',
                                     './sound/bulletLtoR11.wav', './sound/bulletLtoR13.wav', './sound/bulletLtoR14.wav']
         },
@@ -134,7 +134,7 @@ class Weapon(Base):
             'damage': 35,
             'image': ['./image/rocket.png'],
             'image_slot': './image/homingmissile2.png',
-            'fuel': 2000,
+            'fuel': 1000,
         },
         'Cobra': {
             'health': 10,
@@ -145,7 +145,7 @@ class Weapon(Base):
             'damage': 55,
             'image': ['./image/homingmissile.png'],
             'image_slot': './image/homingmissile1.png',
-            'fuel': 5000,
+            'fuel': 1000,
             'detect_range': 1000,
             'detect_degree': 60
         },
@@ -320,12 +320,13 @@ class Plane(Base):
             'damage': 100,
         },
         'F35': {
-            'health': 200,
+            'health': 500,
             'max_speed': 5,  # 2400
-            'min_speed': 0.5,
-            'thrust_acc': 0.03,
+            'min_speed': 2,
+            'thrust_acc': 0.02,
             'turn_acc': 0.02,
-            'image': ['./image/plane_blue.png'],
+            'image': ['./image/plane_red.png','./image/plane_orange.png','./image/plane_yellow.png','./image/plane_green.png',
+                      './image/plane_cyan.png','./image/plane_blue.png','./image/plane_purple.png','./image/plane_pink.png'],
             'damage': 100,
         },
     }
@@ -443,7 +444,6 @@ class Plane(Base):
         # self.healthbar.update(rect_topleft=self.rect.topleft, num=self.health)  # 更新血条
         # # self.health -= 50
         if self.health <= 0:
-            self.alive = False
             self.healthbar.kill()  # 把self.healthbar加进来的目的就是为了可以kill()
             self.delete()
         #     # if self.last_health_rect:  # 最后删除血条
@@ -459,7 +459,7 @@ class Plane(Base):
                 self.sound_kill.play()
 
         # 启动自爆动画
-        self.self_destruction += 0.5
+        self.self_destruction += 0.25
         if self.self_destruction < self.destruct_image_index:
             self.unrotate_image = self.origin_image.subsurface(
                 [self.self_destruction //
@@ -544,8 +544,7 @@ class HealthBar(SlotBar):
 
 class ThrustBar(pygame.sprite.Sprite):
     RECT_LIST = ((5, 2), (4, 2), (3, 2), (2, 2), (1, 2), (1, 1))
-    COLOR_LIST = (
-    (255, 51, 0), (255, 244, 237), (200, 213, 255), (181, 199, 255), (172, 192, 255), (167, 188, 255), (164, 186, 255))
+    COLOR_LIST = ((255, 244, 237),(200, 213, 255),(181, 199, 255),(172, 192, 255),(167, 188, 255),(164, 186, 255),(255, 51, 0))
     MAX_HEALTH = 30
     LEN_RECT_LIST = len(RECT_LIST)
     LEN_COLOR_LIST = len(COLOR_LIST)
