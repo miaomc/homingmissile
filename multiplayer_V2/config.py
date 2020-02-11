@@ -38,3 +38,7 @@ PLANE_IMAGE = {'YELLOW': './image/plane_yellow.png',
                'BLUE': './image/plane_blue.png',
                'PURPLE': './image/plane_purple.png',
                'PINK': './image/plane_pink.png', }
+
+BULLET = 0
+ROCKET = 0
+COBRA = 30

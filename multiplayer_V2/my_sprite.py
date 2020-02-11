@@ -187,7 +187,8 @@ class Weapon(Base):
             self.turn_acc = Weapon.WEAPON_CATALOG[catalog]['turn_acc']
             self.detect_range = Weapon.WEAPON_CATALOG[catalog]['detect_range']
             self.detect_degree = Weapon.WEAPON_CATALOG[catalog]['detect_degree']
-            self.target = None
+
+        self.target = None  # 跟踪对象
 
         self.health = Weapon.WEAPON_CATALOG[catalog]['health']
         self.damage = Weapon.WEAPON_CATALOG[catalog]['damage']
@@ -218,6 +219,7 @@ class Weapon(Base):
         # 专门处理推进加速度
         if self.catalog != 'Bullet' and self.velocity.length() < self.max_speed:
             self.acc = self.velocity.normalize() * self.thrust_acc  # 加上垂直速度
+            # print(self.acc)
         # 专门处理转向加速度
         if self.catalog == 'Cobra':
             """
@@ -227,9 +229,9 @@ class Weapon(Base):
                 # Vector2.angle_to 是顺时针,[0,180]and[-360,-180]就顺时针旋转90度
                 _degree = self.velocity.angle_to(self.target.location - self.location)
                 if 0 < _degree < 180 or -360 < _degree < -180:
-                    self.acc = self.velocity.rotate(90).normalize() * self.turn_acc
+                    self.acc += self.velocity.rotate(90).normalize() * self.turn_acc
                 else:
-                    self.acc = self.velocity.rotate(-90).normalize() * self.turn_acc
+                    self.acc += self.velocity.rotate(-90).normalize() * self.turn_acc
             else:  # 探索新target
                 self.target = None
                 self.acc = pygame.math.Vector2(0, 0)  # 如果
@@ -362,7 +364,9 @@ class Plane(Base):
         self.velocity = pygame.math.Vector2(1,0).normalize() * self.speed  # Vector
         self.acc = pygame.math.Vector2(0, 0)
 
-        self.weapon = {1: {}, 2: {}, 3: { }}  # 默认没有武器
+        self.weapon = {1: {'catalog': 'Bullet', 'number': 0},
+                       2: {'catalog': 'Rocket', 'number': 0},
+                       3: {'catalog': 'Cobra', 'number': 0}}  # 默认武器为0
 
         self.sound_kill = pygame.mixer.Sound("./sound/explode3.wav")
         # self.healthbar = HealthBar(location=self.location)
@@ -390,10 +394,9 @@ class Plane(Base):
         self.health += num
 
     def load_weapon(self, catalog='Cobra', number=6):
-        """self.weapon = { 1: {catalog:<Bullet>, number=500},
-            2:{catalog:<Cobra>, number=6},
-            3: None
-        }"""
+        """self.weapon = {1: {'catalog': 'Bullet', 'number': 200},
+        2: {'catalog': 'Rocket', 'number': 20},
+        3: {'catalog': 'Cobra', 'number': 10}} """
         index = 3  # 默认为非Gun子弹和Rocket火箭弹的其他类
         if catalog == 'Bullet':
             index = 1
@@ -401,8 +404,10 @@ class Plane(Base):
             index = 2
         self.weapon[index]['catalog'] = catalog
         self.weapon[index]['number'] = number
+        # print(self.weapon, catalog, number)
 
     def change_weapon(self, catalog, number):
+        # print(self.weapon,catalog,number)
         if catalog == 'Bullet':
             self.weapon[1]['number'] += number
         elif catalog == 'Rocket':
@@ -499,7 +504,7 @@ class SlotBar(pygame.sprite.Sprite):
     def __init__(self, rect_topleft):#, health=100):
         self.origin_image = pygame.Surface((SlotBar.MAX_LENGTH, SlotBar.FULL_WIDTH)).convert()
         super(SlotBar, self).__init__()
-        self.health = 0
+        self.health = -1
         self.rect_topleft = rect_topleft
         # self.rect = self.origin_image.get_rect()
 

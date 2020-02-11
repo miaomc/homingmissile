@@ -115,7 +115,7 @@ class Game:
             self.health_group.add(self.player_dict[ip].healthbar)
 
         # GAME TEST ADD
-        self.test_add_plane()
+        # self.test_add_plane()
 
         # 获取本地玩家对象 self.local_player
         self.local_ip = self.sock.localip()
@@ -333,6 +333,10 @@ class Game:
                         logging.info('running player_synchronize at frame:%d.' % tmp[1])
                     else:
                         logging.warning('running player_synchronize at unnormal frame:%d!' % tmp[1])
+                if 'box' in msg_dict:
+                    box_dict = msg_dict['box']
+                    for _catalog in box_dict:
+                        self.box_group.add(my_sprite.Box(location=box_dict[_catalog],catalog=_catalog))
 
     def split_hostmsgqueue(self):
         """self.q ----> self.guest/host_operation_queue"""
@@ -381,22 +385,46 @@ class Game:
 
         # 合并和发送HOST消息
         if self.syn_frame in self.operation_dict:
-            # [["host", 74], {"192.168.0.103": "",..}]
+            """
+            [["host", 300], {"opr": {"192.168.0.105": "wd"}, 
+                             "syn": {"192.168.0.105": {"location": [2288.889, 1076.089],"velocity": [-2.351, -0.061], "health": 500}}
+                                  }]
+            """
             _head = ['host', self.syn_frame]
+            # 添加玩家操作信息，每一帧
             _d = _operation = {'opr':self.operation_dict[self.syn_frame]}
             # 添加同步的玩家信息，每一秒
             if self.syn_frame % config.FPS == 0:
                 _syn_dict = {}
                 for ip in self.player_dict:
                     plane = self.player_dict[ip].plane
-                    _syn_dict[ip] ={'location':plane.location[:],'velocity':plane.velocity[:],'health':plane.health}
+                    _syn_dict[ip] ={'location':[round(i,3) for i in plane.location[:]],
+                                    'velocity':[round(i,3) for i in plane.velocity[:]],
+                                    'health':plane.health}
                 _d.update({'syn': _syn_dict})
+            # 添加BOX，每2秒
+            if self.syn_frame % (2*config.FPS) == 0:
+                _d.update({'box':self.box_msg_send()})  # 'box':{catalog:location,}
             # HOST MSG SEND
             _host_msg = _head, _d
             for ip in self.player_dict:  # 发送给每个玩家
                 self.sock.msg_direct_send((_host_msg, ip))
             self.operation_dict.pop(self.syn_frame)
 
+
+    def box_msg_send(self):
+        location = [random.randint(0, config.MAP_SIZE[0]), random.randint(0, config.MAP_SIZE[1])]
+        # Medic and so on. -->  10%, 30%, 30%, #0%
+        rand_x = random.randint(0,100)
+        if rand_x <= 10:
+            catalog = 'Medic'
+        elif rand_x <= 40:
+            catalog = 'Bullet'
+        elif rand_x <= 70:
+            catalog = 'Rocket'
+        elif rand_x <= 100:
+            catalog = 'Cobra'
+        return {catalog:location}
 
     def erase(self):
         for _group in self.game_groups:
@@ -474,6 +502,9 @@ class Game:
     #                 str(self.player_dict[ip].plane.velocity), str(self.player_dict[ip].plane.location), str(self.player_dict[ip].plane.rect)))
     #         self.info.add(u'Groups:%s' % str(self.plane_group))
 
+    def test_weapon_target(self):
+        if _sprite.target:
+            pygame.draw.line(self.map.surface, config.RED, _sprite.rect.center, _sprite.target.rect.center)
 
     def update(self):
         for ip in self.player_dict:
@@ -509,6 +540,7 @@ class Game:
                 _sprite.rect.center = _sprite.write_out()
             # _sprite.rect.center = _sprite.write_out()
                 # pygame.draw.rect(self.map.surface, (255, 0, 0), _sprite.rect, 1)
+            # self.test_weapon_target()
             # print('M:',_sprite.location)
 
             # print(matrix.pos_array[0:3])
@@ -626,14 +658,14 @@ class Game:
     #         # Medic and so on. -->  10%, 30%, 30%, #0%
     #         rand_x = randint(0,100)
     #         if rand_x <= 10:
-    #             rand_catalog = 'Medic'
+    #             catalog = 'Medic'
     #         elif rand_x <= 40:
-    #             rand_catalog = 'Gunfire_num'
+    #             catalog = 'Gunfire_num'
     #         elif rand_x <= 70:
-    #             rand_catalog = 'Rocket_num'
+    #             catalog = 'Rocket_num'
     #         elif rand_x <= 100:
-    #             rand_catalog = 'Cobra_num'
-    #         status_msg = ('box_status', {'location': location, 'catalog': rand_catalog})
+    #             catalog = 'Cobra_num'
+    #         status_msg = ('box_status', {'location': location, 'catalog': catalog})
     #         for ip in self.player_dict:
     #             self.sock.msg_direct_send((status_msg, ip))
     #
