@@ -173,7 +173,7 @@ class Weapon(Base):
 
         self.catalog = catalog
         if catalog == 'Bullet':
-            self.sound_fire = pygame.mixer.Sound("./sound/minigun_fire.wav")
+            # self.sound_fire = pygame.mixer.Sound("./sound/minigun_fire.wav")
             # self.sound_fire.play(maxtime=200)
             self.sound_collide_plane = pygame.mixer.Sound(
                 random.choice(Weapon.WEAPON_CATALOG['Bullet']['sound_collide_plane']))

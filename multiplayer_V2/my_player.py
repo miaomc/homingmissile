@@ -1,6 +1,8 @@
 import my_sprite
 import config
 import random
+import pygame
+
 
 class Player(object):
 
@@ -11,6 +13,7 @@ class Player(object):
         self.healthbar = None
         self.weapon_group = weapon_group
         self.fire_status = {1: 0, 2: 0, 3: 0}
+        self.slot1_sound_fire = pygame.mixer.Sound("./sound/minigun_fire.wav")
         self.alive = True
 
     def add_plane(self, plane):
@@ -23,22 +26,32 @@ class Player(object):
             self.alive = False
             # self.plane = None
 
-    def weapon_fire(self, slot):
+    def weapon_fire(self, slot, syn_frame=0):
         # print 'Plane:', self.plane.velocity
         if self.plane.weapon[slot]:
             if self.plane.weapon[slot]['number'] > 0:
                 self.plane.weapon[slot]['number'] -= 1
+                # Bullet单独处理声音
+                if slot == 1 and syn_frame - self.fire_status[1]>config.FPS/5:  # 180/(1000/FPS)=200/1000 *FPS
+                    self.slot1_sound_fire.play(maxtime=200)
+                    self.fire_status[1] = syn_frame
+                    # if syn_frame - self.fire_status[1] > config.FPS:
+                    #     self.slot1_sound_fire.play(maxtime=1000)
+                    #     self.fire_status[1] = syn_frame
+                    # else:
+                    #     self.slot1_sound_fire.play(maxtime=200)
                 # print dir(self.plane)
-                tmp_rect = self.plane.velocity.normalize()*self.plane.rect.height  # 朝飞机前进的方向+velocity*角度
-                tmp_rect.rotate_ip(random.choice((-15,15)))
+                tmp_rect = self.plane.velocity.normalize() * self.plane.rect.height  # 朝飞机前进的方向+velocity*角度
+                tmp_rect.rotate_ip(random.choice((-15, 15)))
                 # tmp_rect = (self.plane.velocity.normalize().x * self.plane.rect.height,self.plane.velocity.normalize().y * self.plane.rect.height)
                 tmp_location = self.plane.location + tmp_rect
                 # location_x = self.plane.location.x + tmp_rect[0]
                 # location_y = self.plane.location.y + random.choice((tmp_rect[1]/2,-tmp_rect[1]/2))
                 # print location_x,location_y, '<------------', self.plane.location, self.plane.rect
                 weapon = my_sprite.Weapon(catalog=self.plane.weapon[slot]['catalog'],
-                                location=tmp_location,
-                                velocity=self.plane.velocity)
+                                          location=tmp_location,
+                                          velocity=self.plane.velocity)
+
                 self.weapon_group.add(weapon)
                 return weapon
 
@@ -55,7 +68,7 @@ class Player(object):
                 self.plane.speeddown()
 
             elif key == 'i':
-                self.weapon_fire(1)
+                self.weapon_fire(1, syn_frame=syn_frame)
             elif key == 'o' and syn_frame - self.fire_status[2] > config.FPS:  # 射击间隔
                 self.fire_status[2] = syn_frame
                 return self.weapon_fire(2)
