@@ -1,23 +1,21 @@
 # -*- coding: utf-8 -*-
 import glob
 
-PINK = (255, 228, 225)
+LIGHT_PINK = (255, 228, 225)
 DARK_GREEN = (49, 79, 79)
 GRAY = (168, 168, 168)
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 LIGHT_GREEN = (10, 200, 100)
 
-
 RED = (255, 0, 0)
 ORANGE = (255, 165, 0)
-YELLOW = (255, 255, 0)
+PINK = (252, 199, 209)
 GREEN = (0, 255, 0)
-CYAN = (0, 255, 255)
+CYAN = (0, 200, 200)
 BLUE = (0, 0, 255)
-PURPLE =(139, 0, 255)
-RAINBOW_COLOR_LIST = (RED, ORANGE, YELLOW, GREEN, CYAN, BLUE, PURPLE)
-
+PURPLE = (139, 0, 255)
+# RAINBOW_COLOR_LIST = (RED, ORANGE, YELLOW, GREEN, CYAN, BLUE, PURPLE)
 
 BACKGROUND_COLOR = DARK_GREEN
 
@@ -32,3 +30,11 @@ MAP_SIZE = [SCREEN_SIZE[0] * MAP_SCREEN_RATIO, SCREEN_SIZE[1] * MAP_SCREEN_RATIO
 BACKGROUND_MUSIC_LIST = glob.glob('./bgm/*.mp3')
 
 COLLIDE_RATIO = 1  # 小武器与大对象碰撞，该参数没有意义
+
+PLANE_IMAGE = {'YELLOW': './image/plane_yellow.png',
+               'ORANGE': './image/plane_orange.png',
+               'RED': './image/plane_red.png',
+               'GREEN': './image/plane_green.png',
+               'BLUE': './image/plane_blue.png',
+               'PURPLE': './image/plane_purple.png',
+               'PINK': './image/plane_pink.png', }

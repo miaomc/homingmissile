@@ -71,7 +71,8 @@ class Menu():
 
         self.msg_player = {'location': (randint(20, 80) / 100.0, randint(20, 80) / 100.0),
                            'Plane': 'F35',
-                           'Bullet': 200, 'Rocket': 20, 'Cobra': 10,}
+                           'Bullet': 200, 'Rocket': 20, 'Cobra': 10,
+                           'Color': None}
         self.dict_game = {'player': {self.localip: self.msg_player}, 'host': None}
         self.done = False
 
@@ -143,7 +144,8 @@ class Menu():
         """dict_player = {'ip':
                                 {'location':(randint(20,80)/100.0,randint(20,80)/100.0),
                                 'Plane':'F35',
-                                'Bullet':200, 'Rocket':10, 'Cobra':3}，
+                                'Bullet':200, 'Rocket':10, 'Cobra':3,
+                                'Color':'BLUE'}，
                             ’ip2‘:...,
                         }
             dict_game = {'player':dict_player, 'host':'x.x.x.x'}
@@ -161,19 +163,27 @@ class Menu():
             start_node.target = self.start_func
             # to be con...
 
+        # 制作 "game_dict.dat"
         self.dict_game['host'] = self.localip  # HOST-1/2:自己建主机的情况添加自己到host
+        color_list = list(config.PLANE_IMAGE.keys())  # like list queue,pop & append
+        color_dict = {}  #
         while not self.sock.q.empty():
-            (info, msg), ip = self.sock.q.get()  # 接受处理单个玩家的加入消息msg_player
+            (info, msg), ip = self.sock.q.get()  # 接收消息
+            # 处理单个玩家的加入消息msg_player
             if info == 'player join' and ip not in node.get_children_label():
                 node.add(Node(ip))  # 添加
+                msg['Color'] = color_list.pop()
+                color_dict[ip] = msg['Color']
                 self.dict_game['player'][ip] = msg
                 for i in self.dict_game['player'].keys():  # 给所有ip都发送所有玩家信息self.dict_game
                     if i != self.localip:  # 自己是主机，就不用发自己了
                         self.sock.q_send.put((('dict_game', self.dict_game), i))  # HOST-2/2:其他Guest玩家的self.dict_game直接等于这个
-            elif info == 'player exit':  # 处理收到玩家退出消息，删除玩家
+            # 处理收到玩家退出消息，删除玩家
+            elif info == 'player exit':
                 if ip in self.dict_game['player']:
                     self.dict_game['player'].pop(ip)
                     node.pop(label=ip)  # 删除
+                    color_list.append(color_dict[ip])  # 颜色列表再加回来
                     for i in self.dict_game['player'].keys():  # 给所有ip都发送所有玩家信息self.dict_game
                         if i != self.localip:  # 自己是主机，就不用发自己了
                             self.sock.q_send.put((('dict_game', self.dict_game), i))

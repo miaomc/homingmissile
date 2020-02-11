@@ -325,14 +325,17 @@ class Plane(Base):
             'min_speed': 2,
             'thrust_acc': 0.02,
             'turn_acc': 0.02,
-            'image': ['./image/plane_red.png','./image/plane_orange.png','./image/plane_yellow.png','./image/plane_green.png',
-                      './image/plane_cyan.png','./image/plane_blue.png','./image/plane_purple.png','./image/plane_pink.png'],
+            'image': config.PLANE_IMAGE,  # dict = {'COLOR':'path',..}
             'damage': 100,
         },
     }
 
-    def __init__(self, location, catalog='J20'):
-        image_path = random.choice(Plane.PLANE_CATALOG[catalog]['image'])
+    def __init__(self, location, catalog='J20',color=None):
+        if color:
+            image_path = Plane.PLANE_CATALOG[catalog]['image'][color]
+        else:
+            # print(Plane.PLANE_CATALOG[catalog]['image'])
+            image_path = random.choice(list(Plane.PLANE_CATALOG[catalog]['image'].values()))
         self.origin_image = pygame.image.load(image_path).convert()
         self.origin_image.set_colorkey(config.WHITE)
         image = self.origin_image.subsurface(
@@ -525,8 +528,9 @@ class SlotBar(pygame.sprite.Sprite):
             self.rect.topleft = self.rect_topleft
 
 class HealthBar(SlotBar):
-    FULL_LENGTH = 25
     FULL_WIDTH = 5
+    FULL_LENGTH = 25
+    MAX_LENGTH = FULL_LENGTH*2
     def __init__(self,stick_obj):
         self.stick_obj = stick_obj
         rect_topleft = self.stick_obj.rect.topleft

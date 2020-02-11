@@ -101,7 +101,7 @@ class Game:
         for ip in _d.keys():
             msg_player = _d[ip]
             player = my_player.Player(weapon_group=self.weapon_group, ip=ip)
-            plane = my_sprite.Plane(catalog=msg_player['Plane'], location=msg_player['location'])
+            plane = my_sprite.Plane(catalog=msg_player['Plane'], location=msg_player['location'], color=msg_player['Color'])
             plane.load_weapon(catalog='Cobra', number=msg_player['Cobra'])
             plane.load_weapon(catalog='Bullet', number=msg_player['Bullet'])
             plane.load_weapon(catalog='Rocket', number=msg_player['Rocket'])
@@ -253,7 +253,7 @@ class Game:
             self.syn_frame = self.syn_frame + 1
 
     def test_add_plane(self):
-        for i in range(50):
+        for i in range(5):
             xy = pygame.math.Vector2(random.randint(config.MAP_SIZE[0] // 10, config.MAP_SIZE[1]),
                                      random.randint(config.MAP_SIZE[1] // 10, config.MAP_SIZE[1]))
             p1 = my_sprite.Plane(location=xy, catalog='F35')
