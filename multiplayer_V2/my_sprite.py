@@ -174,7 +174,7 @@ class Weapon(Base):
         self.catalog = catalog
         if catalog == 'Bullet':
             self.sound_fire = pygame.mixer.Sound("./sound/minigun_fire.wav")
-            self.sound_fire.play(maxtime=200)
+            # self.sound_fire.play(maxtime=200)
             self.sound_collide_plane = pygame.mixer.Sound(
                 random.choice(Weapon.WEAPON_CATALOG['Bullet']['sound_collide_plane']))
         else:  # ['Rocket','Cobra']
@@ -307,6 +307,27 @@ class Weapon(Base):
         else:
             super(Weapon,self).delete()
             return True
+
+class ClusterWeapon(pygame.sprite.Sprite):
+    FUEL = config.FPS
+    VELOCITY = 5
+    BULLETS = 100
+    BULLETS_VELOCITY = 6
+    def __init__(self):
+        super(ClusterWeapon, self).__init__()
+        self.location = location
+        self.image = image
+        self.rect = self.image.get_rect()
+
+    def delete(self):
+
+        base_velocity = pygame.math.Vector2(1,0).normalize()*ClusterWeapon.BULLETS_VELOCITY
+        for i in range(ClusterWeapon.BULLETS):
+            Weapon(location=self.location,catalog='Bullet', velocity=base_velocity.rotate(random.randint(0,360)))
+        self.kill()
+
+    def rotate(self):
+        pass
 
 
 class Plane(Base):

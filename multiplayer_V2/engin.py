@@ -240,7 +240,7 @@ class Game:
             self.syn_frame = self.syn_frame + 1
 
     def test_add_plane(self):
-        for i in range(5):
+        for i in range(100):
             xy = pygame.math.Vector2(random.randint(config.MAP_SIZE[0] // 10, config.MAP_SIZE[1]),
                                      random.randint(config.MAP_SIZE[1] // 10, config.MAP_SIZE[1]))
             p1 = my_sprite.Plane(location=xy, catalog='F35')
