@@ -229,7 +229,7 @@ class Weapon(Base):
                 # Vector2.angle_to 是顺时针,[0,180]and[-360,-180]就顺时针旋转90度
                 _degree = self.velocity.angle_to(self.target.location - self.location)
                 if 0 < _degree < 180 or -360 < _degree < -180:
-                    self.acc += self.velocity.rotate(90).normalize() * self.turn_acc
+                    self.acc += self.velocity.rotate(90).normalize() * self.turn_acc  # 由于是全力加速，有可能加过头而打不中
                 else:
                     self.acc += self.velocity.rotate(-90).normalize() * self.turn_acc
             else:  # 探索新target
@@ -325,8 +325,8 @@ class Plane(Base):
             'health': 500,
             'max_speed': 5,  # 2400
             'min_speed': 2,
-            'thrust_acc': 0.02,
-            'turn_acc': 0.02,
+            'thrust_acc': 0.03,
+            'turn_acc': 0.03,
             'image': config.PLANE_IMAGE,  # dict = {'COLOR':'path',..}
             'damage': 100,
         },

@@ -123,6 +123,9 @@ class Menu():
         create_node.back_target = self.create_func_back
         create_node.back_args = (create_node)
 
+        self.color_list = list(config.PLANE_IMAGE.keys())  # like list queue,pop & append
+        self.color_dict = {}  #
+
         # JOIN_NODE
         join_node.target = self.join_func
         join_node.args = (join_node)
@@ -165,15 +168,13 @@ class Menu():
 
         # 制作 "game_dict.dat"
         self.dict_game['host'] = self.localip  # HOST-1/2:自己建主机的情况添加自己到host
-        color_list = list(config.PLANE_IMAGE.keys())  # like list queue,pop & append
-        color_dict = {}  #
         while not self.sock.q.empty():
             (info, msg), ip = self.sock.q.get()  # 接收消息
             # 处理单个玩家的加入消息msg_player
             if info == 'player join' and ip not in node.get_children_label():
                 node.add(Node(ip))  # 添加
-                msg['Color'] = color_list.pop()
-                color_dict[ip] = msg['Color']
+                msg['Color'] = self.color_list.pop()
+                self.color_dict[ip] = msg['Color']
                 self.dict_game['player'][ip] = msg
                 for i in self.dict_game['player'].keys():  # 给所有ip都发送所有玩家信息self.dict_game
                     if i != self.localip:  # 自己是主机，就不用发自己了
@@ -183,7 +184,7 @@ class Menu():
                 if ip in self.dict_game['player']:
                     self.dict_game['player'].pop(ip)
                     node.pop(label=ip)  # 删除
-                    color_list.append(color_dict[ip])  # 颜色列表再加回来
+                    self.color_list.append(self.color_dict[ip])  # 颜色列表再加回来
                     for i in self.dict_game['player'].keys():  # 给所有ip都发送所有玩家信息self.dict_game
                         if i != self.localip:  # 自己是主机，就不用发自己了
                             self.sock.q_send.put((('dict_game', self.dict_game), i))
@@ -196,6 +197,9 @@ class Menu():
         for i in self.dict_game['player'].keys():  # 给所有ip都发送所有玩家信息host exit
             if i != self.localip:  # 自己是主机，就不用发自己了
                 self.sock.q_send.put((('host exit', ''), i))
+        # 将本地COLOR参数恢复清空
+        self.color_list = list(config.PLANE_IMAGE.keys())  # like list queue,pop & append
+        self.color_dict = {}  #
 
     # JOIN FUNCTION
     def scan_hostip(self):

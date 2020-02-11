@@ -56,7 +56,7 @@ class Player(object):
 
             elif key == 'i':
                 self.weapon_fire(1)
-            elif key == 'o' and syn_frame - self.fire_status[2] > config.FPS:
+            elif key == 'o' and syn_frame - self.fire_status[2] > config.FPS:  # 射击间隔
                 self.fire_status[2] = syn_frame
                 return self.weapon_fire(2)
             elif key == 'p' and syn_frame - self.fire_status[3] > config.FPS:
