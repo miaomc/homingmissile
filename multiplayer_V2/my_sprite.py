@@ -49,15 +49,17 @@ class Base(pygame.sprite.Sprite):
         self.image = pygame.transform.rotate(self.unrotate_image, angle)
         self.rect = self.image.get_rect(center=self.rect.center)
 
+
 class Cloud(pygame.sprite.Sprite):
     CLOUD_IMAGE_LIST = ['./image/cloud1.png', './image/cloud2.png', './image/cloud3.png', './image/cloud4.png']
 
     def __init__(self, location):
-        super(Cloud,self).__init__()
+        super(Cloud, self).__init__()
         image_path = random.choice(Cloud.CLOUD_IMAGE_LIST)
         self.image = pygame.image.load(image_path).convert_alpha()  # convert_alpha与convert冲突
         self.rect = self.image.get_rect()
         self.rect.center = [int(i) for i in location]
+
 
 class Box(Base):
     BOX_CATALOG = {
@@ -291,43 +293,79 @@ class Weapon(Base):
             if self.sound_kill:
                 self.sound_kill.play()
             if hitted_obj:
-                self.offset_vecter = (self.rect.x-hitted_obj.rect.x)//3, (self.rect.y-hitted_obj.rect.y)//3
+                self.offset_vecter = (self.rect.x - hitted_obj.rect.x) // 3, (self.rect.y - hitted_obj.rect.y) // 3
 
         # 启动自爆动画
         self.self_destruction += 0.5
         if self.hit and self.self_destruction < self.destruct_image_index:
             self.unrotate_image = self.origin_image.subsurface(
                 [self.self_destruction //
-                 1 * self.origin_image.get_height(), 0, self.origin_image.get_height()-1, self.origin_image.get_height()-1])
+                 1 * self.origin_image.get_height(), 0, self.origin_image.get_height() - 1,
+                 self.origin_image.get_height() - 1])
             self.rotate()
             if self.hitted_obj:  # 被撞击的对象，跟着被撞击的对象移动-Plane
                 self.rect.center = self.hitted_obj.rect.center
                 self.rect.move_ip(self.offset_vecter[0], self.offset_vecter[1])
             return False
         else:
-            super(Weapon,self).delete()
+            super(Weapon, self).delete()
             return True
 
+
 class ClusterWeapon(pygame.sprite.Sprite):
-    FUEL = config.FPS
-    VELOCITY = 5
+    FUEL = config.FPS*4
+    VELOCITY = 2
     BULLETS = 100
-    BULLETS_VELOCITY = 6
-    def __init__(self):
+    BULLETS_VELOCITY = 4
+
+    def __init__(self, location, velocity):
         super(ClusterWeapon, self).__init__()
         self.location = location
-        self.image = image
+        self.image = pygame.image.load('./image/clustermissile.png').convert()
+        self.image.set_colorkey(config.WHITE)
+
+        self.unrotate_image = self.image.copy()
         self.rect = self.image.get_rect()
+        self.location = location
+        self.rect.center = [int(i) for i in location[:]]
+
+
+        self.fuel = ClusterWeapon.FUEL
+        self.velocity = velocity + velocity.normalize() * ClusterWeapon.VELOCITY
+        self.sound_split = pygame.mixer.Sound("./sound/shotgun_fire_1.wav")
+
+        self.catalog = 'Cluster'
+        self.hit = True
+        self.health = 10
+        self.damage = 1
+        self.rotate()
+
+    def update(self, target_group=None):
+        self.fuel -= 1
+        if self.fuel <= 0:
+            self.delete()
+        self.location += self.velocity
+        self.rect.center = [int(i) for i in self.location[:]]
+        self.rotate()
+
+    def hitted(self, base):
+        self.health -= base.damage
+        base.health -= self.damage
+        self.delete()
 
     def delete(self):
-
-        base_velocity = pygame.math.Vector2(1,0).normalize()*ClusterWeapon.BULLETS_VELOCITY
+        base_velocity = pygame.math.Vector2(1, 0).normalize() * ClusterWeapon.BULLETS_VELOCITY
+        weapon_group = self.groups()[0]
         for i in range(ClusterWeapon.BULLETS):
-            Weapon(location=self.location,catalog='Bullet', velocity=base_velocity.rotate(random.randint(0,360)))
+            weapon_group.add(
+                Weapon(location=self.location, catalog='Bullet', velocity=base_velocity.rotate(random.randint(0, 360))))
+        self.sound_split.play()
         self.kill()
 
     def rotate(self):
-        pass
+        angle = self.velocity.angle_to(config.POLAR)
+        self.image = pygame.transform.rotate(self.unrotate_image, angle)
+        self.rect = self.image.get_rect(center=self.rect.center)
 
 
 class Plane(Base):
@@ -343,7 +381,7 @@ class Plane(Base):
             'damage': 100,
         },
         'F35': {
-            'health': 500,
+            'health': 200,
             'max_speed': 5,  # 2400
             'min_speed': 2,
             'thrust_acc': 0.03,
@@ -353,7 +391,7 @@ class Plane(Base):
         },
     }
 
-    def __init__(self, location, catalog='J20',color=None):
+    def __init__(self, location, catalog='J20', color=None):
         if color:
             image_path = Plane.PLANE_CATALOG[catalog]['image'][color]
         else:
@@ -380,14 +418,15 @@ class Plane(Base):
         self.damage = Plane.PLANE_CATALOG[catalog]['damage']
         self.health = Plane.PLANE_CATALOG[catalog]['health']
 
-        self.speed = (self.min_speed+self.max_speed)/2  # 初速度为一半
+        self.speed = (self.min_speed + self.max_speed) / 2  # 初速度为一半
         # self.velocity = pygame.math.Vector2(random.random(), random.random()).normalize() * self.speed  # Vector
-        self.velocity = pygame.math.Vector2(1,0).normalize() * self.speed  # Vector
+        self.velocity = pygame.math.Vector2(1, 0).normalize() * self.speed  # Vector
         self.acc = pygame.math.Vector2(0, 0)
 
         self.weapon = {1: {'catalog': 'Bullet', 'number': 0},
                        2: {'catalog': 'Rocket', 'number': 0},
-                       3: {'catalog': 'Cobra', 'number': 0}}  # 默认武器为0
+                       3: {'catalog': 'Cobra', 'number': 0},
+                       4: {'catalog': 'Cluster', 'number': 0}}  # 默认武器为0
 
         self.sound_kill = pygame.mixer.Sound("./sound/explode3.wav")
         # self.healthbar = HealthBar(location=self.location)
@@ -423,6 +462,10 @@ class Plane(Base):
             index = 1
         elif catalog == 'Rocket':
             index = 2
+        elif catalog == 'Cobra':
+            index = 3
+        elif catalog == 'Cluster':
+            index = 4
         self.weapon[index]['catalog'] = catalog
         self.weapon[index]['number'] = number
         # print(self.weapon, catalog, number)
@@ -492,13 +535,13 @@ class Plane(Base):
         if self.self_destruction < self.destruct_image_index:
             self.unrotate_image = self.origin_image.subsurface(
                 [self.self_destruction //
-                 1 * self.origin_image.get_height(), 0, self.origin_image.get_height()-1, self.origin_image.get_height()-1])
+                 1 * self.origin_image.get_height(), 0, self.origin_image.get_height() - 1,
+                 self.origin_image.get_height() - 1])
             self.rotate()
             return False
         else:
-            super(Plane,self).delete()
+            super(Plane, self).delete()
             return True
-
 
     def draw_health(self, surface):
         pass
@@ -522,7 +565,8 @@ class SlotBar(pygame.sprite.Sprite):
     FULL_LENGTH = 100
     MAX_LENGTH = FULL_LENGTH * 5
     FULL_WIDTH = 10
-    def __init__(self, rect_topleft):#, health=100):
+
+    def __init__(self, rect_topleft):  # , health=100):
         self.origin_image = pygame.Surface((SlotBar.MAX_LENGTH, SlotBar.FULL_WIDTH)).convert()
         super(SlotBar, self).__init__()
         self.health = -1
@@ -553,38 +597,42 @@ class SlotBar(pygame.sprite.Sprite):
             self.image.fill(self.COLOR_LIST[_color_index])
             self.rect.topleft = self.rect_topleft
 
+
 class HealthBar(SlotBar):
     FULL_WIDTH = 5
     FULL_LENGTH = 25
-    MAX_LENGTH = FULL_LENGTH*2
-    def __init__(self,stick_obj):
+    MAX_LENGTH = FULL_LENGTH * 2
+
+    def __init__(self, stick_obj):
         self.stick_obj = stick_obj
         rect_topleft = self.stick_obj.rect.topleft
         # health = self.stick_obj.health
-        super(HealthBar,self).__init__(rect_topleft=rect_topleft)
+        super(HealthBar, self).__init__(rect_topleft=rect_topleft)
         self.update()  # !!!
 
     def update(self):
-        rect_topleft= self.stick_obj.rect.topleft
+        rect_topleft = self.stick_obj.rect.topleft
         health = self.stick_obj.health
         # health = stick_obj
         # super(HealthBar,self).update(health)
         super(HealthBar, self).update(health=health)
         self.rect.topleft = rect_topleft
 
+
 class ThrustBar(pygame.sprite.Sprite):
     RECT_LIST = ((5, 2), (4, 2), (3, 2), (2, 2), (1, 2), (1, 1))
-    COLOR_LIST = ((255, 244, 237),(200, 213, 255),(181, 199, 255),(172, 192, 255),(167, 188, 255),(164, 186, 255),(255, 51, 0))
+    COLOR_LIST = (
+    (255, 244, 237), (200, 213, 255), (181, 199, 255), (172, 192, 255), (167, 188, 255), (164, 186, 255), (255, 51, 0))
     MAX_HEALTH = 30
     LEN_RECT_LIST = len(RECT_LIST)
     LEN_COLOR_LIST = len(COLOR_LIST)
-    
+
     def __init__(self, sprite_obj):
         """sprite_obj has member: .origin_image.get_height(), .location, .velocity"""
         self.health = 0
         self.angle = sprite_obj.velocity.angle_to(config.POLAR)
-        _diff = rotate_around(sprite_obj.origin_image.get_height()/2, self.angle)
-        self.location = [int(sprite_obj.location[0]+_diff[0]), int(sprite_obj.location[1]+_diff[1])]
+        _diff = rotate_around(sprite_obj.origin_image.get_height() / 2, self.angle)
+        self.location = [int(sprite_obj.location[0] + _diff[0]), int(sprite_obj.location[1] + _diff[1])]
         # self.location = [int(i) for i in location]
         super(ThrustBar, self).__init__()
         self.update()
@@ -612,13 +660,14 @@ class ThrustBar(pygame.sprite.Sprite):
         self.kill()
 
 
-def rotate_around(r,angle):
+def rotate_around(r, angle):
     # print(angle-180)
-    x = + r*math.sin(math.radians(angle))
-    y = + r*math.cos(math.radians(angle))
+    x = + r * math.sin(math.radians(angle))
+    y = + r * math.cos(math.radians(angle))
     # x = math.cos(math.radians(angle))*point[0] - math.sin(math.radians(angle))*point[1]
     # y = math.sin(math.radians(angle))*point[0] + math.cos(math.radians(angle))*point[1]
-    return (x,y)
+    return (x, y)
+
 
 class Widget:
     def __init__(self):
@@ -650,7 +699,8 @@ class Widget:
         self.plane_group = pygame.sprite.Group()
         self.healthbar_group = pygame.sprite.Group()
         self.thrustbar_group = pygame.sprite.Group()
-        self.game_groups = [self.box_group, self.weapon_group, self.plane_group, self.healthbar_group,self.thrustbar_group]
+        self.game_groups = [self.box_group, self.weapon_group, self.plane_group, self.healthbar_group,
+                            self.thrustbar_group]
 
         xy = pygame.math.Vector2(random.randint(config.MAP_SIZE[0] // 8, config.MAP_SIZE[0] * 2 // 8),
                                  random.randint(config.MAP_SIZE[1] // 3, config.MAP_SIZE[1] * 2 // 3))
@@ -689,7 +739,7 @@ class Widget:
             _group.draw(surface)
 
     def update(self):
-        self.frame+=1
+        self.frame += 1
         # self.t1 = time.time()
         # w1 = Weapon(location=self.test_xy, catalog='Bullet', velocity=self.test_v.rotate(random.randint(0,360)))
         # self.weapon_group.add(w1)
@@ -708,8 +758,7 @@ class Widget:
                 #     print(type(i))
                 _group.update()
 
-
-        if self.frame% 2 == 0:
+        if self.frame % 2 == 0:
             self.add_thrustbar(self.plane_group)
             for _sprite in self.weapon_group:
                 if _sprite.catalog in ['Rocket', 'Cobra']:
@@ -825,7 +874,6 @@ class Widget:
             self.update()
             # self.screen.blit(cur_font.render(str(i) + '-' + str(self.t5 - self.t4),1, config.BLACK, config.WHITE), (40, 40))
             pygame.display.flip()
-
 
         pygame.quit()
 

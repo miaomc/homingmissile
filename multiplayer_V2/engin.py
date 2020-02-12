@@ -102,6 +102,7 @@ class Game:
             plane.load_weapon(catalog='Cobra', number=msg_player['Cobra'])
             plane.load_weapon(catalog='Bullet', number=msg_player['Bullet'])
             plane.load_weapon(catalog='Rocket', number=msg_player['Rocket'])
+            plane.load_weapon(catalog='Cluster', number=50)
             player.add_plane(plane)
             self.player_dict[ip] = player
         logging.info("loading player's INFO success-self.player_dict:%s"%str(self.player_dict))
@@ -193,7 +194,7 @@ class Game:
         # 主循环 Main Loop
         pygame.key.set_repeat(10)  # control how held keys are repeated
         logging.info('======MAIN LOOP Start.My IP&PORT: %s======' % (self.local_ip))
-        self.start_time = pygame.time.get_ticks()
+        self.lastframe_time = self.start_time = pygame.time.get_ticks()
         self.done = False
         while not self.done:
             # 从头开始就是按正常帧来----开始时间不重要，初步来看还不错
@@ -280,7 +281,8 @@ class Game:
                     self.last_tab_frame = self.syn_frame
                     self.hide_result = not self.hide_result  # 需要设置KEYUP和KEYDONW，to be continue...!!!!
 
-            for keyascii in [pygame.K_a, pygame.K_d, pygame.K_w, pygame.K_s, pygame.K_i, pygame.K_o, pygame.K_p]:
+            for keyascii in [pygame.K_a, pygame.K_d, pygame.K_w, pygame.K_s,
+                             pygame.K_i, pygame.K_o, pygame.K_p, pygame.K_u]:
                 if keys[keyascii]:
                     key_list += chr(keyascii)
 
@@ -337,33 +339,52 @@ class Game:
     def sendbyhost_operation(self):
         """get all guests msg, then merge & send host_operation"""
         alive_players = sum([player.alive for player in self.player_dict.values()])
-        # if alive_players == 0:  # 或者已经没有玩家存活了
-        #     logging.info('alive players number:%d'%alive_players)
-        #     return
         start_time = pygame.time.get_ticks()
-        over = False
-        # logging.info('start time:%d'%start_time)
         # 接收发来的guest消息进行处理，没有收集齐的就等待一帧
-        while not over and pygame.time.get_ticks()-start_time <= 1000/config.FPS:
+        while True:
             # 接受到的消息分类
             self.split_hostmsgqueue()
             # 对分类进入到 guest_operation_queue 队列中的消息做HOST消息整合
-            while not over and not self.guest_operation_queue.empty():
-                (_tmp,frame), key_dict = self.guest_operation_queue.get() # (('guest',self.syn_frame), {self.ip: key_list})
-                if frame >= self.syn_frame:  # 小于的syn_frame的guest操作就直接丢弃
+            while not self.guest_operation_queue.empty():
+                (_tmp, frame), key_dict = self.guest_operation_queue.get()  # (('guest',self.syn_frame), {self.ip: key_list})
+                if frame >= self.syn_frame:  # 大于等于当前帧syn_frame的guest操作就留下执行
                     if frame not in self.operation_dict:
                         self.operation_dict[frame] = key_dict
                     else:
                         # logging.info('key_dict%s'%str(key_dict))
                         self.operation_dict[frame].update(key_dict)
                 logging.info('operation_dict:%s' % str(self.operation_dict))
+            # 当前帧收集齐了就退出
+            if self.syn_frame in self.operation_dict and len(self.operation_dict[self.syn_frame].keys()) == alive_players:
+                break
+            # 超出时间也退出， 玩家等于0也退出
+            if pygame.time.get_ticks()-start_time > 1000/config.FPS or alive_players == 0:
+                break
+            # 等一次
+            pygame.time.wait(1)
+            logging.info('wait one times, to ms:%d' % (pygame.time.get_ticks() - start_time))
 
-                if self.syn_frame in self.operation_dict and len(self.operation_dict[self.syn_frame].keys()) == alive_players:
-                    over = True
-                # logging.info('TRUEorFalse%d'%self.syn_frame in self.operation_dict and len(self.operation_dict[self.syn_frame].keys()) == alive_players or alive_players==0)
-            if not over:
-                pygame.time.wait(1)
-                logging.info('wait one times, to ms:%d' % (pygame.time.get_ticks() - start_time))
+        # over = False
+        # while not over and pygame.time.get_ticks()-start_time <= 1000/config.FPS:
+        #     # 接受到的消息分类
+        #     self.split_hostmsgqueue()
+        #     # 对分类进入到 guest_operation_queue 队列中的消息做HOST消息整合
+        #     while not over and not self.guest_operation_queue.empty():
+        #         (_tmp,frame), key_dict = self.guest_operation_queue.get() # (('guest',self.syn_frame), {self.ip: key_list})
+        #         if frame >= self.syn_frame:  # 小于的syn_frame的guest操作就直接丢弃
+        #             if frame not in self.operation_dict:
+        #                 self.operation_dict[frame] = key_dict
+        #             else:
+        #                 # logging.info('key_dict%s'%str(key_dict))
+        #                 self.operation_dict[frame].update(key_dict)
+        #         logging.info('operation_dict:%s' % str(self.operation_dict))
+        #
+        #         if self.syn_frame in self.operation_dict and len(self.operation_dict[self.syn_frame].keys()) == alive_players:
+        #             over = True
+        #         logging.info('TRUEorFalse%d'%self.syn_frame in self.operation_dict and len(self.operation_dict[self.syn_frame].keys()) == alive_players or alive_players==0)
+        #     if not over:
+        #         pygame.time.wait(1)
+        #         logging.info('wait one times, to ms:%d' % (pygame.time.get_ticks() - start_time))
 
         # 合并和发送HOST消息
         if self.syn_frame in self.operation_dict:
@@ -513,7 +534,7 @@ class Game:
         matrix.update()  # 基本上不花时间
 
         for _sprite in self.weapon_group:  # 读取1000个对象大约花5ms
-            if not _sprite.hit:  # 降到40帧，不一定是这里的愿意，可能跟碰撞也有关系
+            if not _sprite.hit:
                 _sprite.rect.center = _sprite.write_out()
             # _sprite.rect.center = _sprite.write_out()
                 # pygame.draw.rect(self.map.surface, (255, 0, 0), _sprite.rect, 1)
@@ -601,10 +622,13 @@ class Game:
             logging.info('WaitingTime:%d' % stardard_diff_time)
 
     def wait_whole_frame(self):
-        wait_time = int((1000/config.FPS)*(self.syn_frame+1) - (pygame.time.get_ticks() - self.start_time))
+        now_time = pygame.time.get_ticks()
+        logging.info('CostTime:%d' % int(now_time - self.lastframe_time))
+        wait_time = int((1000/config.FPS)*(self.syn_frame+1) - (now_time - self.start_time))
         if wait_time > 0:
             pygame.time.wait(wait_time)
             logging.info('WaitingTime:%d' % wait_time)
+        self.lastframe_time = now_time
 
     def deal_screen_focus(self):
         if self.screen_focus_obj:

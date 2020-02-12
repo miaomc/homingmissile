@@ -12,7 +12,7 @@ class Player(object):
         self.plane = None
         self.healthbar = None
         self.weapon_group = weapon_group
-        self.fire_status = {1: 0, 2: 0, 3: 0}
+        self.fire_status = {1: -100, 2: -100, 3: -100,4:-100}
         self.slot1_sound_fire = pygame.mixer.Sound("./sound/minigun_fire.wav")
         self.alive = True
 
@@ -35,11 +35,6 @@ class Player(object):
                 if slot == 1 and syn_frame - self.fire_status[1]>config.FPS/5:  # 180/(1000/FPS)=200/1000 *FPS
                     self.slot1_sound_fire.play(maxtime=200)
                     self.fire_status[1] = syn_frame
-                    # if syn_frame - self.fire_status[1] > config.FPS:
-                    #     self.slot1_sound_fire.play(maxtime=1000)
-                    #     self.fire_status[1] = syn_frame
-                    # else:
-                    #     self.slot1_sound_fire.play(maxtime=200)
                 # print dir(self.plane)
                 tmp_rect = self.plane.velocity.normalize() * self.plane.rect.height  # 朝飞机前进的方向+velocity*角度
                 tmp_rect.rotate_ip(random.choice((-15, 15)))
@@ -48,7 +43,10 @@ class Player(object):
                 # location_x = self.plane.location.x + tmp_rect[0]
                 # location_y = self.plane.location.y + random.choice((tmp_rect[1]/2,-tmp_rect[1]/2))
                 # print location_x,location_y, '<------------', self.plane.location, self.plane.rect
-                weapon = my_sprite.Weapon(catalog=self.plane.weapon[slot]['catalog'],
+                if slot==4:
+                    weapon = my_sprite.ClusterWeapon(location=tmp_location, velocity=self.plane.velocity)
+                else:
+                    weapon = my_sprite.Weapon(catalog=self.plane.weapon[slot]['catalog'],
                                           location=tmp_location,
                                           velocity=self.plane.velocity)
 
@@ -75,3 +73,6 @@ class Player(object):
             elif key == 'p' and syn_frame - self.fire_status[3] > config.FPS:
                 self.fire_status[3] = syn_frame
                 return self.weapon_fire(3)
+            elif key == 'u'and syn_frame - self.fire_status[4] > config.FPS:
+                self.fire_status[4] = syn_frame
+                self.weapon_fire(4)
