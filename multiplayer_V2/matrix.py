@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-
+import logging
 import numpy as np
 
 INT32 = np.int32
-GROUP_NUM = 500  # 一组增加的数量
+GROUP_NUM = 2000  # 一组增加的数量
 pos_array = np.zeros((GROUP_NUM, 2))
 add_array = np.zeros((GROUP_NUM, 2))
 
@@ -20,6 +20,7 @@ def add(xy):
         add_array = np.row_stack((add_array, np.zeros((GROUP_NUM, 2))))
         length += GROUP_NUM
         left_list += list(range(length - 1, length - GROUP_NUM - 1, -1))
+        # logging.info('ADD METRIX.')
     index = left_list.pop()
     pos_array[index] = xy
     add_array[index] = (0, 0)

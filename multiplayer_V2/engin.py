@@ -315,7 +315,7 @@ class Game:
                         self.player_dict[ip].plane.health = msg_player[ip]['health']
                     if tmp[1] == self.syn_frame - 1:  # 正常在本帧update()之前，同步上一帧的状态
                         logging.info('running player_synchronize at frame:%d.' % tmp[1])
-                    else:
+                    else:  # 网络延迟大话，还是会这样位置闪烁，或者回退！！！！
                         logging.warning('running player_synchronize at unnormal frame:%d!' % tmp[1])
                 if 'box' in msg_dict:
                     box_dict = msg_dict['box']
@@ -628,7 +628,7 @@ class Game:
         if wait_time > 0:
             pygame.time.wait(wait_time)
             logging.info('WaitingTime:%d' % wait_time)
-        self.lastframe_time = now_time
+        self.lastframe_time = pygame.time.get_ticks()
 
     def deal_screen_focus(self):
         if self.screen_focus_obj:

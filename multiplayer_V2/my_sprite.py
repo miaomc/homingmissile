@@ -236,7 +236,7 @@ class Weapon(Base):
                     self.acc += self.velocity.rotate(-90).normalize() * self.turn_acc
             else:  # 探索新target
                 self.target = None
-                self.acc = pygame.math.Vector2(0, 0)  # 如果
+                # self.acc = pygame.math.Vector2(0, 0)  # 如果
                 for plane in target_group:
                     if self.detect_target(target=plane):
                         self.target = plane
@@ -316,7 +316,7 @@ class ClusterWeapon(pygame.sprite.Sprite):
     FUEL = config.FPS*4
     VELOCITY = 2
     BULLETS = 100
-    BULLETS_VELOCITY = 4
+    BULLETS_VELOCITY = 6
 
     def __init__(self, location, velocity):
         super(ClusterWeapon, self).__init__()
@@ -354,11 +354,12 @@ class ClusterWeapon(pygame.sprite.Sprite):
         self.delete()
 
     def delete(self):
-        base_velocity = pygame.math.Vector2(1, 0).normalize() * ClusterWeapon.BULLETS_VELOCITY
+        base_velocity_list = [pygame.math.Vector2(1, 0).normalize()*i for i in range(1,ClusterWeapon.BULLETS_VELOCITY+1)]
         weapon_group = self.groups()[0]
         for i in range(ClusterWeapon.BULLETS):
             weapon_group.add(
-                Weapon(location=self.location, catalog='Bullet', velocity=base_velocity.rotate(random.randint(0, 360))))
+                Weapon(location=self.location, catalog='Bullet',
+                       velocity=random.choice(base_velocity_list).rotate(random.randint(0, 360))))
         self.sound_split.play()
         self.kill()
 
@@ -381,7 +382,7 @@ class Plane(Base):
             'damage': 100,
         },
         'F35': {
-            'health': 200,
+            'health': 400,
             'max_speed': 5,  # 2400
             'min_speed': 2,
             'thrust_acc': 0.03,
@@ -560,7 +561,7 @@ class Plane(Base):
 
 class SlotBar(pygame.sprite.Sprite):
     COLOR_LIST = ((50, 200, 50), (50, 150, 150), (100, 100, 50), (200, 0, 50), (255, 0, 0), (0, 255, 0))
-    LEN_COLOR_LIST = len(COLOR_LIST)
+    # LEN_COLOR_LIST = len(COLOR_LIST)
     FULL_HEALTH = 100
     FULL_LENGTH = 100
     MAX_LENGTH = FULL_LENGTH * 5
@@ -589,9 +590,9 @@ class SlotBar(pygame.sprite.Sprite):
             self.image = self.origin_image.subsurface((0, 0, _length, self.FULL_WIDTH))
             self.rect = self.image.get_rect()
             # Set color of self
-            _color_index = int(self.health / self.FULL_HEALTH * self.LEN_COLOR_LIST - 1)
-            if _color_index > self.LEN_COLOR_LIST - 1:
-                _color_index = self.LEN_COLOR_LIST - 1
+            _color_index = int(self.health / self.FULL_HEALTH * len(self.COLOR_LIST) - 1)
+            if _color_index > len(self.COLOR_LIST) - 1:
+                _color_index = len(self.COLOR_LIST) - 1
             elif _color_index < 0:
                 _color_index = 0
             self.image.fill(self.COLOR_LIST[_color_index])
@@ -599,8 +600,12 @@ class SlotBar(pygame.sprite.Sprite):
 
 
 class HealthBar(SlotBar):
+    COLOR_LIST = (config.DARK_RED,config.RED, config.ORANGE,config.LIGHT_GREEN, config.GREEN)
+
+    #(255, 0, 0),(50, 150, 150),(100, 100, 50),(200, 0, 50),(0, 255, 0),(50, 200, 50))
+    FULL_HEALTH = 400
     FULL_WIDTH = 5
-    FULL_LENGTH = 25
+    FULL_LENGTH = 40
     MAX_LENGTH = FULL_LENGTH * 2
 
     def __init__(self, stick_obj):
