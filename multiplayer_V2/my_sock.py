@@ -5,7 +5,6 @@ import json
 import threading
 from queue import Queue
 import logging
-import pygame
 
 UDP_PORT = 8988
 TCP_PORT = 8987
@@ -54,11 +53,11 @@ class Sock:
         self.done = True
         if self.tcp_bool:
             self.close_tcp()
-        start_wait = pygame.time.get_ticks()
-        outtime_wait = 5000
+        start_wait = time.time()
+        outtime_wait = 5
         while self.udp_bool and not self.q_send.empty():  # 用来让 thread_msg_send 运行完，把消息都发出去
-            pygame.time.wait(100)
-            if pygame.time.get_ticks()-start_wait > outtime_wait:  # 设置个超时时间
+            time.sleep(0.1)
+            if time.time()-start_wait > outtime_wait:  # 设置个超时时间
                 logging.warning('Sock.thread_msg_send: Waiting OUT_TIME!')
                 break
         self.sock.close()
@@ -93,7 +92,7 @@ class Sock:
                 logging.info('SEND [%s]:%s' % (ip + ':' + str(self.port_udp), json.dumps(msg)))
                 self.sock.sendto(tmp.encode('utf-8'), (ip, self.port_udp))
             else:
-                pygame.time.wait(1)  # 卧槽，加了这一句就神奇之至了！瞬间不卡了。
+                time.sleep(0.001)  # 卧槽，加了这一句就神奇之至了！瞬间不卡了。
 
     def msg_direct_send(self, data_tuple):
         """without threading, UDP directly send"""

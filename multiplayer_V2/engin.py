@@ -589,6 +589,7 @@ class Game:
         """
         self.plane_group = pygame.sprite.Group()
         self.weapon_group = pygame.sprite.Group()
+        [tobecontine]: 考虑替换spritecollide---groupcollide???
         """
         for plane in self.plane_group:  # 遍历每一个飞机
             if not plane.alive:
@@ -597,6 +598,12 @@ class Game:
             for weapon in weapon_list:
                 if weapon.alive:
                     weapon.hitted(plane)
+            # 飞机之间的碰撞
+            plane_list = pygame.sprite.spritecollide(plane, self.plane_group, False)
+            for tmp_plane in plane_list:
+                if id(tmp_plane) != id(plane) and tmp_plane.alive:
+                    plane.health = -401
+                    tmp_plane.health = -401
 
     def game_collide_with_box(self):
         for plane in self.plane_group:  # 进行飞机与Box之间碰撞探测
@@ -611,26 +618,25 @@ class Game:
         for player in self.player_dict.values():
             player.update()
 
-        # # 更新本地玩家的状态  ,本地玩家自动指向那个player object，状态自动更新
-        # if not self.local_player.plane.alive:
-        #     self.local_player.alive = False
+        # 更新本地玩家的状态
+        alive_players = sum([player.alive for player in self.player_dict.values()])
 
         # 屏幕显示，本地飞机聚焦处理
         if self.local_player.alive:  # 本地玩家
             # FOCUS SCREEN
             if self.screen_focus_obj == None or self.screen_focus_obj.groups() == []:  # 本地飞机还活着，但是focus_obj不在任何group里面了，就指回本地飞机
                 self.screen_focus_obj = self.local_player.plane
-            if len(self.player_dict.keys()) == 1:  # 只剩你一个人了
+            if alive_players == 1:  # 只剩你一个人了
                 self.show_result = True
                 self.info.add_middle('YOU WIN!')
-                self.info.add_middle_below('press "r" to exit the game.')
+                self.info.add_middle_below('All players press "r" at the same time to restart the game.')
                 # self.info.add_middle_below('press "ESC" to exit the game.')
                 self.info.add_middle_below('press "Tab" to hide/show this message.')
         else:
             self.screen_focus_obj = None  # screen_rect聚焦为空，回复上下左右控制
             self.show_result = True
             self.info.add_middle('YOU LOST.')
-            self.info.add_middle_below('press "r" to exit the game.')
+            self.info.add_middle_below('All players press "r" at the same time to restart the game.')
             # self.info.add_middle_below('press "ESC" to exit the game.')
             self.info.add_middle_below('press "Tab" to hide/show this message.')
 

@@ -280,9 +280,11 @@ class Menu():
 
     # START FUNCTION
     def start_func(self):
+        logging.info('running start_func.')
         for i in self.dict_game['player'].keys():  # 给所有ip都发送所有玩家信息self.dict_game
             if i != self.localip:  # 自己是主机，就不用发自己了
                 self.sock.q_send.put((('start game', ''), i))
+                logging.info('"start game" added to send queue.')
         self.start_game()
 
     def start_game(self):
@@ -310,7 +312,7 @@ class Menu():
             # logging.info('Tp.61:%d' % pygame.time.get_ticks())
             self.frame += 1
             # 每一帧运行当前节点的子项刷新，当前 帧运行一次
-            logging.info(str(self.frame))
+            # logging.info(str(self.frame))
             # if self.frame % self.frame_chosen_gap == 0:
             self.node_point.be_chosen()
             self.list_node = self.node_point.children
