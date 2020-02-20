@@ -22,6 +22,7 @@ class Sock:
         self.port_udp = UDP_PORT
         self.port_tcp = TCP_PORT
         self.tcp_bool = tcp_bool
+        self.udp_bool = thread_udp_bool
 
         # UDP connect
         address = (self.localip(), self.port_udp)
@@ -31,21 +32,21 @@ class Sock:
         self.done = False
 
         # UDP sending
-        if thread_udp_bool:
+        if self.udp_bool:
             self.q_send = Queue()  # SEND QUEUE [((info,msg), ip), (), ...]
-            thread_send = threading.Thread(target=self.msg_send)
+            thread_send = threading.Thread(target=self.thread_msg_send)
             thread_send.setDaemon(True)
             thread_send.start()
 
         # UDP listening
         self.q = Queue()  # GET QUEUE [((info,msg), ip), (), ...]
-        thread1 = threading.Thread(target=self.msg_recv)
+        thread1 = threading.Thread(target=self.thread_msg_recv)
         thread1.setDaemon(True)  # True:不关注这个子线程，主线程跑完就结束整个python process
         thread1.start()
 
         # TCP listening
         if self.tcp_bool:
-            thread_tcp = threading.Thread(target=self.tcp_server)
+            thread_tcp = threading.Thread(target=self.thread_tcp_server)
             thread_tcp.setDaemon(True)  # True:不关注这个子线程，主线程跑完就结束整个python process
             thread_tcp.start()
 
@@ -53,6 +54,13 @@ class Sock:
         self.done = True
         if self.tcp_bool:
             self.close_tcp()
+        start_wait = pygame.time.get_ticks()
+        outtime_wait = 5000
+        while self.udp_bool and not self.q_send.empty():  # 用来让 thread_msg_send 运行完，把消息都发出去
+            pygame.time.wait(100)
+            if pygame.time.get_ticks()-start_wait > outtime_wait:  # 设置个超时时间
+                logging.warning('Sock.thread_msg_send: Waiting OUT_TIME!')
+                break
         self.sock.close()
         logging.info('done Sock.sock.close().')
 
@@ -60,8 +68,7 @@ class Sock:
         self.sock_tcp.close()
         logging.info('done Sock.sock_tcp.close().')
 
-
-    def tcp_server(self):
+    def thread_tcp_server(self):
         """任何程序都开启这个TCP监听"""
         self.sock_tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock_tcp.bind((self.localip(), self.port_tcp))
@@ -74,7 +81,7 @@ class Sock:
             except Exception as msg:
                 logging.warning('SOCK_TCP ERROR-->%s' % msg)
 
-    def msg_send(self):
+    def thread_msg_send(self):
         """
         self.q_send是普通数据对象，传输的时候会加json.dumps
         注： 消息队列不包含port，port都集成在这里
@@ -95,7 +102,7 @@ class Sock:
         logging.info('SEND_DIRECT [%s]:%s' % (ip + ':' + str(self.port_udp), json.dumps(msg)))
         self.sock.sendto(tmp.encode('utf-8'), (ip, self.port_udp))
 
-    def msg_recv(self):
+    def thread_msg_recv(self):
         """
         注： 消息队列不包含port，port在这里直接剔除了
         这里有个error: [Errno 10054]，有可能是winsock自身的bug：

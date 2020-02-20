@@ -34,6 +34,8 @@ class Game:
 
     def game_init(self):
         self.player_dict = {}  # {'ip1':player_obj1, 'ip2':player_obj2}
+        self.last_player_dict = {'frame': None}  # 用来SYN同步时，存储上一个整秒时刻的状态
+        self.syn_fps = config.FPS
 
         self.plane_group = pygame.sprite.Group()
         self.health_group = pygame.sprite.Group()
@@ -65,6 +67,9 @@ class Game:
         self.screen_focus_obj = None  # 默认为空，首次指向本地plane, 空格指向本地plane, 为空但是本地plane还存在就指向plane
         self.move_pixels = 30
         self.done = False
+
+        self.show_result = False  # 用来显示Win or Lose, 和游戏是否结束
+        self.restart_game = False
         # ------------------------------------------------------------------------------------
 
         # self.lock_frame = 0
@@ -72,17 +77,19 @@ class Game:
         # self.start_time = 0
 
         self.info = information.Information()
-        self.show_result = False  # 用来显示Win or Lose
+
         self.hide_result = False
         self.last_tab_frame = 0
 
     def main(self):
         if self.game_start():
-            self.game_loop()
+            res = self.game_loop()
+            self.sock.close()
+            return res
 
     def game_start(self):
         # Read&Format player_dict.dat
-        with open('game_dict.dat','r') as f1:
+        with open('game_dict.dat', 'r') as f1:
             game_dict_origin = json.load(f1)
 
         player_dict = game_dict_origin['player']
@@ -90,22 +97,23 @@ class Game:
         for ip in player_dict.keys():
             _d[ip] = player_dict[ip]
             # d[ip]['ip'] = ip
-            _d[ip]['location'] = [config.MAP_SIZE[n]*i for n,i in enumerate(player_dict[ip]['location'])]
+            _d[ip]['location'] = [config.MAP_SIZE[n] * i for n, i in enumerate(player_dict[ip]['location'])]
         self.host_ip = game_dict_origin['host']  # get host ip from "game_dict.dat"
-        logging.info('formatting "player_dict.dat" to game.dict success: %s'%str(_d))
+        logging.info('formatting "player_dict.dat" to game.dict success: %s' % str(_d))
 
         # Loading Players INFO
         for ip in _d.keys():
             msg_player = _d[ip]
             player = my_player.Player(weapon_group=self.weapon_group, ip=ip)
-            plane = my_sprite.Plane(catalog=msg_player['Plane'], location=msg_player['location'], color=msg_player['Color'])
+            plane = my_sprite.Plane(catalog=msg_player['Plane'], location=msg_player['location'],
+                                    color=msg_player['Color'])
             plane.load_weapon(catalog='Cobra', number=msg_player['Cobra'])
             plane.load_weapon(catalog='Bullet', number=msg_player['Bullet'])
             plane.load_weapon(catalog='Rocket', number=msg_player['Rocket'])
             plane.load_weapon(catalog='Cluster', number=50)
             player.add_plane(plane)
             self.player_dict[ip] = player
-        logging.info("loading player's INFO success-self.player_dict:%s"%str(self.player_dict))
+        logging.info("loading player's INFO success-self.player_dict:%s" % str(self.player_dict))
 
         # add sprite_group
         for ip in self.player_dict:
@@ -119,16 +127,17 @@ class Game:
         self.local_ip = self.sock.localip()
         if self.local_ip in self.player_dict:
             self.local_player = self.player_dict[self.local_ip]
-            logging.info('get local_player success: ip - %s'%self.local_ip)
+            logging.info('get local_player success: ip - %s' % self.local_ip)
         else:
-            logging.error('get local_player failed: localip-%s not in player_dict_ip-%s'%(self.local_ip, str(self.player_dict.keys())))
+            logging.error('get local_player failed: localip-%s not in player_dict_ip-%s' % (
+            self.local_ip, str(self.player_dict.keys())))
 
         # Weapon Slot
         self.slot_obj_list = []  # ['Bullet', 'Rocket', 'Cobra']
         for i in [1, 2, 3]:
-            _s = my_sprite.SlotBar(rect_topleft=(20, 15*i-10))
+            _s = my_sprite.SlotBar(rect_topleft=(20, 15 * i - 10))
             _s.update(health=self.local_player.plane.weapon[i]['number'])
-            _logo = my_sprite.Box(location=(10,15*i-5), catalog=self.local_player.plane.weapon[i]['catalog'])
+            _logo = my_sprite.Box(location=(10, 15 * i - 5), catalog=self.local_player.plane.weapon[i]['catalog'])
             self.slot_group.add(_logo)
             self.slot_obj_list.append(_s)
             self.slot_group.add(_s)
@@ -146,7 +155,7 @@ class Game:
         # pygame.time.wait(3000)
 
         self.screen_focus_obj = self.local_player.plane
-        self.deal_screen_focus() # 根据local_player位置移动一次self.screen_rect
+        self.deal_screen_focus()  # 根据local_player位置移动一次self.screen_rect
 
         # # lockframe deal
         # if self.host_ip == self.local_ip:  # 主机才发送同步LockFrame
@@ -171,15 +180,15 @@ class Game:
                     if msg == '200 OK':
                         msg_get_ip_list.append(ip)  # 每个IP只能回复1个 200 OK，否则会出问题
                 if len(msg_get_ip_list) == len(self.player_dict.keys()):
-                    logging.info('Start Msg All Get:%s'%str(msg_get_ip_list))
+                    logging.info('Start Msg All Get:%s' % str(msg_get_ip_list))
                     return True
-                if pygame.time.get_ticks()-last_time > 10000:
-                    logging.error('Start Msg Lost!:%s'%str(msg_get_ip_list))
+                if pygame.time.get_ticks() - last_time > 10000:
+                    logging.error('Start Msg Lost!:%s' % str(msg_get_ip_list))
                     break
 
         else:  # GUEST
             last_time = pygame.time.get_ticks()
-            while pygame.time.get_ticks()-last_time < 10000:
+            while pygame.time.get_ticks() - last_time < 10000:
                 if not self.sock.q.empty():
                     msg, ip = self.sock.q.get()
                     if msg == 'start main loop':
@@ -205,9 +214,9 @@ class Game:
             key_list = self.get_eventlist()
             # logging.info('T1.2:%d' % pygame.time.get_ticks())
             if self.local_player.alive:  # 玩家或者才上报数据
-                self.sendtohost_eventlist(key_list)
+                self.sendtohost_eventlist(key_list)  # 上报这一帧的操作数据
             # logging.info('T1.3:%d' % pygame.time.get_ticks())
-            self.getfromhost_operation()
+            self.getfromhost_operation()  # 接收主机上一帧的操作&执行，同步上一帧的数据
 
             # SCREEN
             # logging.info('T2.2:%d' % pygame.time.get_ticks())
@@ -224,7 +233,7 @@ class Game:
             # HOST
             # logging.info('T2.1:%d' % pygame.time.get_ticks())
             if self.host_ip == self.local_ip:
-                self.sendbyhost_operation()
+                self.sendbyhost_operation()  # 主机接收 >= 当前帧的操作数据，并发送
 
             # MATH
             # logging.info('T3.1:%d' % pygame.time.get_ticks())
@@ -232,13 +241,20 @@ class Game:
             self.game_collide()
             self.game_collide_with_box()
 
+            # GET SYN_FRAME STATUS
+            self.record_player_status()
+
             # GAME
             # logging.info('T4.1:%d' % pygame.time.get_tick  s())
             self.end_game()
+            if self.restart_game:  # 重新开始游戏
+                break
             self.wait_whole_frame()
 
             # FRAME PLUS ONE
             self.syn_frame = self.syn_frame + 1
+
+        return self.restart_game
 
     def test_add_plane(self):
         for i in range(100):
@@ -262,7 +278,10 @@ class Game:
             # print '    KEY:', keys
             if keys[pygame.K_ESCAPE]:
                 self.done = True
-                return key_list # EXIT GAME
+                return key_list  # EXIT GAME
+            if keys[pygame.K_r] and self.show_result:
+                self.done = True
+                self.restart_game = True
             if keys[pygame.K_LEFT]:  # 直接使用 pygame.key.get_pressed() 可以多键同时独立识别
                 self.screen_rect.x -= self.move_pixels
             if keys[pygame.K_RIGHT]:
@@ -289,38 +308,39 @@ class Game:
         return key_list
 
     def sendtohost_eventlist(self, key_list):
-        self.sock.msg_direct_send(((('guest',self.syn_frame), {self.local_ip: key_list}), self.host_ip))
+        self.sock.msg_direct_send(((('guest', self.syn_frame), {self.local_ip: key_list}), self.host_ip))
 
     def getfromhost_operation(self):
         """msg_player = {ip1: 'asi', ip2: 'wop'...}"""
         self.split_hostmsgqueue()
         if self.host_operation_queue.empty():
-            logging.warning('do not receive operation from host at frame:%d'%self.syn_frame)
+            logging.warning('do not receive operation from host at frame:%d' % self.syn_frame)
         else:
             while not self.host_operation_queue.empty():  # 非空就把队列都去出来
-                tmp, msg_dict = self.host_operation_queue.get() # data = (('host',self.syn_frame), {'opr':operation_dict})
+                tmp_frame, msg_dict = self.host_operation_queue.get()  # data = (('host',self.syn_frame), {'opr':operation_dict})
                 #  进行操作消息的读取&操作
                 msg_opr = msg_dict['opr']
                 for ip in msg_opr:
                     weapon_obj = self.player_dict[ip].operation(msg_opr[ip], self.syn_frame)
-                    if ip == self.local_ip and weapon_obj:   # 如果导弹对象不为空，就将屏幕聚焦对象指向它
+                    if ip == self.local_ip and weapon_obj:  # 如果导弹对象不为空，就将屏幕聚焦对象指向它
                         self.screen_focus_obj = weapon_obj
-                logging.info('running host operation at frame:%d'%tmp[1])
+                logging.info('running host operation at frame:%d' % tmp_frame[1])
+                self.record_player_status()  # 记录last_player_dict操作
                 # 进行同步消息的读取&操作
                 if 'syn' in msg_dict:  # 在这一帧操作之前，进行上一帧的位置同步，后面会进行update()
-                    msg_player = msg_dict['syn']
-                    for ip in msg_player:
-                        self.player_dict[ip].plane.location[:] = msg_player[ip]['location']
-                        self.player_dict[ip].plane.velocity[:] = msg_player[ip]['velocity']
-                        self.player_dict[ip].plane.health = msg_player[ip]['health']
-                    if tmp[1] == self.syn_frame - 1:  # 正常在本帧update()之前，同步上一帧的状态
-                        logging.info('running player_synchronize at frame:%d.' % tmp[1])
-                    else:  # 网络延迟大话，还是会这样位置闪烁，或者回退！！！！
-                        logging.warning('running player_synchronize at unnormal frame:%d!' % tmp[1])
+                    if tmp_frame[1] == self.last_player_dict['frame']:  # 正常在本帧update()之前，同步上个本地标记帧的状态
+                        msg_player = msg_dict['syn']
+                        for ip in msg_player:
+                            self.player_dict[ip].plane.location[:] += msg_player[ip]['location']-self.last_player_dict[ip]['location']
+                            self.player_dict[ip].plane.velocity[:] += msg_player[ip]['velocity']-self.last_player_dict[ip]['velocity']
+                            self.player_dict[ip].plane.health += msg_player[ip]['health']-self.last_player_dict[ip]['health']
+                        logging.info('running player_synchronize at frame:%d.' % tmp_frame[1])
+                    else:  # 当延迟，或者接收消息超过一个self.syn_fps也就是1s的时候，同步不发生
+                        logging.warning('running player_synchronize failed at host frame:%d!' % tmp_frame[1])
                 if 'box' in msg_dict:
                     box_dict = msg_dict['box']
                     for _catalog in box_dict:
-                        self.box_group.add(my_sprite.Box(location=box_dict[_catalog],catalog=_catalog))
+                        self.box_group.add(my_sprite.Box(location=box_dict[_catalog], catalog=_catalog))
 
     def split_hostmsgqueue(self):
         """self.q ----> self.guest/host_operation_queue"""
@@ -334,7 +354,7 @@ class Game:
                     self.host_operation_queue.put(msg)
                     # logging.info('put in host queque:%s' % msg)
             except Exception as err:
-                logging.warning('Invalid MSG:"%s". Exception:%s'%(str(msg), err))
+                logging.warning('Invalid MSG:"%s". Exception:%s' % (str(msg), err))
 
     def sendbyhost_operation(self):
         """get all guests msg, then merge & send host_operation"""
@@ -346,7 +366,8 @@ class Game:
             self.split_hostmsgqueue()
             # 对分类进入到 guest_operation_queue 队列中的消息做HOST消息整合
             while not self.guest_operation_queue.empty():
-                (_tmp, frame), key_dict = self.guest_operation_queue.get()  # (('guest',self.syn_frame), {self.ip: key_list})
+                (_tmp,
+                 frame), key_dict = self.guest_operation_queue.get()  # (('guest',self.syn_frame), {self.ip: key_list})
                 if frame >= self.syn_frame:  # 大于等于当前帧syn_frame的guest操作就留下执行
                     if frame not in self.operation_dict:
                         self.operation_dict[frame] = key_dict
@@ -355,10 +376,11 @@ class Game:
                         self.operation_dict[frame].update(key_dict)
                 logging.info('operation_dict:%s' % str(self.operation_dict))
             # 当前帧收集齐了就退出
-            if self.syn_frame in self.operation_dict and len(self.operation_dict[self.syn_frame].keys()) == alive_players:
+            if self.syn_frame in self.operation_dict and len(
+                    self.operation_dict[self.syn_frame].keys()) == alive_players:
                 break
             # 超出时间也退出， 玩家等于0也退出
-            if pygame.time.get_ticks()-start_time > 1000/config.FPS or alive_players == 0:
+            if pygame.time.get_ticks() - start_time > 1000 / config.FPS or alive_players == 0:
                 break
             # 等一次
             pygame.time.wait(1)
@@ -395,19 +417,19 @@ class Game:
             """
             _head = ['host', self.syn_frame]
             # 添加玩家操作信息，每一帧
-            _d = _operation = {'opr':self.operation_dict[self.syn_frame]}
+            _d = _operation = {'opr': self.operation_dict[self.syn_frame]}
             # 添加同步的玩家信息，每一秒
-            if self.syn_frame % config.FPS == 0:
+            if self.syn_frame % self.syn_fps == 0:
                 _syn_dict = {}
                 for ip in self.player_dict:
                     plane = self.player_dict[ip].plane
-                    _syn_dict[ip] ={'location':[round(i,3) for i in plane.location[:]],
-                                    'velocity':[round(i,3) for i in plane.velocity[:]],
-                                    'health':plane.health}
+                    _syn_dict[ip] = {'location': [round(i, 3) for i in plane.location[:]],
+                                     'velocity': [round(i, 3) for i in plane.velocity[:]],
+                                     'health': plane.health}
                 _d.update({'syn': _syn_dict})
             # 添加BOX，每2秒
-            if self.syn_frame % (2*config.FPS) == 0:
-                _d.update({'box':self.box_msg_send()})  # 'box':{catalog:location,}
+            if self.syn_frame % (2 * config.FPS) == 0:
+                _d.update({'box': self.box_msg_send()})  # 'box':{catalog:location,}
             # HOST MSG SEND
             _host_msg = _head, _d
             for ip in self.player_dict:  # 发送给每个玩家
@@ -417,7 +439,7 @@ class Game:
     def box_msg_send(self):
         location = [random.randint(0, config.MAP_SIZE[0]), random.randint(0, config.MAP_SIZE[1])]
         # Medic and so on. -->  10%, 30%, 30%, #0%
-        rand_x = random.randint(0,100)
+        rand_x = random.randint(0, 100)
         if rand_x <= 10:
             catalog = 'Medic'
         elif rand_x <= 40:
@@ -426,7 +448,7 @@ class Game:
             catalog = 'Rocket'
         elif rand_x <= 100:
             catalog = 'Cobra'
-        return {catalog:location}
+        return {catalog: location}
 
     def erase(self):
         for _group in self.game_groups:
@@ -445,6 +467,7 @@ class Game:
         # self.screen.blit(source=self.map.surface, dest=(0, 0), area=self.current_rect)
         surf.blit(source=self.origin_map_surface, dest=rect,
                   area=rect)  # blit(source, dest, area=None, special_flags=0) -> Rect
+
     def blit_map(self):
         for _group in self.game_groups:
             if id(_group) == id(self.slot_group):  # 在screen的blit之后进行draw
@@ -476,10 +499,10 @@ class Game:
         # self.show_info()
 
         self.screen.blit(self.test_font.render(str(self.clock.get_fps()), 1, config.BLACK, config.WHITE),
-                         (config.SCREEN_SIZE[0]-100, 10))
+                         (config.SCREEN_SIZE[0] - 100, 10))
         self.clock.tick()
-        # if self.show_result and not self.hide_result:
-        #     self.info.show_end(self.screen)  # 吃性能所在之处！！！！！！！！！！！！！！！
+        if self.show_result and not self.hide_result:
+            self.info.show_end(self.screen)
 
     # def show_info(self):
     #     # 显示游戏信息
@@ -517,13 +540,13 @@ class Game:
             if id(_group) == id(self.weapon_group):
                 _group.update(self.plane_group)
             elif id(_group) == id(self.slot_group):
-                for index,obj in enumerate(self.slot_obj_list):
+                for index, obj in enumerate(self.slot_obj_list):
                     # print(self.local_player.plane.weapon)
-                    obj.update(self.local_player.plane.weapon[index+1]['number'])
+                    obj.update(self.local_player.plane.weapon[index + 1]['number'])
             else:
                 _group.update()
 
-        if self.syn_frame% 2 == 0:
+        if self.syn_frame % 2 == 0:
             for _sprite in self.plane_group:
                 t1 = my_sprite.ThrustBar(_sprite)
                 self.thrustbar_group.add(t1)
@@ -537,7 +560,7 @@ class Game:
             if not _sprite.hit:
                 _sprite.rect.center = _sprite.write_out()
             # _sprite.rect.center = _sprite.write_out()
-                # pygame.draw.rect(self.map.surface, (255, 0, 0), _sprite.rect, 1)
+            # pygame.draw.rect(self.map.surface, (255, 0, 0), _sprite.rect, 1)
             # self.test_weapon_target(_sprite)
             # print('M:',_sprite.location)
 
@@ -577,7 +600,8 @@ class Game:
 
     def game_collide_with_box(self):
         for plane in self.plane_group:  # 进行飞机与Box之间碰撞探测
-            box_collide_lst = pygame.sprite.spritecollide(plane, self.box_group, False, pygame.sprite.collide_rect_ratio(config.COLLIDE_RATIO))
+            box_collide_lst = pygame.sprite.spritecollide(plane, self.box_group, False,
+                                                          pygame.sprite.collide_rect_ratio(config.COLLIDE_RATIO))
             for box in box_collide_lst:
                 box.effect(plane)
                 box.delete()
@@ -598,17 +622,28 @@ class Game:
                 self.screen_focus_obj = self.local_player.plane
             if len(self.player_dict.keys()) == 1:  # 只剩你一个人了
                 self.show_result = True
-                # self.info.add_middle('YOU WIN!')
+                self.info.add_middle('YOU WIN!')
+                self.info.add_middle_below('press "r" to exit the game.')
                 # self.info.add_middle_below('press "ESC" to exit the game.')
-                # self.info.add_middle_below('press "Tab" to hide/show this message.')
+                self.info.add_middle_below('press "Tab" to hide/show this message.')
         else:
             self.screen_focus_obj = None  # screen_rect聚焦为空，回复上下左右控制
             self.show_result = True
-            # self.info.add_middle('YOU LOST.')
+            self.info.add_middle('YOU LOST.')
+            self.info.add_middle_below('press "r" to exit the game.')
             # self.info.add_middle_below('press "ESC" to exit the game.')
-            # self.info.add_middle_below('press "Tab" to hide/show this message.')
+            self.info.add_middle_below('press "Tab" to hide/show this message.')
 
-        # FOCUS SCREEN
+        return self.show_result
+
+    def record_player_status(self):
+        if self.syn_frame % self.syn_fps == 0:
+            self.last_player_dict['frame'] = self.syn_frame
+            for ip in self.player_dict:
+                self.last_player_dict[ip] = {}
+                self.last_player_dict[ip]['velocity'] = self.player_dict[ip].plane.velocity
+                self.last_player_dict[ip]['location'] = self.player_dict[ip].plane.location
+                self.last_player_dict[ip]['health'] = self.player_dict[ip].plane.health
 
     def wait_syn_frame(self):
         # 计算每帧时间，和时间等待
@@ -624,7 +659,7 @@ class Game:
     def wait_whole_frame(self):
         now_time = pygame.time.get_ticks()
         logging.info('CostTime:%d' % int(now_time - self.lastframe_time))
-        wait_time = int((1000/config.FPS)*(self.syn_frame+1) - (now_time - self.start_time))
+        wait_time = int((1000 / config.FPS) * (self.syn_frame + 1) - (now_time - self.start_time))
         if wait_time > 0:
             pygame.time.wait(wait_time)
             logging.info('WaitingTime:%d' % wait_time)
@@ -662,7 +697,7 @@ def test_calc_frame_cost():
 
     # show diagram. vertiacal
     for i in range(min(len(l1), len(l2))):
-        logging.info("[%d][%d]%s%s" % (i,int(l1[i]) + int(l2[i]), '+' * int(l1[i]), '-' * int(l2[i])))
+        logging.info("[%d][%d]%s%s" % (i, int(l1[i]) + int(l2[i]), '+' * int(l1[i]), '-' * int(l2[i])))
         # print("[%d]%s%s" % (int(l1[i]) + int(l2[i]), '+' * int(l1[i]), '-' * int(l2[i])))
 
     # average cost
@@ -691,6 +726,7 @@ if __name__ == "__main__":
                         filename='logger.log',
                         filemode='w')  # 每次真正import logging之后，filemode为w就会清空内容
     import widget
+
     w = widget.Widget()
     window = Game()
     window.main()

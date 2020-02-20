@@ -164,7 +164,6 @@ class Menu():
             start_node = Node(u'开始游戏(Start)')
             node.add(start_node)
             start_node.target = self.start_func
-            # to be con...
 
         # 制作 "game_dict.dat"
         self.dict_game['host'] = self.localip  # HOST-1/2:自己建主机的情况添加自己到host
@@ -172,13 +171,14 @@ class Menu():
             (info, msg), ip = self.sock.q.get()  # 接收消息
             # 处理单个玩家的加入消息msg_player
             if info == 'player join' and ip not in node.get_children_label():
-                node.add(Node(ip))  # 添加
                 msg['Color'] = self.color_list.pop()
                 self.color_dict[ip] = msg['Color']
                 self.dict_game['player'][ip] = msg
                 for i in self.dict_game['player'].keys():  # 给所有ip都发送所有玩家信息self.dict_game
                     if i != self.localip:  # 自己是主机，就不用发自己了
                         self.sock.q_send.put((('dict_game', self.dict_game), i))  # HOST-2/2:其他Guest玩家的self.dict_game直接等于这个
+                        pygame.time.wait(5)  # 给时间给他用来发送
+                node.add(Node(ip))  # 添加
             # 处理收到玩家退出消息，删除玩家
             elif info == 'player exit':
                 if ip in self.dict_game['player']:
