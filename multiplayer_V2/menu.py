@@ -280,7 +280,7 @@ class Menu():
 
     # START FUNCTION
     def start_func(self):
-        logging.info('running start_func.')
+        logging.info('running start_func, dict_game: %s'%str(self.dict_game))
         for i in self.dict_game['player'].keys():  # 给所有ip都发送所有玩家信息self.dict_game
             if i != self.localip:  # 自己是主机，就不用发自己了
                 self.sock.q_send.put((('start game', ''), i))

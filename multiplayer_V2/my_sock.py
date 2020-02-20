@@ -50,17 +50,20 @@ class Sock:
             thread_tcp.start()
 
     def close(self):
+        # 先让 upd发送完
+        if self.udp_bool:
+            start_wait = time.time()
+            outtime_wait = 5
+            while not self.q_send.empty():  # 用来让 thread_msg_send 运行完，把消息都发出去
+                time.sleep(0.1)
+                if time.time()-start_wait > outtime_wait:  # 设置个超时时间
+                    logging.warning('Sock.thread_msg_send: Waiting OUT_TIME!')
+                    break
+        # 停止所有
         self.done = True
-        if self.tcp_bool:
+        if self.tcp_bool:  # 强关TCP
             self.close_tcp()
-        start_wait = time.time()
-        outtime_wait = 5
-        while self.udp_bool and not self.q_send.empty():  # 用来让 thread_msg_send 运行完，把消息都发出去
-            time.sleep(0.1)
-            if time.time()-start_wait > outtime_wait:  # 设置个超时时间
-                logging.warning('Sock.thread_msg_send: Waiting OUT_TIME!')
-                break
-        self.sock.close()
+        self.sock.close()  # 关闭socket
         logging.info('done Sock.sock.close().')
 
     def close_tcp(self):
