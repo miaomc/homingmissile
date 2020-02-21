@@ -1,10 +1,17 @@
-﻿# Refactor "Multiplayer",重构 homingmissile\multiplayer项目:  
-·适应python3
-·重新设计Sprite,引入numpy,采用矩阵进行批量运动计算-----step 1  
-·仍然采用多对多方式通信，没有采用服务器架构,统一采用my_sock模块
-·整合display到统一界面      
-·采用pygame.math.Vector2代替自己构建的Vector()  
-·取消19M的字体文件   
+# How to Play:  
+  Pure KEYBOARD operation:  
+  (0) '↑', '↓', 'Enter' to create or join LAN game  
+  (1)'w', 's' to speed plane up or down   
+  (2)'a', 'd' to turn plane left or right  
+  (3)'u', 'i', 'o', 'p' to fire differen weapon  
+  
+# Refactor "Multiplayer",重构 homingmissile\multiplayer项目:  
+·适应python3 ----done  
+·重新设计Sprite,引入numpy,采用矩阵进行批量运动计算 -----done, shows excellent  
+·仍然采用多对多方式通信，没有采用服务器架构,统一采用my_sock模块 ----done  
+·整合display到统一界面 ----done      
+·采用pygame.math.Vector2代替自己构建的Vector() ----done  
+·取消19M的字体文件     
   
 # P.S.  
 ·README.md在要换行的语句最后打上2个空格  
