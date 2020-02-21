@@ -72,6 +72,7 @@ class Menu():
         self.msg_player = {'location': (randint(20, 80) / 100.0, randint(20, 80) / 100.0),
                            'Plane': 'F35',
                            'Bullet': config.BULLET, 'Rocket': config.ROCKET, 'Cobra': config.COBRA,
+                           'Cluster': config.CLUSTER,
                            'Color': None}
         self.dict_game = {'player': {self.localip: self.msg_player}, 'host': None}
         self.done = False

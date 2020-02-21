@@ -110,7 +110,7 @@ class Game:
             plane.load_weapon(catalog='Cobra', number=msg_player['Cobra'])
             plane.load_weapon(catalog='Bullet', number=msg_player['Bullet'])
             plane.load_weapon(catalog='Rocket', number=msg_player['Rocket'])
-            plane.load_weapon(catalog='Cluster', number=50)
+            plane.load_weapon(catalog='Cluster', number=msg_player['Cluster'])
             player.add_plane(plane)
             self.player_dict[ip] = player
         logging.info("loading player's INFO success-self.player_dict:%s" % str(self.player_dict))
@@ -133,13 +133,15 @@ class Game:
             self.local_ip, str(self.player_dict.keys())))
 
         # Weapon Slot
-        self.slot_obj_list = []  # ['Bullet', 'Rocket', 'Cobra']
-        for i in [1, 2, 3]:
-            _s = my_sprite.SlotBar(rect_topleft=(20, 15 * i - 10))
-            _s.update(health=self.local_player.plane.weapon[i]['number'])
-            _logo = my_sprite.Box(location=(10, 15 * i - 5), catalog=self.local_player.plane.weapon[i]['catalog'])
+        self.slotbar_str_list = config.WEAPON_LIST
+        self.slotbar_obj_dict = {}  # {<'Bullet'>:'Bullet', <'Rocket'>:'Rocket', ...}
+        for i, catalog in enumerate(self.slotbar_str_list):
+            _s = my_sprite.SlotBar(rect_topleft=(20, 16 * i +5))
+            _s.update(health=self.local_player.plane.weapon[catalog])
+            _logo = my_sprite.Box(location=(10, 16 * i +10), catalog=catalog)
             self.slot_group.add(_logo)
-            self.slot_obj_list.append(_s)
+            self.slotbar_obj_dict[_s] = catalog
+            # self.slot_obj_list.append(_s)
             self.slot_group.add(_s)
 
         # MAP
@@ -255,16 +257,6 @@ class Game:
             self.syn_frame = self.syn_frame + 1
 
         return self.restart_game
-
-    def test_add_plane(self):
-        for i in range(100):
-            xy = pygame.math.Vector2(random.randint(config.MAP_SIZE[0] // 10, config.MAP_SIZE[1]),
-                                     random.randint(config.MAP_SIZE[1] // 10, config.MAP_SIZE[1]))
-            p1 = my_sprite.Plane(location=xy, catalog='F35')
-            self.plane_group.add(p1)
-            h1 = my_sprite.HealthBar(stick_obj=p1)
-            p1.add_healthbar(h1)
-            self.health_group.add(h1)
 
     def get_eventlist(self):
         """
@@ -429,23 +421,25 @@ class Game:
                 _d.update({'syn': _syn_dict})
             # 添加BOX，每2秒
             if self.syn_frame % (2 * config.FPS) == 0:
-                _d.update({'box': self.box_msg_send()})  # 'box':{catalog:location,}
+                _d.update({'box': self.box_produce()})  # 'box':{catalog:location,}
             # HOST MSG SEND
             _host_msg = _head, _d
             for ip in self.player_dict:  # 发送给每个玩家
                 self.sock.msg_direct_send((_host_msg, ip))
             self.operation_dict.pop(self.syn_frame)
 
-    def box_msg_send(self):
+    def box_produce(self):
         location = [random.randint(0, config.MAP_SIZE[0]), random.randint(0, config.MAP_SIZE[1])]
-        # Medic and so on. -->  10%, 30%, 30%, #0%
+        # Medic and so on. -->  10%, 30%, 20%, 30%, 10%
         rand_x = random.randint(0, 100)
         if rand_x <= 10:
             catalog = 'Medic'
         elif rand_x <= 40:
             catalog = 'Bullet'
-        elif rand_x <= 70:
+        elif rand_x <= 60:
             catalog = 'Rocket'
+        elif rand_x <= 90:
+            catalog = 'Cluster'
         elif rand_x <= 100:
             catalog = 'Cobra'
         return {catalog: location}
@@ -523,9 +517,7 @@ class Game:
     #                 str(self.player_dict[ip].plane.velocity), str(self.player_dict[ip].plane.location), str(self.player_dict[ip].plane.rect)))
     #         self.info.add(u'Groups:%s' % str(self.plane_group))
 
-    def test_weapon_target(self, _sprite):
-        if _sprite.target:
-            pygame.draw.aaline(self.map.surface, config.RED, _sprite.rect.center, _sprite.target.rect.center)
+
 
     def update(self):
         for ip in self.player_dict:
@@ -540,9 +532,10 @@ class Game:
             if id(_group) == id(self.weapon_group):
                 _group.update(self.plane_group)
             elif id(_group) == id(self.slot_group):
-                for index, obj in enumerate(self.slot_obj_list):
-                    # print(self.local_player.plane.weapon)
-                    obj.update(self.local_player.plane.weapon[index + 1]['number'])
+                # for index, obj in enumerate(self.slot_obj_list):
+                #     obj.update(self.local_player.plane.weapon[index + 1]['number'])
+                for slotbar in self.slotbar_obj_dict:
+                    slotbar.update(self.local_player.plane.weapon[self.slotbar_obj_dict[slotbar]])
             else:
                 _group.update()
 
@@ -589,7 +582,8 @@ class Game:
         """
         self.plane_group = pygame.sprite.Group()
         self.weapon_group = pygame.sprite.Group()
-        [tobecontine]: 考虑替换spritecollide---groupcollide???
+        [tobecontine]: 考虑替换spritecollide---groupcollide-------性能是一回事
+        collide需要考虑是否还alive（因为爆炸的时候没有kill()），同时考虑自己碰撞自己是不算的
         """
         for plane in self.plane_group:  # 遍历每一个飞机
             if not plane.alive:
@@ -598,12 +592,25 @@ class Game:
             for weapon in weapon_list:
                 if weapon.alive:
                     weapon.hitted(plane)
-            # 飞机之间的碰撞
-            plane_list = pygame.sprite.spritecollide(plane, self.plane_group, False)
-            for tmp_plane in plane_list:
-                if id(tmp_plane) != id(plane) and tmp_plane.alive:
-                    plane.health = -401
-                    tmp_plane.health = -401
+            # # 飞机之间的碰撞 spritecollide
+            # plane_list = pygame.sprite.spritecollide(plane, self.plane_group, False, pygame.sprite.collide_rect_ratio(0.4))
+            # for tmp_plane in plane_list:
+            #     if id(tmp_plane) != id(plane) and tmp_plane.alive:
+            #         plane.health = -401 #plane.health/2 # 碰撞血条折半==瞬间无数次碰撞
+            #         tmp_plane.health = -401 #tmp_plane.health/2
+        # # 飞机之间碰撞 groupcollide
+        # plane_dict = pygame.sprite.groupcollide(self.plane_group, self.plane_group, False, False, pygame.sprite.collide_rect_ratio(0.4))
+        # # planes = [_plane for _plane in plane_dict.keys()]  # key与value相撞，那么key一定包含了所有的value
+        # for _plane in plane_dict.keys():  # key与value相撞，那么key一定包含了所有的value
+        #     if len(plane_dict[_plane]) != 1:
+        #         _plane.health = -401
+        plane_list = self.plane_group.sprites()
+        index_len = len(plane_list)
+        for index_i in range(index_len-1):
+            for index_j in range(index_i+1, index_len):
+                if plane_list[index_i].location.distance_to(plane_list[index_j].location) < 20:
+                    plane_list[index_i].health = -401
+                    plane_list[index_j].health = -401
 
     def game_collide_with_box(self):
         for plane in self.plane_group:  # 进行飞机与Box之间碰撞探测
@@ -674,6 +681,20 @@ class Game:
     def deal_screen_focus(self):
         if self.screen_focus_obj:
             self.screen_rect.center = self.screen_focus_obj.rect.center
+
+    def test_add_plane(self):
+        for i in range(100):
+            xy = pygame.math.Vector2(random.randint(config.MAP_SIZE[0] // 10, config.MAP_SIZE[1]),
+                                     random.randint(config.MAP_SIZE[1] // 10, config.MAP_SIZE[1]))
+            p1 = my_sprite.Plane(location=xy, catalog='F35')
+            self.plane_group.add(p1)
+            h1 = my_sprite.HealthBar(stick_obj=p1)
+            p1.add_healthbar(h1)
+            self.health_group.add(h1)
+
+    def test_weapon_target(self, _sprite):
+        if _sprite.target:
+            pygame.draw.aaline(self.map.surface, config.RED, _sprite.rect.center, _sprite.target.rect.center)
 
 
 def test_calc_frame_cost():

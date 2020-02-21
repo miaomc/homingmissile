@@ -79,6 +79,10 @@ class Box(Base):
             'image': './image/box_cobra.png',
             'num': 3,
         },
+        'Cluster': {
+            'image': './image/box_cluster.png',
+            'num': 20,
+        },
     }
 
     # 'Power':{
@@ -93,7 +97,7 @@ class Box(Base):
 
         self.sound_kill = pygame.mixer.Sound("./sound/beep.wav")
         self.catalog = catalog
-        if catalog in ['Bullet', 'Rocket', 'Cobra', 'Medic']:
+        if catalog in ['Bullet', 'Rocket', 'Cobra', 'Medic', 'Cluster']:
             self.num = Box.BOX_CATALOG[catalog]['num']
         elif catalog == 'Power':
             pass
@@ -103,12 +107,8 @@ class Box(Base):
             plane_object.change_health(self.num)
         # elif catalog == 'Power':  # 这个后面再做威力加强
         #     pass
-        elif self.catalog == 'Bullet':
-            plane_object.change_weapon('Bullet', self.num)
-        elif self.catalog == 'Rocket':
-            plane_object.change_weapon('Rocket', self.num)
-        elif self.catalog == 'Cobra':
-            plane_object.change_weapon('Cobra', self.num)
+        elif self.catalog in ['Bullet', 'Rocket', 'Cobra', 'Cluster']:
+            plane_object.change_weapon(self.catalog, self.num)
 
 
 class Weapon(Base):
@@ -116,8 +116,8 @@ class Weapon(Base):
     WEAPON_CATALOG = {
         'Bullet': {
             'health': 10,
-            'init_speed': 3,
-            'max_speed': 5,
+            'init_speed': 4,
+            'max_speed': 8,
             'thrust_acc': 0,
             'turn_acc': 0,
             'damage': 2,
@@ -290,8 +290,8 @@ class Weapon(Base):
             self.alive = False
             self.hit = hit
             self.hitted_obj = hitted_obj
-            if self.sound_kill:
-                self.sound_kill.play()
+            # if self.sound_kill:
+            #     self.sound_kill.play()
             if hitted_obj:
                 self.offset_vecter = (self.rect.x - hitted_obj.rect.x) // 3, (self.rect.y - hitted_obj.rect.y) // 3
 
@@ -424,10 +424,11 @@ class Plane(Base):
         self.velocity = pygame.math.Vector2(1, 0).normalize() * self.speed  # Vector
         self.acc = pygame.math.Vector2(0, 0)
 
-        self.weapon = {1: {'catalog': 'Bullet', 'number': 0},
-                       2: {'catalog': 'Rocket', 'number': 0},
-                       3: {'catalog': 'Cobra', 'number': 0},
-                       4: {'catalog': 'Cluster', 'number': 0}}  # 默认武器为0
+        # self.weapon = {1: {'catalog': 'Bullet', 'number': 0},
+        #                2: {'catalog': 'Rocket', 'number': 0},
+        #                3: {'catalog': 'Cobra', 'number': 0},
+        #                4: {'catalog': 'Cluster', 'number': 0}}  # 默认武器为0
+        self.weapon = {'Bullet': 0, 'Rocket':0,'Cobra': 0,'Cluster': 0}
 
         self.sound_kill = pygame.mixer.Sound("./sound/explode3.wav")
         # self.healthbar = HealthBar(location=self.location)
@@ -458,27 +459,29 @@ class Plane(Base):
         """self.weapon = {1: {'catalog': 'Bullet', 'number': 200},
         2: {'catalog': 'Rocket', 'number': 20},
         3: {'catalog': 'Cobra', 'number': 10}} """
-        index = 3  # 默认为非Gun子弹和Rocket火箭弹的其他类
-        if catalog == 'Bullet':
-            index = 1
-        elif catalog == 'Rocket':
-            index = 2
-        elif catalog == 'Cobra':
-            index = 3
-        elif catalog == 'Cluster':
-            index = 4
-        self.weapon[index]['catalog'] = catalog
-        self.weapon[index]['number'] = number
-        # print(self.weapon, catalog, number)
+        # index = 3  # 默认为非Gun子弹和Rocket火箭弹的其他类
+        # if catalog == 'Bullet':
+        #     index = 1
+        # elif catalog == 'Rocket':
+        #     index = 2
+        # elif catalog == 'Cobra':
+        #     index = 3
+        # elif catalog == 'Cluster':
+        #     index = 4
+        # self.weapon[index]['catalog'] = catalog
+        # self.weapon[index]['number'] = number
+        # # print(self.weapon, catalog, number)
+        self.weapon[catalog] = number
 
     def change_weapon(self, catalog, number):
         # print(self.weapon,catalog,number)
-        if catalog == 'Bullet':
-            self.weapon[1]['number'] += number
-        elif catalog == 'Rocket':
-            self.weapon[2]['number'] += number
-        elif catalog == 'Cobra':
-            self.weapon[3]['number'] += number
+        # if catalog == 'Bullet':
+        #     self.weapon[1]['number'] += number
+        # elif catalog == 'Rocket':
+        #     self.weapon[2]['number'] += number
+        # elif catalog == 'Cobra':
+        #     self.weapon[3]['number'] += number
+        self.weapon[catalog] += number
 
     def weapon_fire(self, slot):
         pass

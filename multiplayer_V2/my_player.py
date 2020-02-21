@@ -26,32 +26,30 @@ class Player(object):
             self.alive = False
             # self.plane = None
 
-    def weapon_fire(self, slot, syn_frame=0):
+    def weapon_fire(self, catalog, syn_frame=0):
         # print 'Plane:', self.plane.velocity
-        if self.plane.weapon[slot]:
-            if self.plane.weapon[slot]['number'] > 0:
-                self.plane.weapon[slot]['number'] -= 1
-                # Bullet单独处理声音
-                if slot == 1 and syn_frame - self.fire_status[1]>config.FPS/5:  # 180/(1000/FPS)=200/1000 *FPS
-                    self.slot1_sound_fire.play(maxtime=200)
-                    self.fire_status[1] = syn_frame
-                # print dir(self.plane)
-                tmp_rect = self.plane.velocity.normalize() * self.plane.rect.height  # 朝飞机前进的方向+velocity*角度
-                tmp_rect.rotate_ip(random.choice((-15, 15)))
-                # tmp_rect = (self.plane.velocity.normalize().x * self.plane.rect.height,self.plane.velocity.normalize().y * self.plane.rect.height)
-                tmp_location = self.plane.location + tmp_rect
-                # location_x = self.plane.location.x + tmp_rect[0]
-                # location_y = self.plane.location.y + random.choice((tmp_rect[1]/2,-tmp_rect[1]/2))
-                # print location_x,location_y, '<------------', self.plane.location, self.plane.rect
-                if slot==4:
-                    weapon = my_sprite.ClusterWeapon(location=tmp_location, velocity=self.plane.velocity)
-                else:
-                    weapon = my_sprite.Weapon(catalog=self.plane.weapon[slot]['catalog'],
-                                          location=tmp_location,
-                                          velocity=self.plane.velocity)
+        # if self.plane.weapon[slot]:
+        if self.plane.weapon[catalog] > 0:
+            self.plane.weapon[catalog] -= 1
+            # Bullet单独处理声音
+            if catalog=='Bullet' and syn_frame - self.fire_status[1]>config.FPS/5:  # 180/(1000/FPS)=200/1000 *FPS
+                self.slot1_sound_fire.play(maxtime=200)
+                self.fire_status[1] = syn_frame
+            # print dir(self.plane)
+            tmp_rect = self.plane.velocity.normalize() * self.plane.rect.height  # 朝飞机前进的方向+velocity*角度
+            tmp_rect.rotate_ip(random.choice((-15, 15)))
+            # tmp_rect = (self.plane.velocity.normalize().x * self.plane.rect.height,self.plane.velocity.normalize().y * self.plane.rect.height)
+            tmp_location = self.plane.location + tmp_rect
+            # location_x = self.plane.location.x + tmp_rect[0]
+            # location_y = self.plane.location.y + random.choice((tmp_rect[1]/2,-tmp_rect[1]/2))
+            # print location_x,location_y, '<------------', self.plane.location, self.plane.rect
+            if catalog == 'Cluster':
+                weapon = my_sprite.ClusterWeapon(location=tmp_location, velocity=self.plane.velocity)
+            else:
+                weapon = my_sprite.Weapon(catalog=catalog, location=tmp_location, velocity=self.plane.velocity)
 
-                self.weapon_group.add(weapon)
-                return weapon
+            self.weapon_group.add(weapon)
+            return weapon
 
     def operation(self, key_list, syn_frame):
         # print key_list
@@ -66,13 +64,13 @@ class Player(object):
                 self.plane.speeddown()
 
             elif key == 'i':
-                self.weapon_fire(1, syn_frame=syn_frame)
-            elif key == 'o' and syn_frame - self.fire_status[2] > config.FPS:  # 射击间隔
+                self.weapon_fire(config.WEAPON_DICT[key], syn_frame=syn_frame)
+            elif key == 'o' and syn_frame - self.fire_status[2] > config.FPS/4:  # 射击间隔
                 self.fire_status[2] = syn_frame
-                return self.weapon_fire(2)
-            elif key == 'p' and syn_frame - self.fire_status[3] > config.FPS:
+                return self.weapon_fire(config.WEAPON_DICT[key])
+            elif key == 'p' and syn_frame - self.fire_status[3] > config.FPS/2:
                 self.fire_status[3] = syn_frame
-                return self.weapon_fire(3)
+                return self.weapon_fire(config.WEAPON_DICT[key])
             elif key == 'u'and syn_frame - self.fire_status[4] > config.FPS:
                 self.fire_status[4] = syn_frame
-                self.weapon_fire(4)
+                self.weapon_fire(config.WEAPON_DICT[key])

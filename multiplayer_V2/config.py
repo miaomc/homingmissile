@@ -23,8 +23,8 @@ FPS = 50
 
 POLAR = (0, -1)
 
-SCREEN_SIZE = (1200, 600)
-MAP_SCREEN_RATIO = 4
+SCREEN_SIZE = (1280, 720)
+MAP_SCREEN_RATIO = 3
 MAP_SIZE = [SCREEN_SIZE[0] * MAP_SCREEN_RATIO, SCREEN_SIZE[1] * MAP_SCREEN_RATIO]
 
 BACKGROUND_MUSIC_LIST = glob.glob('./bgm/*.mp3')
@@ -39,6 +39,12 @@ PLANE_IMAGE = {'YELLOW': './image/plane_yellow.png',
                'PURPLE': './image/plane_purple.png',
                'PINK': './image/plane_pink.png', }
 
+WEAPON_LIST = ['Bullet', 'Rocket', 'Cobra', 'Cluster']
 BULLET = 0
 ROCKET = 0
-COBRA = 30
+COBRA = 0
+CLUSTER = 50
+WEAPON_DICT= {'i': 'Bullet',
+               'o': 'Rocket',
+               'p': 'Cobra',
+               'u': 'Cluster', }
