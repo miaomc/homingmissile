@@ -371,6 +371,9 @@ class Menu():
             self.information.show_text(screen=self.screen,
                                        pos=(width / 4 + size * 2, height * 0.4 + size * num * 1.2), text=i,
                                        color=color, size=size)  # 显示选择菜单位置
+        # 操作说明
+        for i, line in enumerate(config.introduction.split('\n')):
+            self.information.show_text(screen=self.screen, pos=(width * 0.27, height * 0.6+i*18), text=line)
 
     def event_control(self):
         for event in pygame.event.get():

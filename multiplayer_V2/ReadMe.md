@@ -3,7 +3,8 @@
   (0) '↑', '↓', 'Enter' to create or join LAN game  
   (1)'w', 's' to speed plane up or down   
   (2)'a', 'd' to turn plane left or right  
-  (3)'u', 'i', 'o', 'p' to fire differen weapon  
+  (3)'u', 'i', 'o', 'p' to fire different weapon  
+  (4) 'Space' to focus back on plane    
   
 # Refactor "Multiplayer",重构 homingmissile\multiplayer项目:  
 ·适应python3 ----done  

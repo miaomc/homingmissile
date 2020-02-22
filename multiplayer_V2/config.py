@@ -1,6 +1,14 @@
 # -*- coding: utf-8 -*-
 import glob
 
+introduction = u"""Pure KEYBOARD operation:  
+  (0) '↑', '↓', 'Enter' to create or join LAN game  
+  (1)'w', 's' to speed plane up or down   
+  (2)'a', 'd' to turn plane left or right  
+  (3)'u', 'i', 'o', 'p' to fire different weapon  
+  (4) 'Space' to focus back on plane  
+"""
+
 LIGHT_PINK = (255, 228, 225)
 DARK_GREEN = (49, 79, 79)
 GRAY = (168, 168, 168)
