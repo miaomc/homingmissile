@@ -143,7 +143,7 @@ class Weapon(Base):
             'init_speed': 0,
             'max_speed': 6,  # 1360
             'thrust_acc': 0.04,
-            'turn_acc': 0.05,
+            'turn_acc': 0.01,
             'damage': 55,
             'image': ['./image/homingmissile.png'],
             'image_slot': './image/homingmissile1.png',

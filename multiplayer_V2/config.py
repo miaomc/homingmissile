@@ -56,3 +56,5 @@ WEAPON_DICT= {'i': 'Bullet',
                'o': 'Rocket',
                'p': 'Cobra',
                'u': 'Cluster', }
+
+TESTCASE = False

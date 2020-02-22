@@ -120,8 +120,6 @@ class Game:
             self.plane_group.add(self.player_dict[ip].plane)
             self.health_group.add(self.player_dict[ip].healthbar)
 
-        # GAME TEST ADD
-        # self.test_add_plane()
 
         # 获取本地玩家对象 self.local_player
         self.local_ip = self.sock.localip()
@@ -131,6 +129,11 @@ class Game:
         else:
             logging.error('get local_player failed: localip-%s not in player_dict_ip-%s' % (
             self.local_ip, str(self.player_dict.keys())))
+
+        # GAME TEST ADD
+        if config.TESTCASE:
+            self.local_player.plane.load_weapon('Cobra',100)
+            self.test_add_plane()
 
         # Weapon Slot
         self.slotbar_str_list = config.WEAPON_LIST
@@ -285,8 +288,6 @@ class Game:
             if keys[pygame.K_SPACE]:
                 if self.local_player.plane:
                     self.screen_focus_obj = self.local_player.plane
-                    # self.screen_focus = Map.mars_translate(self.d[self.local_ip]['location'])
-                    # self.screen_rect.center = Map.mars_translate(self.local_player.plane.location)
             if keys[pygame.K_TAB]:
                 if self.syn_frame - self.last_tab_frame > config.FPS / 4:
                     self.last_tab_frame = self.syn_frame
@@ -314,8 +315,8 @@ class Game:
                 msg_opr = msg_dict['opr']
                 for ip in msg_opr:
                     weapon_obj = self.player_dict[ip].operation(msg_opr[ip], self.syn_frame)
-                    if ip == self.local_ip and weapon_obj:  # 如果导弹对象不为空，就将屏幕聚焦对象指向它
-                        self.screen_focus_obj = weapon_obj
+                    # if ip == self.local_ip and weapon_obj:  # 如果导弹对象不为空，就将屏幕聚焦对象指向它
+                    #     self.screen_focus_obj = weapon_obj
                 logging.info('running host operation at frame:%d' % tmp_frame[1])
                 self.record_player_status()  # 记录last_player_dict操作
                 # 进行同步消息的读取&操作
@@ -592,25 +593,13 @@ class Game:
             for weapon in weapon_list:
                 if weapon.alive:
                     weapon.hitted(plane)
-            # # 飞机之间的碰撞 spritecollide
-            # plane_list = pygame.sprite.spritecollide(plane, self.plane_group, False, pygame.sprite.collide_rect_ratio(0.4))
-            # for tmp_plane in plane_list:
-            #     if id(tmp_plane) != id(plane) and tmp_plane.alive:
-            #         plane.health = -401 #plane.health/2 # 碰撞血条折半==瞬间无数次碰撞
-            #         tmp_plane.health = -401 #tmp_plane.health/2
-        # # 飞机之间碰撞 groupcollide
-        # plane_dict = pygame.sprite.groupcollide(self.plane_group, self.plane_group, False, False, pygame.sprite.collide_rect_ratio(0.4))
-        # # planes = [_plane for _plane in plane_dict.keys()]  # key与value相撞，那么key一定包含了所有的value
-        # for _plane in plane_dict.keys():  # key与value相撞，那么key一定包含了所有的value
-        #     if len(plane_dict[_plane]) != 1:
-        #         _plane.health = -401
-        plane_list = self.plane_group.sprites()
-        index_len = len(plane_list)
-        for index_i in range(index_len-1):
-            for index_j in range(index_i+1, index_len):
-                if plane_list[index_i].location.distance_to(plane_list[index_j].location) < 20:
-                    plane_list[index_i].health = -401
-                    plane_list[index_j].health = -401
+        # plane_list = self.plane_group.sprites()
+        # index_len = len(plane_list)
+        # for index_i in range(index_len-1):
+        #     for index_j in range(index_i+1, index_len):
+        #         if plane_list[index_i].location.distance_to(plane_list[index_j].location) < 20:
+        #             plane_list[index_i].health = -401
+        #             plane_list[index_j].health = -401
 
     def game_collide_with_box(self):
         for plane in self.plane_group:  # 进行飞机与Box之间碰撞探测
@@ -683,7 +672,7 @@ class Game:
             self.screen_rect.center = self.screen_focus_obj.rect.center
 
     def test_add_plane(self):
-        for i in range(100):
+        for i in range(20):
             xy = pygame.math.Vector2(random.randint(config.MAP_SIZE[0] // 10, config.MAP_SIZE[1]),
                                      random.randint(config.MAP_SIZE[1] // 10, config.MAP_SIZE[1]))
             p1 = my_sprite.Plane(location=xy, catalog='F35')
