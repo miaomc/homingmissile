@@ -14,7 +14,10 @@ class Information(object):
         self.text_middle_below = []
         self.whether_show_end = False
         # 获取系统字体，并设置文字大小 pygame.font.get_fonts()
-        self.ttc = u"msyh.ttc"
+        try:
+            self.ttc = u"msyh.ttc"
+        except:
+            self.ttc = u'ariali.ttf'
         self.font_dict = {16:pygame.font.Font(self.ttc, 16)}
         # try:
         #    self.font_dict = pygame.font.SysFont(u"microsoftyaheimicrosoftyaheiui", size)
