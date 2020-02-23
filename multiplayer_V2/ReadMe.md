@@ -1,11 +1,11 @@
 # How to Play:  
   Pure KEYBOARD operation:  
-  (0) '↑', '↓', 'Enter' to create or join LAN game  
+  (0) '↑', '↓' to select, 'Enter'or'→' to enter, '←' ot back up_level
   (1)'w', 's' to speed plane up or down   
   (2)'a', 'd' to turn plane left or right  
   (3)'u', 'i', 'o', 'p' to fire different weapon  
   (4) 'Space' to focus back on plane    
-  
+  (5) 'Esc' to quit game anytime
 # Refactor "Multiplayer",重构 homingmissile\multiplayer项目:  
 ·适应python3 ----done  
 ·重新设计Sprite,引入numpy,采用矩阵进行批量运动计算 -----done, shows excellent  
