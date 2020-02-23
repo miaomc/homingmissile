@@ -1,7 +1,15 @@
 # How to Play
 - Based on python3, module needed: "numpy" + "pygame"
 - Run homingmissile/multiplayer_V2/main.py
-# Introductions: 
+# KEYBOARD Operation:  
+-  '↑', '↓' to select, 'Enter'or'→' to enter, '←' ot back up_level
+-  'w'or's' to speed plane up or down, 'a'or'd' to turn plane left or right  
+-  'u', 'i', 'o', 'p' to fire different weapons  
+-  'Space' to focus back on plane    
+-  'Esc' to quit game anytime
+# Tips:
+- slowing the plane can make a big turn
+# Other Detail Introductions:
 ## ------V1.00:"回合制，多人单机，鼠标操作"-----
 - single_player/ 主程序，还未拆解：main.py(all in one)
 - multiplayer/main.py 以及拆解了的版本，类似于single_player目录下的main.py
@@ -18,6 +26,8 @@
 - 4）空格键(Space): 在跟踪导弹镜头或者观察者模式下，将当前地图切换到以己方飞机为中心的位置, find&swift window on your plane's location
 ## -----V2.10:重构Refactor V2.00版本------
 - multiplayer_V2/main.py
+## Release Version -- Old, not recommended
+- basing on Win7, with old version(V2.00, which code is before refactoring)
 ## ------其他------
 - tmp/ 其他能运行,都在tmp目录下： missileV3_can_run.py,...,其中,mainV3.0_can_play.py已经可以玩了，真实的对战。
 - multiplayer/ 已经拆分,入口能够运行，正在增加联机模式
