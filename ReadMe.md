@@ -10,10 +10,10 @@
 # Tips:
 - slowing the plane can make a big turn
 # Screenshot
-![menu gui]https://raw.githubusercontent.com/miaomc/homingmissile/master/multiplayer_V2/screenshot/menu1.png
-![menu gui]https://raw.githubusercontent.com/miaomc/homingmissile/master/multiplayer_V2/screenshot/menu2.png
-![main gui]https://raw.githubusercontent.com/miaomc/homingmissile/master/multiplayer_V2/screenshot/engine1.png
-![main gui]https://raw.githubusercontent.com/miaomc/homingmissile/master/multiplayer_V2/screenshot/engine2.png
+![menu gui](https://raw.githubusercontent.com/miaomc/homingmissile/master/multiplayer_V2/screenshot/menu1.png)
+![menu gui](https://raw.githubusercontent.com/miaomc/homingmissile/master/multiplayer_V2/screenshot/menu2.png)
+![main gui](https://raw.githubusercontent.com/miaomc/homingmissile/master/multiplayer_V2/screenshot/engine1.png)
+![main gui](https://raw.githubusercontent.com/miaomc/homingmissile/master/multiplayer_V2/screenshot/engine2.png)
 # Other Detail Introductions:
 ## ------V1.00:"回合制，多人单机，鼠标操作"-----
 - single_player/ 主程序，还未拆解：main.py(all in one)
