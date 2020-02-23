@@ -1,8 +1,5 @@
 # -*- coding: cp936 -*-
 import pygame
-
-
-
 import glob
 
 def test_2():
@@ -61,6 +58,12 @@ def test_color():
     pygame.image.save(image, 'plane_blue.png')
 
 
+def re_save():
+    """WeChat has strink them already"""
+    for i in glob.glob('*.png'):
+        image = pygame.image.load(i).convert()
+        pygame.image.save(image,i)
+
 if __name__ == '__main__':
     pygame.init()
     pygame.mixer.init()  # 声音初始化
@@ -68,6 +71,6 @@ if __name__ == '__main__':
     pygame.display.set_mode((10,10))
 
     change_plane_color()
-
+    #re_save()
 
     pygame.quit()
