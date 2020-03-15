@@ -13,6 +13,7 @@ import my_player
 import my_map
 import information
 import matrix
+import arrows
 
 
 class Game:
@@ -43,6 +44,7 @@ class Game:
         self.weapon_group = pygame.sprite.Group()
         self.thrustbar_group = pygame.sprite.Group()
         self.slot_group = pygame.sprite.Group()
+        # self.arrow_group = pygame.sprite.Group()
         self.game_groups = [self.box_group, self.plane_group, self.weapon_group, self.health_group,
                             self.thrustbar_group, self.slot_group]  # 有顺序讲究, 同时也是渲染叠加顺序
 
@@ -146,6 +148,9 @@ class Game:
             self.slotbar_obj_dict[_s] = catalog
             # self.slot_obj_list.append(_s)
             self.slot_group.add(_s)
+        # Arrow Buttons
+        self.arrow_button = arrows.Arrows()
+        # self.arrow_group = self.arrow_button.group
 
         # MAP
         self.map = my_map.Map()
@@ -217,9 +222,10 @@ class Game:
             # logging.info('T1.1:%d' % pygame.time.get_ticks())
             # OPERATION
             key_list = self.get_eventlist()
+            key_list_arrow = self.arrow_button.status(keys=key_list)
             # logging.info('T1.2:%d' % pygame.time.get_ticks())
             if self.local_player.alive:  # 玩家或者才上报数据
-                self.sendtohost_eventlist(key_list)  # 上报这一帧的操作数据
+                self.sendtohost_eventlist(key_list_arrow)  # 上报这一帧的操作数据
             # logging.info('T1.3:%d' % pygame.time.get_ticks())
             self.getfromhost_operation()  # 接收主机上一帧的操作&执行，同步上一帧的数据
 
@@ -491,6 +497,7 @@ class Game:
         self.screen.blit(source=self.map.surface, dest=(0, 0), area=self.screen_rect)  # Cost 5ms
         self.minimap.draw()
         self.slot_group.draw(self.screen)  # draw SlotWidget
+        self.arrow_button.group.draw(self.screen)
         # self.show_info()
 
         self.screen.blit(self.test_font.render(str(self.clock.get_fps()), 1, config.BLACK, config.WHITE),
@@ -517,8 +524,6 @@ class Game:
     #             self.info.add(u'speed:%s,  location:%s,  rect:%s' % (
     #                 str(self.player_dict[ip].plane.velocity), str(self.player_dict[ip].plane.location), str(self.player_dict[ip].plane.rect)))
     #         self.info.add(u'Groups:%s' % str(self.plane_group))
-
-
 
     def update(self):
         for ip in self.player_dict:

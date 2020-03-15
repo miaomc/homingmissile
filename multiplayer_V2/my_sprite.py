@@ -668,6 +668,29 @@ class ThrustBar(pygame.sprite.Sprite):
         self.kill()
 
 
+class Button(pygame.sprite.Sprite):
+    IMAGE_PATH = './image/up.png'
+    IMAGE_ON_PATH = './image/up_on.png'
+    def __init__(self, location, angle):
+        self.image_off = pygame.image.load(Button.IMAGE_PATH).convert()
+        self.image_off.set_colorkey(config.WHITE)
+        self.image_on = pygame.image.load(Button.IMAGE_ON_PATH).convert()
+        self.image_on.set_colorkey(config.WHITE)
+        self.image_off = pygame.transform.rotate(self.image_off, angle)
+        self.image_on = pygame.transform.rotate(self.image_on, angle)
+        self.image = self.image_off
+
+        self.rect = self.image.get_rect()
+        self.rect.center = [int(i) for i in location[:]]
+        super(Button,self).__init__()
+
+    def on(self):
+        self.image = self.image_on
+
+    def off(self):
+        self.image = self.image_off
+
+
 def rotate_around(r, angle):
     # print(angle-180)
     x = + r * math.sin(math.radians(angle))
